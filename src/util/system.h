@@ -59,6 +59,9 @@ bool SetupNetworking();
 template<typename... Args>
 bool error(const char* fmt, const Args&... args)
 {
+    // uncomment this to debug unit tests:
+    // printf("ERROR: %s\n", tfm::format(fmt, args...).c_str());
+    
     LogPrintf("ERROR: %s\n", tfm::format(fmt, args...));
     return false;
 }
