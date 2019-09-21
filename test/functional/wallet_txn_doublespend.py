@@ -33,7 +33,7 @@ class TxnMallTest(BitcoinTestFramework):
 
     def run_test(self):
         # All nodes should start with 25 blocks worth:
-        starting_balance = 25*350
+        starting_balance = 25*175
 
         # All nodes should be out of IBD.
         # If the nodes are not all out of IBD, that can interfere with
@@ -95,7 +95,7 @@ class TxnMallTest(BitcoinTestFramework):
         # matured block, minus 40, minus 20, and minus transaction fees:
         expected = starting_balance + fund_foo_tx["fee"] + fund_bar_tx["fee"]
         if self.options.mine_block:
-            expected += 350
+            expected += 175
         expected += tx1["amount"] + tx1["fee"]
         expected += tx2["amount"] + tx2["fee"]
         assert_equal(self.nodes[0].getbalance(), expected)
@@ -133,7 +133,7 @@ class TxnMallTest(BitcoinTestFramework):
         # Node0's total balance should be starting balance, plus 100 BTCR for
         # two more matured blocks, minus 1240 for the double-spend, plus fees (which are
         # negative):
-        expected = starting_balance + 350*2 - (starting_balance-10) + fund_foo_tx["fee"] + fund_bar_tx["fee"] + doublespend_fee
+        expected = starting_balance + 175*2 - (starting_balance-10) + fund_foo_tx["fee"] + fund_bar_tx["fee"] + doublespend_fee
         assert_equal(self.nodes[0].getbalance(), expected)
 
         # Node1's balance should be its initial balance (1250 for 25 block rewards) plus the doublespend:

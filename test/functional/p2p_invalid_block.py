@@ -63,8 +63,8 @@ class InvalidBlockRequestTest(BitcoinTestFramework):
         block_time += 1
 
         # b'0x51' is OP_TRUE
-        tx1 = create_tx_with_script(block1.vtx[0], 0, script_sig=b'\x51', amount=350 * COIN)
-        tx2 = create_tx_with_script(tx1, 0, script_sig=b'\x51', amount=350 * COIN)
+        tx1 = create_tx_with_script(block1.vtx[0], 0, script_sig=b'\x51', amount=175 * COIN)
+        tx2 = create_tx_with_script(tx1, 0, script_sig=b'\x51', amount=175 * COIN)
 
         block2.vtx.extend([tx1, tx2])
         block2.hashMerkleRoot = block2.calc_merkle_root()
@@ -95,7 +95,7 @@ class InvalidBlockRequestTest(BitcoinTestFramework):
 
         block3 = create_block(tip, create_coinbase(height), block_time)
         block_time += 1
-        block3.vtx[0].vout[0].nValue = 700 * COIN  # Too high!
+        block3.vtx[0].vout[0].nValue = 350 * COIN  # Too high!
         block3.vtx[0].sha256 = None
         block3.vtx[0].calc_sha256()
         block3.hashMerkleRoot = block3.calc_merkle_root()

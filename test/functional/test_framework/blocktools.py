@@ -107,20 +107,24 @@ def serialize_script_num(value):
 
 def get_block_reward(height):
     """Assuming expedited mining."""
-    if (height < 3*4375):
-        return 350 * COIN
-    if (height < 6*4375):
-        return 300 * COIN
-    if (height < 9*4375):
-        return 250 * COIN
-    if (height < 12*4375):
-        return 200 * COIN
-    if (height < 15*4375):
+    if (height < 29850):
+        return 175 * COIN
+    if (height < 29850 + 1*26600):
         return 150 * COIN
-    if (height < 18*4375):
+    if (height < 29850 + 2*26600):
+        return 125 * COIN
+    if (height < 29850 + 3*26600):
         return 100 * COIN
-    if (height < 21*4375):
+    if (height < 29850 + 4*26600):
+        return 75 * COIN
+    if (height < 29850 + 5*26600):
         return 50 * COIN
+    if (height < 29850 + 6*26600):
+        return 25 * COIN
+    if (height < 29850 + 7*26600):
+        return 12.5 * COIN
+    if (height < 29850 + 8*26600):
+        return 6.25 * COIN
     raise Exception('Error: height is beyond expedited period, need to finish the implementation')
     # coinbaseoutput.nValue = 50 * COIN
     # halvings = int(height / 150)  # regtest

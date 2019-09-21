@@ -15,7 +15,7 @@ cd manual
 
 The UI should open up with two windows, the top one is wallet2, the bottom one is wallet1 (usually overlapping).
 
-Make sure that wallet1 has 50.0 available coins (many more immature) and wallet2 has 0.0 available coins.
+Make sure that wallet1 has 175.0 available coins (many more immature) and wallet2 has 0.0 available coins.
 
 ### 2. Send 1.0 coins from wallet1 to wallet2
 
@@ -43,7 +43,7 @@ Make sure that wallet1 has 0.5 pending coins.
 ./3-mine-one.sh
 ```
 
-Make sure that wallet1 has 149.49 available coins (and 0.0 pending).
+Make sure that wallet1 has 524.49 available coins (and 0.0 pending).
 
 ### 4. Stop nodes
 
