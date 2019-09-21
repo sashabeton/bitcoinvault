@@ -1,7 +1,7 @@
 # It is not recommended to modify this file in-place, because it will
 # be overwritten during package upgrades. If you want to add further
 # options or overwrite existing ones then use
-# $ systemctl edit bitcoind.service
+# $ systemctl edit broyaled.service
 # See "man systemd.service" for details.
 
 # Note that almost all daemon options could be specified in
@@ -13,16 +13,16 @@ Description=Bitcoin daemon
 After=network.target
 
 [Service]
-ExecStart=/usr/bin/bitcoind -daemon \
-                            -pid=/run/bitcoind/bitcoind.pid \
+ExecStart=/usr/bin/broyaled -daemon \
+                            -pid=/run/broyaled/broyaled.pid \
                             -conf=/etc/bitcoin/bitcoin.conf \
-                            -datadir=/var/lib/bitcoind
+                            -datadir=/var/lib/broyaled
 
 # Process management
 ####################
 
 Type=forking
-PIDFile=/run/bitcoind/bitcoind.pid
+PIDFile=/run/broyaled/broyaled.pid
 Restart=on-failure
 
 # Directory creation and permissions
@@ -32,16 +32,16 @@ Restart=on-failure
 User=bitcoin
 Group=bitcoin
 
-# /run/bitcoind
-RuntimeDirectory=bitcoind
+# /run/broyaled
+RuntimeDirectory=broyaled
 RuntimeDirectoryMode=0710
 
 # /etc/bitcoin
 ConfigurationDirectory=bitcoin
 ConfigurationDirectoryMode=0710
 
-# /var/lib/bitcoind
-StateDirectory=bitcoind
+# /var/lib/broyaled
+StateDirectory=broyaled
 StateDirectoryMode=0710
 
 # Hardening measures
