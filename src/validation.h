@@ -48,9 +48,8 @@ struct PrecomputedTransactionData;
 struct LockPoints;
 
 // expedited mining (subsidy)
-static const int BLOCKS_IN_MONTH = 4375; // 210,000 / 4 / 12
-static const int BOOTSTRAP_PERIOD = 21 * BLOCKS_IN_MONTH; // 21 months
-static const int BITCOIN_HEAD_START = 12 * (12 * BLOCKS_IN_MONTH); // 12 years
+static const int BOOTSTRAP_PERIOD = 29850 + 8*26600; // ~4.5 years (BRIP-1)
+static const int BITCOIN_HEAD_START = 4 * 210000; // 16 years (BRIP-1)
 
 /** Default for -whitelistrelay. */
 static const bool DEFAULT_WHITELISTRELAY = true;
