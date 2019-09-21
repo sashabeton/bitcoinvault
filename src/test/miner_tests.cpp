@@ -10,6 +10,7 @@
 #include <consensus/validation.h>
 #include <validation.h>
 #include <miner.h>
+#include <pow.h>
 #include <policy/policy.h>
 #include <pubkey.h>
 #include <script/standard.h>
@@ -81,6 +82,25 @@ struct {
     {2, 0xd351e722}, {1, 0xf4ca48c9}, {1, 0x5b19c670}, {1, 0xa164bf0e},
     {2, 0xbbbeb305}, {2, 0xfe1c810a},
 };
+
+// needed since we don't want to use the preset nonces in blockinfo
+void CalcNonceForPoW(const CBlockIndex* pindexPrev, CBlock* pblock, const CChainParams& chainparams) {
+    const unsigned long long nMaxTries = 1000 * 1000 * 1000;
+    unsigned long long nTries = 0;
+    bool fNegative;
+    bool fOverflow;
+    arith_uint256 bnTarget;
+
+    pblock->nBits = GetNextWorkRequired(pindexPrev, pblock, chainparams.GetConsensus());
+    // debug: printf("calcing nonce... Time:%d Bits:%x\n", pblock->nTime, pblock->nBits);
+
+    bnTarget.SetCompact(pblock->nBits, &fNegative, &fOverflow);
+    while (nTries < nMaxTries && !CheckProofOfWork(pblock->GetHash(), pblock->nBits, chainparams.GetConsensus())) {
+        ++pblock->nNonce;
+        ++nTries;
+    }
+    // debug: printf("Bits:%x Nonce:%x Tries:%lld %s\n", pblock->nBits, pblock->nNonce, nTries, ArithToUint256(bnTarget).ToString().c_str());
+}
 
 static CBlockIndex CreateBlockIndex(int nHeight)
 {
@@ -207,6 +227,12 @@ BOOST_AUTO_TEST_CASE(CreateNewBlock_validity)
     // Note that by default, these tests run with size accounting enabled.
     const auto chainParams = CreateChainParams(CBaseChainParams::MAIN);
     const CChainParams& chainparams = *chainParams;
+
+    // we don't want to use the preset nonces in blockinfo so make mining easier
+    Consensus::Params *pparams = const_cast<Consensus::Params*>(&chainparams.GetConsensus());
+    pparams->powLimit = uint256S("00ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
+    pparams->fPowAllowMinDifficultyBlocks = true; // so we can ignore the genesis difficulty
+
     CScript scriptPubKey = CScript() << ParseHex("04678afdb0fe5548271967f1a67130b7105cd6a828e03909a67962e0ea1f61deb649f6bc3f4cef38c4f35504e51ec112de5c384df7ba0b8d578a4c702b6bf11d5f") << OP_CHECKSIG;
     std::unique_ptr<CBlockTemplate> pblocktemplate;
     CMutableTransaction tx;
@@ -225,13 +251,17 @@ BOOST_AUTO_TEST_CASE(CreateNewBlock_validity)
     // Therefore, load 100 blocks :)
     int baseheight = 0;
     std::vector<CTransactionRef> txFirst;
+    uint32_t nLastBlockTime = chainActive.Tip()->GetMedianTimePast();
     for (unsigned int i = 0; i < sizeof(blockinfo)/sizeof(*blockinfo); ++i)
     {
         CBlock *pblock = &pblocktemplate->block; // pointer for convenience
         {
             LOCK(cs_main);
             pblock->nVersion = 1;
-            pblock->nTime = chainActive.Tip()->GetMedianTimePast()+1;
+            pblock->nTime = nLastBlockTime + pparams->nPowTargetSpacing; // advance 10 minutes between blocks
+            if (i == 0)
+                pblock->nTime += pparams->nPowTargetSpacing + 1; // trigger min difficulty on first block (> 20 minutes)
+            nLastBlockTime = pblock->nTime;
             CMutableTransaction txCoinbase(*pblock->vtx[0]);
             txCoinbase.nVersion = 1;
             txCoinbase.vin[0].scriptSig = CScript();
@@ -245,7 +275,10 @@ BOOST_AUTO_TEST_CASE(CreateNewBlock_validity)
             if (txFirst.size() < 4)
                 txFirst.push_back(pblock->vtx[0]);
             pblock->hashMerkleRoot = BlockMerkleRoot(*pblock);
-            pblock->nNonce = blockinfo[i].nonce;
+            
+            // do not rely on the preset nonces in blockinfo, do actual mining (with easier difficulty)
+            // pblock->nNonce = blockinfo[i].nonce;
+            CalcNonceForPoW(chainActive.Tip(), pblock, chainparams);
         }
         std::shared_ptr<const CBlock> shared_pblock = std::make_shared<const CBlock>(*pblock);
         BOOST_CHECK(ProcessNewBlock(chainparams, shared_pblock, true, nullptr));

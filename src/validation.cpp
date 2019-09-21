@@ -1151,7 +1151,8 @@ bool ReadRawBlockFromDisk(std::vector<uint8_t>& block, const CBlockIndex* pindex
     return ReadRawBlockFromDisk(block, block_pos, message_start);
 }
 
-CAmount GetBlockSubsidy(int nHeight, const Consensus::Params& consensusParams)
+// original GetBlockSubsidy() of Bitcoin
+CAmount BitcoinGetBlockSubsidy(int nHeight, const Consensus::Params& consensusParams)
 {
     int halvings = nHeight / consensusParams.nSubsidyHalvingInterval;
     // Force block reward to zero when right shift is undefined.
@@ -1162,6 +1163,24 @@ CAmount GetBlockSubsidy(int nHeight, const Consensus::Params& consensusParams)
     // Subsidy is cut in half every 210,000 blocks which will occur approximately every 4 years.
     nSubsidy >>= halvings;
     return nSubsidy;
+}
+
+CAmount ExpeditedPeriodSubsidy(int nHeight)
+{
+    if (nHeight < 3 * BLOCKS_IN_MONTH) return 350 * COIN;
+    if (nHeight < 6 * BLOCKS_IN_MONTH) return 300 * COIN;
+    if (nHeight < 9 * BLOCKS_IN_MONTH) return 250 * COIN;
+    if (nHeight < 12 * BLOCKS_IN_MONTH) return 200 * COIN;
+    if (nHeight < 15 * BLOCKS_IN_MONTH) return 150 * COIN;
+    if (nHeight < 18 * BLOCKS_IN_MONTH) return 100 * COIN;
+    return 50 * COIN;
+}
+
+CAmount GetBlockSubsidy(int nHeight, const Consensus::Params& consensusParams)
+{
+    if (nHeight < BOOTSTRAP_PERIOD) // expedited mining
+        return ExpeditedPeriodSubsidy(nHeight);
+    return BitcoinGetBlockSubsidy(nHeight + BITCOIN_HEAD_START - BOOTSTRAP_PERIOD, consensusParams);
 }
 
 bool IsInitialBlockDownload()
