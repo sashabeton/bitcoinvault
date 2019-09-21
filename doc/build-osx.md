@@ -43,8 +43,8 @@ Build Bitcoin Core
 
 1. Clone the Bitcoin Core source code:
 
-        git clone https://github.com/bitcoin/bitcoin
-        cd bitcoin
+        git clone https://github.com/bitcoinroyale/bitcoinroyale
+        cd bitcoinroyale
 
 2.  Build Bitcoin Core:
 
