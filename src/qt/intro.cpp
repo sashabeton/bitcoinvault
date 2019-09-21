@@ -236,7 +236,7 @@ bool Intro::pickDataDirectory(interfaces::Node& node)
         settings.setValue("fReset", false);
     }
     /* Only override -datadir if different from the default, to make it possible to
-     * override -datadir in the bitcoin.conf file in the default data directory
+     * override -datadir in the broyale.conf file in the default data directory
      * (to be consistent with broyaled behavior)
      */
     if(dataDir != getDefaultDataDirectory()) {

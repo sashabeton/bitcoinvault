@@ -5,7 +5,7 @@
 # See "man systemd.service" for details.
 
 # Note that almost all daemon options could be specified in
-# /etc/bitcoin/bitcoin.conf, except for those explicitly specified as arguments
+# /etc/bitcoin/broyale.conf, except for those explicitly specified as arguments
 # in ExecStart=
 
 [Unit]
@@ -15,7 +15,7 @@ After=network.target
 [Service]
 ExecStart=/usr/bin/broyaled -daemon \
                             -pid=/run/broyaled/broyaled.pid \
-                            -conf=/etc/bitcoin/bitcoin.conf \
+                            -conf=/etc/bitcoin/broyale.conf \
                             -datadir=/var/lib/broyaled
 
 # Process management

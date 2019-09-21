@@ -1,7 +1,7 @@
 # /etc/conf.d/broyaled: config file for /etc/init.d/broyaled
 
 # Config file location
-#BROYALED_CONFIGFILE="/etc/bitcoin/bitcoin.conf"
+#BROYALED_CONFIGFILE="/etc/bitcoin/broyale.conf"
 
 # What directory to write pidfile to?  (created and owned by $BROYALED_USER)
 #BROYALED_PIDDIR="/var/run/broyaled"
