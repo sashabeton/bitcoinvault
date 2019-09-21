@@ -3,6 +3,7 @@
 *.exe
 src/bitcoin
 src/bitcoind
+src/broyaled
 src/bitcoin-cli
 src/bitcoin-tx
 src/bitcoin-wallet

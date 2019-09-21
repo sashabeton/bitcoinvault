@@ -16,7 +16,7 @@ The following are some helpful notes on how to run Bitcoin Royale on your native
 Unpack the files into a directory and run:
 
 - `bin/bitcoin-qt` (GUI) or
-- `bin/bitcoind` (headless)
+- `bin/broyaled` (headless)
 
 ### Windows
 
