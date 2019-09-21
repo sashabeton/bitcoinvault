@@ -1390,8 +1390,8 @@
 <context>
     <name>bitcoin-core</name>
     <message>
-        <source>Bitcoin Core</source>
-        <translation>Bitcoin Çekirdeği</translation>
+        <source>Bitcoin Royale</source>
+        <translation>Bitcoin Royale</translation>
     </message>
     <message>
         <source>Copyright (C) %i-%i</source>

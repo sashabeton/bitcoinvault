@@ -3079,8 +3079,8 @@
         <translation>HTTP sunucusu başlatılamadı. Ayrıntılar için debug.log dosyasına bakınız.</translation>
     </message>
     <message>
-        <source>Bitcoin Core</source>
-        <translation>Bitcoin Çekirdeği</translation>
+        <source>Bitcoin Royale</source>
+        <translation>Bitcoin Royale</translation>
     </message>
     <message>
         <source>The %s developers</source>

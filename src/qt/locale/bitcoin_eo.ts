@@ -1865,8 +1865,8 @@
 <context>
     <name>bitcoin-core</name>
     <message>
-        <source>Bitcoin Core</source>
-        <translation>Kerno de Bitmono</translation>
+        <source>Bitcoin Royale</source>
+        <translation>Bitmono Royale</translation>
     </message>
     <message>
         <source>This is a pre-release test build - use at your own risk - do not use for mining or merchant applications</source>

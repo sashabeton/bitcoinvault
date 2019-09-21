@@ -2039,8 +2039,8 @@ word die fooi eweredig verdeel.</translation>
 <context>
     <name>bitcoin-core</name>
     <message>
-        <source>Bitcoin Core</source>
-        <translation>Bitcoin Kern</translation>
+        <source>Bitcoin Royale</source>
+        <translation>Bitcoin Royale</translation>
     </message>
     <message>
         <source>Error loading %s</source>

@@ -3037,8 +3037,8 @@
         <translation>Kunne ikke starte HTTP-tjener. Se feilrettingslogg for detaljer.</translation>
     </message>
     <message>
-        <source>Bitcoin Core</source>
-        <translation>Bitcoin Core</translation>
+        <source>Bitcoin Royale</source>
+        <translation>Bitcoin Royale</translation>
     </message>
     <message>
         <source>The %s developers</source>

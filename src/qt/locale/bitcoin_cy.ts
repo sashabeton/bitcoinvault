@@ -1025,8 +1025,8 @@
 <context>
     <name>bitcoin-core</name>
     <message>
-        <source>Bitcoin Core</source>
-        <translation>Craidd Bitcoin</translation>
+        <source>Bitcoin Royale</source>
+        <translation>Royale Bitcoin</translation>
     </message>
     <message>
         <source>Information</source>

@@ -4190,8 +4190,8 @@ Note:  Since the fee is calculated on a per-byte basis, a fee of &quot;100 satos
     </message>
     <message>
         <location line="-170"/>
-        <source>Bitcoin Core</source>
-        <translation type="unfinished">Bitcoin Core</translation>
+        <source>Bitcoin Royale</source>
+        <translation type="unfinished">Bitcoin Royale</translation>
     </message>
     <message>
         <location line="+1"/>

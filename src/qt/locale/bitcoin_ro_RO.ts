@@ -3139,8 +3139,8 @@ Nota: Cum taxa este calculata per byte, o taxa de "100 satoshi per kB" pentru o 
         <translation>Imposibil de pornit serverul HTTP. Pentru detalii vezi logul de depanare.</translation>
     </message>
     <message>
-        <source>Bitcoin Core</source>
-        <translation>Nucleul Bitcoin</translation>
+        <source>Bitcoin Royale</source>
+        <translation>Bitcoin Royale</translation>
     </message>
     <message>
         <source>The %s developers</source>

@@ -2911,7 +2911,7 @@
         <translation>غير قادر على بدء خادم ال HTTP. راجع سجل تصحيح الأخطاء للحصول على التفاصيل.</translation>
     </message>
     <message>
-        <source>Bitcoin Core</source>
+        <source>Bitcoin Royale</source>
         <translation>جوهر بيتكوين</translation>
     </message>
     <message>

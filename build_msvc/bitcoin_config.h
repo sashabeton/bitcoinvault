@@ -343,10 +343,10 @@
 #define PACKAGE_BUGREPORT "https://github.com/bitcoinroyale/bitcoinroyale/issues"
 
 /* Define to the full name of this package. */
-#define PACKAGE_NAME "Bitcoin Core"
+#define PACKAGE_NAME "Bitcoin Royale"
 
 /* Define to the full name and version of this package. */
-#define PACKAGE_STRING "Bitcoin Core 0.17.99"
+#define PACKAGE_STRING "Bitcoin Royale 0.17.99"
 
 /* Define to the one symbol short name of this package. */
 #define PACKAGE_TARNAME "bitcoin"

@@ -1849,7 +1849,7 @@
 <context>
     <name>bitcoin-core</name>
     <message>
-        <source>Bitcoin Core</source>
+        <source>Bitcoin Royale</source>
         <translation> هسته Bitcoin </translation>
     </message>
     <message>

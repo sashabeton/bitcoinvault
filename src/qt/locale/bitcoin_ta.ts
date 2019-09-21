@@ -2131,8 +2131,8 @@ Note:  Since the fee is calculated on a per-byte basis, a fee of "100 satoshis p
 <context>
     <name>bitcoin-core</name>
     <message>
-        <source>Bitcoin Core</source>
-        <translation>Bitcoin மையம்</translation>
+        <source>Bitcoin Royale</source>
+        <translation>Bitcoin Royale</translation>
     </message>
     <message>
         <source>Information</source>
