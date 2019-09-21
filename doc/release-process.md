@@ -293,9 +293,9 @@ bitcoin.org (see below for bitcoin.org update instructions).
 
 - Update other repositories and websites for new version
 
-  - bitcoincore.org blog post
+  - bitcoinroyale.org blog post
 
-  - bitcoincore.org RPC documentation update
+  - bitcoinroyale.org RPC documentation update
 
   - Update packaging repo
 
