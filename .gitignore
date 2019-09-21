@@ -5,6 +5,7 @@ src/bitcoin
 src/bitcoind
 src/broyaled
 src/bitcoin-cli
+src/broyale-cli
 src/bitcoin-tx
 src/bitcoin-wallet
 src/test/test_bitcoin
