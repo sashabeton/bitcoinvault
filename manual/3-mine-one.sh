@@ -2,6 +2,6 @@
 
 echo --- MINING ONE BLOCK
 
-bitcoin-cli -regtest -datadir=./node1-miner/ -rpcport=16111 -rpcuser=bitcoinrpc -rpcpassword=123456 generate 1
+broyale-cli -regtest -datadir=./node1-miner/ -rpcport=16111 -rpcuser=bitcoinrpc -rpcpassword=123456 generate 1
 
 echo --- DONE
