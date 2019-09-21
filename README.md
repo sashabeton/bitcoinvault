@@ -27,6 +27,11 @@ Testing
 
 Testing code modifications is critical before adopting any proposed codebase changes. You have the responsibility to test and verify that the code behaves according to the well accepted protocol. To assist with this process, see [TESTING.md](TESTING.md).
 
+Installing
+----------
+
+For build and installation instructions, see [INSTALL.md](INSTALL.md). The file also contains the main differences in naming from Bitcoin Core, such as `broyaled` instead of `bitcoind`.
+
 Fair Play
 ---------
 
