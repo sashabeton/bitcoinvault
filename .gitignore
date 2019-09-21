@@ -11,6 +11,7 @@ src/bitcoin-wallet
 src/test/test_bitcoin
 src/test/test_bitcoin_fuzzy
 src/qt/test/test_bitcoin-qt
+src/qt/test/test_broyale-qt
 
 # autoreconf
 Makefile.in
@@ -52,6 +53,11 @@ src/qt/bitcoin-qt.creator
 src/qt/bitcoin-qt.creator.user
 src/qt/bitcoin-qt.files
 src/qt/bitcoin-qt.includes
+src/qt/broyale-qt.config
+src/qt/broyale-qt.creator
+src/qt/broyale-qt.creator.user
+src/qt/broyale-qt.files
+src/qt/broyale-qt.includes
 
 .deps
 .dirstamp
@@ -85,12 +91,15 @@ src/qt/bitcoin-qt.includes
 *.qm
 Makefile
 bitcoin-qt
+broyale-qt
 Bitcoin-Qt.app
+BRoyale-Qt.app
 background.tiff*
 
 # Unit-tests
 Makefile.test
 bitcoin-qt_test
+broyale-qt_test
 
 # Resources cpp
 qrc_*.cpp

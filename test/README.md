@@ -6,7 +6,7 @@ etc.
 This directory contains the following sets of tests:
 
 - [functional](/test/functional) which test the functionality of
-broyaled and bitcoin-qt by interacting with them through the RPC and P2P
+broyaled and broyale-qt by interacting with them through the RPC and P2P
 interfaces.
 - [util](/test/util) which tests the bitcoin utilities, currently only
 bitcoin-tx.

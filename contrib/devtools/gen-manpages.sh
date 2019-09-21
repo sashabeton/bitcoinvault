@@ -11,7 +11,7 @@ BROYALED=${BROYALED:-$BINDIR/broyaled}
 BITCOINCLI=${BITCOINCLI:-$BINDIR/broyale-cli}
 BITCOINTX=${BITCOINTX:-$BINDIR/bitcoin-tx}
 WALLET_TOOL=${WALLET_TOOL:-$BINDIR/bitcoin-wallet}
-BITCOINQT=${BITCOINQT:-$BINDIR/qt/bitcoin-qt}
+BITCOINQT=${BITCOINQT:-$BINDIR/qt/broyale-qt}
 
 [ ! -x $BROYALED ] && echo "$BROYALED not found or not executable." && exit 1
 
@@ -20,7 +20,7 @@ BTCVER=($($BITCOINCLI --version | head -n1 | awk -F'[ -]' '{ print $6, $7 }'))
 
 # Create a footer file with copyright content.
 # This gets autodetected fine for broyaled if --version-string is not set,
-# but has different outcomes for bitcoin-qt and broyale-cli.
+# but has different outcomes for broyale-qt and broyale-cli.
 echo "[COPYRIGHT]" > footer.h2m
 $BROYALED --version | sed -n '1!p' >> footer.h2m
 

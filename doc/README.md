@@ -15,12 +15,12 @@ The following are some helpful notes on how to run Bitcoin Royale on your native
 
 Unpack the files into a directory and run:
 
-- `bin/bitcoin-qt` (GUI) or
+- `bin/broyale-qt` (GUI) or
 - `bin/broyaled` (headless)
 
 ### Windows
 
-Unpack the files into a directory, and then run bitcoin-qt.exe.
+Unpack the files into a directory, and then run broyale-qt.exe.
 
 ### macOS
 
