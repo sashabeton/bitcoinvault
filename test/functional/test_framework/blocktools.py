@@ -105,6 +105,27 @@ def serialize_script_num(value):
         r[-1] |= 0x80
     return r
 
+def get_block_reward(height):
+    """Assuming expedited mining."""
+    if (height < 3*4375):
+        return 350 * COIN
+    if (height < 6*4375):
+        return 300 * COIN
+    if (height < 9*4375):
+        return 250 * COIN
+    if (height < 12*4375):
+        return 200 * COIN
+    if (height < 15*4375):
+        return 150 * COIN
+    if (height < 18*4375):
+        return 100 * COIN
+    if (height < 21*4375):
+        return 50 * COIN
+    raise Exception('Error: height is beyond expedited period, need to finish the implementation')
+    # coinbaseoutput.nValue = 50 * COIN
+    # halvings = int(height / 150)  # regtest
+    # coinbaseoutput.nValue >>= halvings
+
 def create_coinbase(height, pubkey=None):
     """Create a coinbase transaction, assuming no miner fees.
 
@@ -114,9 +135,10 @@ def create_coinbase(height, pubkey=None):
     coinbase.vin.append(CTxIn(COutPoint(0, 0xffffffff),
                         ser_string(serialize_script_num(height)), 0xffffffff))
     coinbaseoutput = CTxOut()
-    coinbaseoutput.nValue = 50 * COIN
-    halvings = int(height / 150)  # regtest
-    coinbaseoutput.nValue >>= halvings
+    # coinbaseoutput.nValue = 50 * COIN
+    # halvings = int(height / 150)  # regtest
+    # coinbaseoutput.nValue >>= halvings
+    coinbaseoutput.nValue = get_block_reward(height)
     if (pubkey is not None):
         coinbaseoutput.scriptPubKey = CScript([pubkey, OP_CHECKSIG])
     else:
