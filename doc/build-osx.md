@@ -82,11 +82,11 @@ Bitcoin Royale is now available at `./src/broyaled`
 
 Before running, you may create an empty configuration file:
 
-    mkdir -p "/Users/${USER}/Library/Application Support/Bitcoin"
+    mkdir -p "/Users/${USER}/Library/Application Support/BitcoinRoyale"
 
-    touch "/Users/${USER}/Library/Application Support/Bitcoin/broyale.conf"
+    touch "/Users/${USER}/Library/Application Support/BitcoinRoyale/broyale.conf"
 
-    chmod 600 "/Users/${USER}/Library/Application Support/Bitcoin/broyale.conf"
+    chmod 600 "/Users/${USER}/Library/Application Support/BitcoinRoyale/broyale.conf"
 
 The first time you run broyaled, it will start downloading the blockchain. This process could take many hours, or even days on slower than average systems.
 

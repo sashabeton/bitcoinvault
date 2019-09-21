@@ -2,8 +2,8 @@
 
 # backward compatibility for existing gentoo layout 
 #
-if [ -d "/var/lib/bitcoin/.bitcoin" ]; then
-	BROYALED_DEFAULT_DATADIR="/var/lib/bitcoin/.bitcoin"
+if [ -d "/var/lib/bitcoin/.broyale" ]; then
+	BROYALED_DEFAULT_DATADIR="/var/lib/bitcoin/.broyale"
 else
 	BROYALED_DEFAULT_DATADIR="/var/lib/broyaled"
 fi

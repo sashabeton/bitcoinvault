@@ -84,9 +84,15 @@ OpenRC).
 ### macOS
 
 Binary:              `/usr/local/bin/broyaled`  
-Configuration file:  `~/Library/Application Support/Bitcoin/broyale.conf`  
-Data directory:      `~/Library/Application Support/Bitcoin`  
-Lock file:           `~/Library/Application Support/Bitcoin/.lock`  
+Configuration file:  `~/Library/Application Support/BitcoinRoyale/broyale.conf`  
+Data directory:      `~/Library/Application Support/BitcoinRoyale`  
+Lock file:           `~/Library/Application Support/BitcoinRoyale/.lock`  
+
+### Unix
+
+Configuration file:  `~/.broyale/broyale.conf`  
+Data directory:      `~/.broyale`  
+
 
 Installing Service Configuration
 -----------------------------------
