@@ -222,15 +222,16 @@ public:
         m_assumed_blockchain_size = 1;
         m_assumed_chain_state_size = 2;
 
-        genesis = CreateGenesisBlock(1296688602, 414098458, 0x1d00ffff, 1, 50 * COIN);
+        genesis = CreateGenesisBlock(1569672000, 269646649, 0x1d00ffff, 1, 175 * COIN);
         consensus.hashGenesisBlock = genesis.GetHash();
-        assert(consensus.hashGenesisBlock == uint256S("0x000000000933ea01ad0ee984209779baaec3ced90fa3f408719526f8d77f4943"));
-        assert(genesis.hashMerkleRoot == uint256S("0x4a5e1e4baab89f3a32518a88c31bc87f618f76673e2cc77ab2127b7afdeda33b"));
+        assert(consensus.hashGenesisBlock == uint256S("0x0000000062a48a29cc9adb65cde22f6101f3c69274810627f5646e7c14791114"));
+        assert(genesis.hashMerkleRoot == uint256S("0xfa9a0f64dafbd34c4cc980bd4b589b3c393149ed475858301ae25f02fb9e3bf9"));
 
         vFixedSeeds.clear();
         vSeeds.clear();
         // nodes with support for servicebits filtering should be at the top
         vSeeds.emplace_back("testnet-seed.bitcoinroyale.org");
+        vSeeds.emplace_back("testnet-seed-two.bitcoinroyale.org");
         
         base58Prefixes[PUBKEY_ADDRESS] = std::vector<unsigned char>(1,111);
         base58Prefixes[SCRIPT_ADDRESS] = std::vector<unsigned char>(1,196);
@@ -247,7 +248,7 @@ public:
 
         checkpointData = {
             {
-                {0, uint256S("000000000933ea01ad0ee984209779baaec3ced90fa3f408719526f8d77f4943")},
+                {0, uint256S("0000000062a48a29cc9adb65cde22f6101f3c69274810627f5646e7c14791114")},
             }
         };
 
