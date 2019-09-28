@@ -914,7 +914,7 @@ Var vänlig och försök igen.</translation>
         <translation>Ungefär %1 GB data kommer att lagras i den här katalogen.</translation>
     </message>
     <message>
-        <source>%1 will download and store a copy of the Bitcoin block chain.</source>
+        <source>%1 will download and store a copy of the entire block chain.</source>
         <translation>%1 kommer att ladda ner och lagra en kopia av Bitcoin-blockkedjan.</translation>
     </message>
     <message>

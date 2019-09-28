@@ -913,7 +913,7 @@
         <translation>約%1 GBのデータがこのディレクトリに保存されます。</translation>
     </message>
     <message>
-        <source>%1 will download and store a copy of the Bitcoin block chain.</source>
+        <source>%1 will download and store a copy of the entire block chain.</source>
         <translation>%1 は Bitcoin ブロックチェーンのコピーをダウンロードし保存します。</translation>
     </message>
     <message>

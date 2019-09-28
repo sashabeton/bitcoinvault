@@ -1146,7 +1146,7 @@
     </message>
     <message>
         <location line="+8"/>
-        <source>%1 will download and store a copy of the Bitcoin block chain.</source>
+        <source>%1 will download and store a copy of the entire block chain.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>

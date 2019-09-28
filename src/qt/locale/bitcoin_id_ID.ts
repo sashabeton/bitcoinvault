@@ -885,7 +885,7 @@
         <translation>%1 GB data akan disimpan di direktori ini.</translation>
     </message>
     <message>
-        <source>%1 will download and store a copy of the Bitcoin block chain.</source>
+        <source>%1 will download and store a copy of the entire block chain.</source>
         <translation>%1 akan mengunduh dan menyimpan salinan Bitcoin block chain.</translation>
     </message>
     <message>
