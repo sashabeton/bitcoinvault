@@ -9,20 +9,7 @@
 #include <util/system.h>
 #include <test/test_bitcoin.h>
 #include <boost/test/unit_test.hpp>
-#include <consensus/consensus.h>
-#include <consensus/merkle.h>
-#include <consensus/tx_verify.h>
-#include <consensus/validation.h>
-#include <validation.h>
-#include <miner.h>
-#include <policy/policy.h>
-#include <pubkey.h>
-#include <script/standard.h>
-#include <txmempool.h>
 #include <uint256.h>
-#include <util/strencodings.h>
-#include <memory>
-#include <stdio.h>
 
 
 BOOST_FIXTURE_TEST_SUITE(pow_tests, BasicTestingSetup)
