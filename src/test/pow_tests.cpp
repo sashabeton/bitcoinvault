@@ -8,8 +8,22 @@
 #include <random.h>
 #include <util/system.h>
 #include <test/test_bitcoin.h>
-
 #include <boost/test/unit_test.hpp>
+#include <consensus/consensus.h>
+#include <consensus/merkle.h>
+#include <consensus/tx_verify.h>
+#include <consensus/validation.h>
+#include <validation.h>
+#include <miner.h>
+#include <policy/policy.h>
+#include <pubkey.h>
+#include <script/standard.h>
+#include <txmempool.h>
+#include <uint256.h>
+#include <util/strencodings.h>
+#include <memory>
+#include <stdio.h>
+
 
 BOOST_FIXTURE_TEST_SUITE(pow_tests, BasicTestingSetup)
 
@@ -81,6 +95,39 @@ BOOST_AUTO_TEST_CASE(GetBlockProofEquivalentTime_test)
         int64_t tdiff = GetBlockProofEquivalentTime(*p1, *p2, *p3, chainParams->GetConsensus());
         BOOST_CHECK_EQUAL(tdiff, p1->GetBlockTime() - p2->GetBlockTime());
     }
+}
+
+//LWMA testing
+
+BOOST_AUTO_TEST_CASE(LwmaCalculateNextWorkRequired_test)
+{
+        const auto chainParams = CreateChainParams(CBaseChainParams::TESTNET);
+        const CChainParams& chainparams = *chainParams;
+        uint nBlocksInChain = 100;
+        CBlockIndex* chain[100];
+        int time_delta = chainparams.GetConsensus().nPowTargetSpacing;
+        int nTime = 0;
+        uint32_t nHeight = 100;
+        CBlockIndex* pblock;
+
+        //Init phase
+        for (unsigned int i = 0; i < nBlocksInChain; i++) {
+            chain[i] = new CBlockIndex;
+            chain[i]->nHeight = nHeight;
+            if (i>0) {
+                chain[i]->pprev = pblock;
+                pblock = chain[i];
+            }
+        }
+
+        // Fixed time delta
+        for (unsigned int i = 0; i < nBlocksInChain; i++) {
+            chain[i]->nBits = 0x1d00ffff;
+            chain[i]->nTime = nTime;
+            nTime += time_delta;
+        }
+        int fixed_delta_target = LwmaCalculateNextWorkRequired(chain[50], chainparams.GetConsensus());        
+        BOOST_CHECK_EQUAL(fixed_delta_target,0x1d00fffe);
 }
 
 BOOST_AUTO_TEST_SUITE_END()

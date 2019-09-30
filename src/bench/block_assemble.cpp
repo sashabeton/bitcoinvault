@@ -25,12 +25,13 @@
 
 static std::shared_ptr<CBlock> PrepareBlock(const CScript& coinbase_scriptPubKey)
 {
-    auto block = std::make_shared<CBlock>(
-        BlockAssembler{Params()}
-            .CreateNewBlock(coinbase_scriptPubKey)
-            ->block);
+ 
+    CBlock pblock = BlockAssembler{Params()}.CreateNewBlock(coinbase_scriptPubKey)->block;
+    pblock.nTime = ::chainActive.Tip()->GetBlockTime() + Params().GetConsensus().nPowTargetSpacing;
+    int nBits = GetNextWorkRequired(chainActive.Tip(), &pblock, Params().GetConsensus());
+    auto block = std::make_shared<CBlock>(pblock);
 
-    block->nTime = ::chainActive.Tip()->GetMedianTimePast() + 1;
+    block->nBits = nBits;
     block->hashMerkleRoot = BlockMerkleRoot(*block);
 
     return block;
