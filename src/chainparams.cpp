@@ -98,7 +98,6 @@ public:
 
         //POW DDA LWMA Parameters
         consensus.nLwmaAveragingWindow = 45; //TODO 30-60
-        consensus.nLwmaMinWeightedSolvetimesFactor = 10;
 
         /**
          * The message start string is designed to be unlikely to occur in normal data.
@@ -219,7 +218,6 @@ public:
 
         //POW DDA LWMA Parameters
         consensus.nLwmaAveragingWindow = 45; //TODO 30-60
-        consensus.nLwmaMinWeightedSolvetimesFactor = 10;
 
         pchMessageStart[0] = 0xb3;
         pchMessageStart[1] = 0xdb;
@@ -309,7 +307,6 @@ public:
 
         //POW DDA LWMA Parameters
         consensus.nLwmaAveragingWindow = 45; //TODO 30-60
-        consensus.nLwmaMinWeightedSolvetimesFactor = 10;
 
         pchMessageStart[0] = 0xfa;
         pchMessageStart[1] = 0xbf;

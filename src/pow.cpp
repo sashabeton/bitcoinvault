@@ -83,8 +83,7 @@ unsigned int LwmaCalculateNextWorkRequired(const CBlockIndex* pindexLast, const 
     const int64_t T = params.nPowTargetSpacing;
 
    // For T=600, 300, 150 use approximately N=60, 90, 120
-   // const int64_t N = params.nLwmaAveragingWindow;  
-    const int64_t N = 45;  
+    const int64_t N = params.nLwmaAveragingWindow;  
 
     // Define a k that will be used to get a proper average after weighting the solvetimes.
     const int64_t k = N * (N + 1) * T / 2; 
@@ -125,16 +124,6 @@ unsigned int LwmaCalculateNextWorkRequired(const CBlockIndex* pindexLast, const 
         arith_uint256 target;
         target.SetCompact(block->nBits);
         avgTarget += target / N / k; // Dividing by k here prevents an overflow below.
-    }
-
-   // Limit the adjustment step in case of a steep decline in the average solve times  
-   // Based on Bitcoin Gold LWMA algorithm)
-
-    //const int64_t minFactor = params.nLwmaMinWeightedSolvetimesFactor;
-    const int64_t minFactor = 10000000;
-
-    if (sumWeightedSolvetimes < k / minFactor) {
-        sumWeightedSolvetimes = k / minFactor;
     }
 
    // Desired equation in next line was nextTarget = avgTarget * sumWeightSolvetimes / k

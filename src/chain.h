@@ -16,17 +16,24 @@
 
 /**
  * Maximum amount of time that a block timestamp is allowed to exceed the
- * current network-adjusted time before the block will be accepted.
+ * current network-adjusted time before the block will be accepted.f
+ 
+ * Based on: https://github.com/zawy12/difficulty-algorithms/issues/3
+ * FTL = N*T/20 = 45 * 600 / 20
+ * Bitcoin original value: 2 * 60 * 60
  */
-static constexpr int64_t MAX_FUTURE_BLOCK_TIME = 2 * 60 * 60;
+static constexpr int64_t MAX_FUTURE_BLOCK_TIME = 45 * 600 / 20;
 
 /**
  * Timestamp window used as a grace period by code that compares external
  * timestamps (such as timestamps passed to RPCs, or wallet key creation times)
  * to block timestamps. This should be set at least as high as
  * MAX_FUTURE_BLOCK_TIME.
+ 
+ * Folloing the change in MAX_FUTURE_BLOCK_TIME maintaining the original value.
+ * Bitcoin original value: TIMESTAMP_WINDOW = MAX_FUTURE_BLOCK_TIME.
  */
-static constexpr int64_t TIMESTAMP_WINDOW = MAX_FUTURE_BLOCK_TIME;
+static constexpr int64_t TIMESTAMP_WINDOW = 2 * 60 * 60;
 
 /**
  * Maximum gap between node time and block time used
