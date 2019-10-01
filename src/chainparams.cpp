@@ -97,7 +97,7 @@ public:
         consensus.defaultAssumeValid = uint256S("0x0000000000000000000f1c54590ee18d15ec70e68c8cd4cfbadb1b4f11697eee"); //563378
 
         //POW DDA LWMA Parameters
-        consensus.nLwmaAveragingWindow = 45; //TODO 30-60
+        consensus.nLwmaAveragingWindow = 20; // see https://github.com/ianduoteli/pow-difficulty-simulations
 
         /**
          * The message start string is designed to be unlikely to occur in normal data.
@@ -217,7 +217,7 @@ public:
         consensus.defaultAssumeValid = uint256S("0x00");
 
         //POW DDA LWMA Parameters
-        consensus.nLwmaAveragingWindow = 45; //TODO 30-60
+        consensus.nLwmaAveragingWindow = 20; // see https://github.com/ianduoteli/pow-difficulty-simulations
 
         pchMessageStart[0] = 0xb3;
         pchMessageStart[1] = 0xdb;
@@ -306,7 +306,7 @@ public:
         consensus.defaultAssumeValid = uint256S("0x00");
 
         //POW DDA LWMA Parameters
-        consensus.nLwmaAveragingWindow = 45; //TODO 30-60
+        consensus.nLwmaAveragingWindow = 20; // see https://github.com/ianduoteli/pow-difficulty-simulations
 
         pchMessageStart[0] = 0xfa;
         pchMessageStart[1] = 0xbf;

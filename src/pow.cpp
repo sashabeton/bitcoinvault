@@ -112,7 +112,9 @@ unsigned int LwmaCalculateNextWorkRequired(const CBlockIndex* pindexLast, const 
                             block->GetBlockTime() : previousTimestamp + 1;
 
        // A 6*T limit will prevent large drops in difficulty from long solvetimes.
-        int64_t solvetime = std::min(6 * T, thisTimestamp - previousTimestamp);
+       // removed: int64_t solvetime = std::min(6 * T, thisTimestamp - previousTimestamp);
+       // Remove min to recover faster from a hash spike (attacker spikes hash then disappears)
+        int64_t solvetime = thisTimestamp - previousTimestamp; // see https://github.com/ianduoteli/pow-difficulty-simulations
 
        // The following is part of "preventing negative solvetimes". 
         previousTimestamp = thisTimestamp;
