@@ -252,6 +252,10 @@ BOOST_AUTO_TEST_CASE(versionbits_computeblockversion)
     // on mainnet.
     const auto chainParams = CreateChainParams(CBaseChainParams::MAIN);
     const Consensus::Params &mainnetParams = chainParams->GetConsensus();
+    Consensus::Params *pparams = const_cast<Consensus::Params*>(&mainnetParams);
+
+    pparams->vDeployments[Consensus::DEPLOYMENT_TESTDUMMY].nStartTime = 1199145601;
+    pparams->vDeployments[Consensus::DEPLOYMENT_TESTDUMMY].nTimeout = 1230767999;
 
     // Use the TESTDUMMY deployment for testing purposes.
     int64_t bit = mainnetParams.vDeployments[Consensus::DEPLOYMENT_TESTDUMMY].bit;

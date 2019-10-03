@@ -498,11 +498,10 @@ static UniValue getblocktemplate(const JSONRPCRequest& request)
     }
 
     const struct VBDeploymentInfo& segwit_info = VersionBitsDeploymentInfo[Consensus::DEPLOYMENT_SEGWIT];
-    // GBT must be called with 'segwit' set in the rules
-    // Bitcoin Royale: removed due to new genesis
-    // if (setClientRules.count(segwit_info.name) != 1) {
-    //     throw JSONRPCError(RPC_INVALID_PARAMETER, "getblocktemplate must be called with the segwit rule set (call with {\"rules\": [\"segwit\"]})");
-    // }
+    // GBT must be called with 'segwit' set in the rules or else blocks this miner creates will be rejected if containing segwit txs
+    if (setClientRules.count(segwit_info.name) != 1) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "getblocktemplate must be called with the segwit rule set (call with {\"rules\": [\"segwit\"]})");
+    }
 
     // Update block
     static CBlockIndex* pindexPrev;
