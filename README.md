@@ -10,6 +10,18 @@ Bitcoin Royale is a proposal for a digital currency based on Bitcoin which is fo
 
 For more information, read the [original whitepaper](https://bitcoinroyale.org/bitcoinroyale.pdf). For discussions about the whitepaper and the protocol, see [this repository](https://github.com/bitcoinroyale/whitepaper).
 
+| | |
+|-----------|-----------------------|
+| **Coin name** | BTCR |
+| **Premine** | none |
+| **ICO** | none |
+| **Total number of coins** | 21,000,000 BTCR (like Bitcoin) |
+| **Initial block reward** | 175 BTCR ([full schedule](https://github.com/bitcoinroyale/whitepaper/issues/14)) |
+| **Average block time** | 10 minutes (like Bitcoin) |
+| **Algorithm** | SHA256 PoW (like Bitcoin) |
+
+----
+
 License
 -------
 
