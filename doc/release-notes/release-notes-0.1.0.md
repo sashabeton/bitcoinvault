@@ -38,7 +38,7 @@ To assist community contributors in pushing code, a manual end-to-end test has b
 Branding
 --------
 
-Since the original codebase is Bitcoin Core, all branding of "Bitcoin" has been converted to "Bitcoin Vault". This includes executables which have been renamed to `bvault*` and the coin itself that is named `BTCR`.
+Since the original codebase is Bitcoin Core, all branding of "Bitcoin" has been converted to "Bitcoin Vault". This includes executables which have been renamed to `bvault*` and the coin itself that is named `BTCV`.
 
 0.1.0 Change log
 ================
@@ -93,7 +93,7 @@ Branding:
 - `787cfcce` Branding: fixed mistakes in Makefile due to binary renames
 - `ec771662` Branding: updated new Bitcoin Vault files with the branding
 - `4a0d4276` Branding: rename bitcoin-qt binary
-- `f72e1473` Branding: coin name BTCR
+- `f72e1473` Branding: coin name BTCV
 - `92b46253` Branding: welcome message
 - `1bd658d4` Branding: minor fix in README
 - `af4eeec7` Branding: added coin metrics to README
