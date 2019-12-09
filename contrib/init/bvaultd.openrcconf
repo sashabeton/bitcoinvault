@@ -1,33 +1,33 @@
-# /etc/conf.d/broyaled: config file for /etc/init.d/broyaled
+# /etc/conf.d/bvaultd: config file for /etc/init.d/bvaultd
 
 # Config file location
-#BROYALED_CONFIGFILE="/etc/bitcoin/broyale.conf"
+#BVAULTD_CONFIGFILE="/etc/bitcoin/bvault.conf"
 
-# What directory to write pidfile to?  (created and owned by $BROYALED_USER)
-#BROYALED_PIDDIR="/var/run/broyaled"
+# What directory to write pidfile to?  (created and owned by $BVAULTD_USER)
+#BVAULTD_PIDDIR="/var/run/bvaultd"
 
 # What filename to give the pidfile
-#BROYALED_PIDFILE="${BROYALED_PIDDIR}/broyaled.pid"
+#BVAULTD_PIDFILE="${BVAULTD_PIDDIR}/bvaultd.pid"
 
-# Where to write broyaled data (be mindful that the blockchain is large)
-#BROYALED_DATADIR="/var/lib/broyaled"
+# Where to write bvaultd data (be mindful that the blockchain is large)
+#BVAULTD_DATADIR="/var/lib/bvaultd"
 
-# User and group to own broyaled process
-#BROYALED_USER="bitcoin"
-#BROYALED_GROUP="bitcoin"
+# User and group to own bvaultd process
+#BVAULTD_USER="bitcoin"
+#BVAULTD_GROUP="bitcoin"
 
-# Path to broyaled executable
-#BROYALED_BIN="/usr/bin/broyaled"
+# Path to bvaultd executable
+#BVAULTD_BIN="/usr/bin/bvaultd"
 
-# Nice value to run broyaled under
-#BROYALED_NICE=0
+# Nice value to run bvaultd under
+#BVAULTD_NICE=0
 
 # Additional options (avoid -conf and -datadir, use flags above)
-#BROYALED_OPTS=""
+#BVAULTD_OPTS=""
 
-# The timeout in seconds OpenRC will wait for broyaled to terminate
+# The timeout in seconds OpenRC will wait for bvaultd to terminate
 # after a SIGTERM has been raised.
 # Note that this will be mapped as argument to start-stop-daemon's
 # '--retry' option, which means you can specify a retry schedule
 # here. For more information see man 8 start-stop-daemon.
-BROYALED_SIGTERM_TIMEOUT=60
+BVAULTD_SIGTERM_TIMEOUT=60

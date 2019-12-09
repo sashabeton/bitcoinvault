@@ -126,8 +126,8 @@ public:
         // release ASAP to avoid it where possible.
         vFixedSeeds.clear();
         vSeeds.clear();
-        vSeeds.emplace_back("seed.bitcoinroyale.org");
-        vSeeds.emplace_back("seed-two.bitcoinroyale.org");
+        vSeeds.emplace_back("seed.bitcoinvault.org");
+        vSeeds.emplace_back("seed-two.bitcoinvault.org");
 
         base58Prefixes[PUBKEY_ADDRESS] = std::vector<unsigned char>(1,78); // "Y"
         base58Prefixes[SCRIPT_ADDRESS] = std::vector<unsigned char>(1,60); // "R" 
@@ -135,7 +135,7 @@ public:
         base58Prefixes[EXT_PUBLIC_KEY] = {0x04, 0x88, 0xB2, 0x1E};
         base58Prefixes[EXT_SECRET_KEY] = {0x04, 0x88, 0xAD, 0xE4};
 
-        bech32_hrp = "royale";
+        bech32_hrp = "vault";
 
         fDefaultConsistencyChecks = false;
         fRequireStandard = true;
@@ -219,8 +219,8 @@ public:
         vFixedSeeds.clear();
         vSeeds.clear();
         // nodes with support for servicebits filtering should be at the top
-        vSeeds.emplace_back("testnet-seed.bitcoinroyale.org");
-        vSeeds.emplace_back("testnet-seed-two.bitcoinroyale.org");
+        vSeeds.emplace_back("testnet-seed.bitcoinvault.org");
+        vSeeds.emplace_back("testnet-seed-two.bitcoinvault.org");
         
         base58Prefixes[PUBKEY_ADDRESS] = std::vector<unsigned char>(1,111); // addresses like Bitcoin testnet
         base58Prefixes[SCRIPT_ADDRESS] = std::vector<unsigned char>(1,196); // addresses like Bitcoin testnet
@@ -228,7 +228,7 @@ public:
         base58Prefixes[EXT_PUBLIC_KEY] = {0x04, 0x35, 0x87, 0xCF};
         base58Prefixes[EXT_SECRET_KEY] = {0x04, 0x35, 0x83, 0x94};
 
-        bech32_hrp = "troyale";
+        bech32_hrp = "tvault";
 
         fDefaultConsistencyChecks = false;
         fRequireStandard = false;
@@ -331,7 +331,7 @@ public:
         base58Prefixes[EXT_PUBLIC_KEY] = {0x04, 0x35, 0x87, 0xCF};
         base58Prefixes[EXT_SECRET_KEY] = {0x04, 0x35, 0x83, 0x94};
 
-        bech32_hrp = "rtroyale";
+        bech32_hrp = "rtvault";
 
         /* enable fallback fee on regtest */
         m_fallback_fee_enabled = true;
