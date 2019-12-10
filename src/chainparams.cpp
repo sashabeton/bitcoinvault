@@ -104,10 +104,10 @@ public:
          * The characters are rarely used upper ASCII, not valid as UTF-8, and produce
          * a large 32-bit integer with any alignment.
          */
-        pchMessageStart[0] = 0xf3;
-        pchMessageStart[1] = 0x92;
-        pchMessageStart[2] = 0xac;
-        pchMessageStart[3] = 0x89;
+        pchMessageStart[0] = 0x55;
+        pchMessageStart[1] = 0xbd;
+        pchMessageStart[2] = 0xd8;
+        pchMessageStart[3] = 0xad;
         nDefaultPort = 8333;
         nPruneAfterHeight = 100000;
         m_assumed_blockchain_size = 240;
@@ -201,10 +201,10 @@ public:
         //POW DDA LWMA Parameters
         consensus.nLwmaAveragingWindow = 30; // see https://github.com/ianduoteli/pow-difficulty-simulations
 
-        pchMessageStart[0] = 0xb3;
-        pchMessageStart[1] = 0xdb;
-        pchMessageStart[2] = 0x95;
-        pchMessageStart[3] = 0x93;
+        pchMessageStart[0] = 0xd3;
+        pchMessageStart[1] = 0xe9;
+        pchMessageStart[2] = 0x68;
+        pchMessageStart[3] = 0xdd;
         nDefaultPort = 18333;
         nPruneAfterHeight = 1000;
         m_assumed_blockchain_size = 1;
