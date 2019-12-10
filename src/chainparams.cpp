@@ -135,7 +135,7 @@ public:
         base58Prefixes[EXT_PUBLIC_KEY] = {0x04, 0x88, 0xB2, 0x1E};
         base58Prefixes[EXT_SECRET_KEY] = {0x04, 0x88, 0xAD, 0xE4};
 
-        bech32_hrp = "vault";
+        bech32_hrp = "royale";
 
         fDefaultConsistencyChecks = false;
         fRequireStandard = true;
@@ -228,7 +228,7 @@ public:
         base58Prefixes[EXT_PUBLIC_KEY] = {0x04, 0x35, 0x87, 0xCF};
         base58Prefixes[EXT_SECRET_KEY] = {0x04, 0x35, 0x83, 0x94};
 
-        bech32_hrp = "tvault";
+        bech32_hrp = "troyale";
 
         fDefaultConsistencyChecks = false;
         fRequireStandard = false;
