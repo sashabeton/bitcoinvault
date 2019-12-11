@@ -1,7 +1,7 @@
 Bitcoin Vault
 ==============
 
-https://bitcoinvault.org
+https://bitcoinvault.global
 
 What is Bitcoin Vault?
 -----------------------
