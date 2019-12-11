@@ -148,6 +148,8 @@ public:
 
         checkpointData = {
             {
+            	// Fork from BitcoinRoyale
+            	{9443, uint256S("0x0000000069e244f73d78e8fd29ba2fd2ed618bd6fa2ee92559f542fdb26e7c1d")}
             }
         };
 
