@@ -1685,7 +1685,7 @@ static bool WriteUndoDataForBlock(const CBlockUndo& blockundo, CValidationState&
         CDiskBlockPos _pos;
         if (!FindUndoPos(state, pindex->nFile, _pos, ::GetSerializeSize(blockundo, CLIENT_VERSION) + 40))
             return error("ConnectBlock(): FindUndoPos failed");
-        if (!UndoWriteToDisk(blockundo, _pos, pindex->pprev->GetBlockHash(), chainparams.MessageStart()))
+        if (!UndoWriteToDisk(blockundo, _pos, pindex->pprev->GetBlockHash(), chainparams.MessageStartDisk()))
             return AbortNode(state, "Failed to write undo data");
 
         // update nUndoPos in block index
@@ -3502,7 +3502,7 @@ static CDiskBlockPos SaveBlockToDisk(const CBlock& block, int nHeight, const CCh
         return CDiskBlockPos();
     }
     if (dbp == nullptr) {
-        if (!WriteBlockToDisk(block, blockPos, chainparams.MessageStart())) {
+        if (!WriteBlockToDisk(block, blockPos, chainparams.MessageStartDisk())) {
             AbortNode("Failed to write block");
             return CDiskBlockPos();
         }
@@ -4475,10 +4475,10 @@ bool LoadExternalBlockFile(const CChainParams& chainparams, FILE* fileIn, CDiskB
             try {
                 // locate a header
                 unsigned char buf[CMessageHeader::MESSAGE_START_SIZE];
-                blkdat.FindByte(chainparams.MessageStart()[0]);
+                blkdat.FindByte(chainparams.MessageStartDisk()[0]);
                 nRewind = blkdat.GetPos()+1;
                 blkdat >> buf;
-                if (memcmp(buf, chainparams.MessageStart(), CMessageHeader::MESSAGE_START_SIZE))
+                if (memcmp(buf, chainparams.MessageStartDisk(), CMessageHeader::MESSAGE_START_SIZE))
                     continue;
                 // read size
                 blkdat >> nSize;

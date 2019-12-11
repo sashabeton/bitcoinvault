@@ -104,10 +104,16 @@ public:
          * The characters are rarely used upper ASCII, not valid as UTF-8, and produce
          * a large 32-bit integer with any alignment.
          */
-        pchMessageStart[0] = 0x55;
-        pchMessageStart[1] = 0xbd;
-        pchMessageStart[2] = 0xd8;
-        pchMessageStart[3] = 0xad;
+        pchMessageStartNetwork[0] = 0x55;
+        pchMessageStartNetwork[1] = 0xbd;
+        pchMessageStartNetwork[2] = 0xd8;
+        pchMessageStartNetwork[3] = 0xad;
+        pchMessageStartDisk[0] = 0xf3;
+        pchMessageStartDisk[1] = 0x92;
+        pchMessageStartDisk[2] = 0xac;
+        pchMessageStartDisk[3] = 0x89;
+
+
         nDefaultPort = 8333;
         nPruneAfterHeight = 100000;
         m_assumed_blockchain_size = 240;
@@ -126,8 +132,7 @@ public:
         // release ASAP to avoid it where possible.
         vFixedSeeds.clear();
         vSeeds.clear();
-        vSeeds.emplace_back("seed.bitcoinvault.org");
-        vSeeds.emplace_back("seed-two.bitcoinvault.org");
+        vSeeds.emplace_back("seed.bitcoinvault.global");
 
         base58Prefixes[PUBKEY_ADDRESS] = std::vector<unsigned char>(1,78); // "Y"
         base58Prefixes[SCRIPT_ADDRESS] = std::vector<unsigned char>(1,60); // "R" 
@@ -201,10 +206,14 @@ public:
         //POW DDA LWMA Parameters
         consensus.nLwmaAveragingWindow = 30; // see https://github.com/ianduoteli/pow-difficulty-simulations
 
-        pchMessageStart[0] = 0xd3;
-        pchMessageStart[1] = 0xe9;
-        pchMessageStart[2] = 0x68;
-        pchMessageStart[3] = 0xdd;
+        pchMessageStartNetwork[0] = 0xd3;
+        pchMessageStartNetwork[1] = 0xe9;
+        pchMessageStartNetwork[2] = 0x68;
+        pchMessageStartNetwork[3] = 0xdd;
+        pchMessageStartDisk[0] = 0xb3;
+        pchMessageStartDisk[1] = 0xdb;
+        pchMessageStartDisk[2] = 0x95;
+        pchMessageStartDisk[3] = 0x93;
         nDefaultPort = 18333;
         nPruneAfterHeight = 1000;
         m_assumed_blockchain_size = 1;
@@ -219,8 +228,6 @@ public:
         vFixedSeeds.clear();
         vSeeds.clear();
         // nodes with support for servicebits filtering should be at the top
-        vSeeds.emplace_back("testnet-seed.bitcoinvault.org");
-        vSeeds.emplace_back("testnet-seed-two.bitcoinvault.org");
         
         base58Prefixes[PUBKEY_ADDRESS] = std::vector<unsigned char>(1,111); // addresses like Bitcoin testnet
         base58Prefixes[SCRIPT_ADDRESS] = std::vector<unsigned char>(1,196); // addresses like Bitcoin testnet
@@ -290,10 +297,14 @@ public:
         //POW DDA LWMA Parameters
         consensus.nLwmaAveragingWindow = 30; // see https://github.com/ianduoteli/pow-difficulty-simulations
 
-        pchMessageStart[0] = 0xfa;
-        pchMessageStart[1] = 0xbf;
-        pchMessageStart[2] = 0xb5;
-        pchMessageStart[3] = 0xda;
+        pchMessageStartNetwork[0] = 0xfa;
+        pchMessageStartNetwork[1] = 0xbf;
+        pchMessageStartNetwork[2] = 0xb5;
+        pchMessageStartNetwork[3] = 0xda;
+        pchMessageStartDisk[0] = 0xfa;
+        pchMessageStartDisk[1] = 0xbf;
+        pchMessageStartDisk[2] = 0xb5;
+        pchMessageStartDisk[3] = 0xda;
         nDefaultPort = 18444;
         nPruneAfterHeight = 1000;
         m_assumed_blockchain_size = 0;
