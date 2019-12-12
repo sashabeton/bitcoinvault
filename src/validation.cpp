@@ -3274,7 +3274,16 @@ static bool ContextualCheckBlockHeader(const CBlockHeader& block, CValidationSta
 
     // Check against checkpoints
     if (fCheckpointsEnabled) {
-        // Don't accept any forks from the main chain prior to last checkpoint.
+        LogPrintf("nheight=%d\n", nHeight);
+    	if (!Checkpoints::CheckBlock(params.Checkpoints(), nHeight, block.GetHash())) {
+    	            return state.DoS(100,
+    	                             error("%s: rejected by checkpoint lock-in at %d",
+    	                                   __func__, nHeight),
+    	                             REJECT_CHECKPOINT, "checkpoint mismatch");
+    	        }
+
+
+    	// Don't accept any forks from the main chain prior to last checkpoint.
         // GetLastCheckpoint finds the last checkpoint in MapCheckpoints that's in our
         // MapBlockIndex.
         CBlockIndex* pcheckpoint = Checkpoints::GetLastCheckpoint(params.Checkpoints());

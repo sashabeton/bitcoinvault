@@ -149,7 +149,7 @@ public:
         checkpointData = {
             {
             	// Fork from BitcoinRoyale
-            	{9443, uint256S("0x0000000069e244f73d78e8fd29ba2fd2ed618bd6fa2ee92559f542fdb26e7c1d")}
+            	{9570, uint256S("0x000000000000000a20b43b05e1fa36f504d5c284e7cb320e50b440715c89d8a2")},
             }
         };
 
@@ -159,9 +159,7 @@ public:
             /* nTxCount */ 0,
             /* dTxRate  */ 0
         };
-
-        /* disable fallback fee on mainnet */
-        m_fallback_fee_enabled = false;
+        m_fallback_fee_enabled = true;
     }
 };
 
