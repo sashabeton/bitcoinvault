@@ -1,6 +1,6 @@
 /* XPM */
 static char * bitcoin32_xpm[] = {
-"30 32 83 1",
+"30 32 82 1",
 " 	c None",
 ".	c #FBD162",
 "+	c #FAD163",
@@ -83,7 +83,6 @@ static char * bitcoin32_xpm[] = {
 "O	c #CDA164",
 "P	c #CCA065",
 "Q	c #CA9E66",
-"R	c #000000",
 "                              ",
 "                              ",
 "             .+.              ",
@@ -115,4 +114,4 @@ static char * bitcoin32_xpm[] = {
 "              Q               ",
 "                              ",
 "                              ",
-"   R   R             R        "};
+"                              "};
