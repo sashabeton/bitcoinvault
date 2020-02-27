@@ -3,6 +3,8 @@
     <makefile filename="$PROJECT_DIR$/Makefile" target="" workingDirectory="$PROJECT_DIR$" arguments="">
       <envs />
     </makefile>
-    <method v="2" />
+    <method v="2">
+      <option name="RunConfigurationTask" enabled="true" run_configuration_name="bvault_configure_if_needed" run_configuration_type="BashConfigurationType" />
+    </method>
   </configuration>
 </component>

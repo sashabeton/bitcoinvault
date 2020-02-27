@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+
+readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "${SCRIPT_DIR}" || exit 1
+
+
+if [ ! -f Makefile ]; then
+    echo "Makefile does not exist, generating..."
+    ./autogen.sh && \
+    ./configure --disable-hardening --enable-debug
+else
+    echo "Makefile exists, exiting..."
+fi
+
