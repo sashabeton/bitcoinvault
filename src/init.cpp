@@ -553,7 +553,7 @@ void SetupServerArgs()
 std::string LicenseInfo()
 {
     const std::string URL_SOURCE_CODE = "<https://github.com/bitcoinvault/bitcoinvault>";
-    const std::string URL_WEBSITE = "<https://bitcoinvault.org>";
+    const std::string URL_WEBSITE = "<https://bitcoinvault.global>";
 
     return CopyrightHolders(strprintf(_("Copyright (C) %i-%i"), 2009, COPYRIGHT_YEAR) + " ") + "\n" +
            "\n" +
