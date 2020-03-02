@@ -9,6 +9,21 @@ if [ ! -f Makefile ]; then
     ./autogen.sh && \
     ./configure --disable-hardening --enable-debug
 else
-    echo "Makefile exists, exiting..."
+    echo "Makefile exists"
 fi
 
+if [ ! -f compile_commands.json ]; then
+    echo "compile_commands.json does not exist, generating..."
+
+    if [ -d "${HOME}/.pyenv" ]; then
+        export PATH="${HOME}/.pyenv/bin:${PATH}"
+    fi
+    if [ -x "$(command -v pyenv)" ]; then
+        eval "$(pyenv init -)"
+        eval "$(pyenv virtualenv-init -)"
+    fi
+
+    compiledb -n make
+else
+    echo "compile_commands.json exists"
+fi
