@@ -8,7 +8,6 @@
 #include <hash.h>
 #include <tinyformat.h>
 #include <util/strencodings.h>
-#include <crypto/common.h>
 
 uint256 CBlockHeader::GetHash() const
 {
@@ -18,14 +17,17 @@ uint256 CBlockHeader::GetHash() const
 std::string CBlock::ToString() const
 {
     std::stringstream s;
-    s << strprintf("CBlock(hash=%s, ver=0x%08x, hashPrevBlock=%s, hashMerkleRoot=%s, nTime=%u, nBits=%08x, nNonce=%u, vtx=%u)\n",
+    s << strprintf("CBlock(hash=%s, ver=0x%08x, hashPrevBlock=%s, hashMerkleRoot=%s, nTime=%u, nBits=%08x, nNonce=%u, vtx=%u, vatx=%u)\n",
         GetHash().ToString(),
         nVersion,
         hashPrevBlock.ToString(),
         hashMerkleRoot.ToString(),
         nTime, nBits, nNonce,
-        vtx.size());
+        vtx.size(), vatx.size());
     for (const auto& tx : vtx) {
+        s << "  " << tx->ToString() << "\n";
+    }
+    for (const auto& tx : vatx) {
         s << "  " << tx->ToString() << "\n";
     }
     return s.str();

@@ -74,6 +74,7 @@ class CBlock : public CBlockHeader
 public:
     // network and disk
     std::vector<CTransactionRef> vtx;
+    std::vector<CTransactionRef> vatx;
 
     // memory only
     mutable bool fChecked;
@@ -96,12 +97,15 @@ public:
     inline void SerializationOp(Stream& s, Operation ser_action) {
         READWRITEAS(CBlockHeader, *this);
         READWRITE(vtx);
+        // TODO: Enable vatx serialzition
+        //READWRITE(vatx);
     }
 
     void SetNull()
     {
         CBlockHeader::SetNull();
         vtx.clear();
+        vatx.clear();
         fChecked = false;
         hashAlertMerkleRoot.SetNull();
     }
