@@ -138,10 +138,11 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
 
     int nPackagesSelected = 0;
     int nDescendantsUpdated = 0;
-    // TODO: translate addPackageTxs to addPackageAlertTxs
-    addPackageTxs(nPackagesSelected, nDescendantsUpdated);
-    // TODO: create new addPackageTxs copying Alerts from past block
+
+    addPackageAlertTxs(nPackagesSelected, nDescendantsUpdated);
     pblock->hashAlertMerkleRoot = BlockMerkleRoot(pblock->vatx);
+
+    // TODO: create new addPackageTxs copying Alerts from past block
 
     int64_t nTime1 = GetTimeMicros();
 
@@ -293,6 +294,11 @@ void BlockAssembler::SortForBlock(const CTxMemPool::setEntries& package, std::ve
     std::sort(sortedEntries.begin(), sortedEntries.end(), CompareTxIterByAncestorCount());
 }
 
+void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpdated)
+{
+    // TODO
+}
+
 // This transaction selection algorithm orders the mempool based
 // on feerate of a transaction including all unconfirmed ancestors.
 // Since we don't remove transactions from the mempool as we select them
@@ -303,7 +309,7 @@ void BlockAssembler::SortForBlock(const CTxMemPool::setEntries& package, std::ve
 // Each time through the loop, we compare the best transaction in
 // mapModifiedTxs with the next transaction in the mempool to decide what
 // transaction package to work on next.
-void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpdated)
+void BlockAssembler::addPackageAlertTxs(int &nPackagesSelected, int &nDescendantsUpdated)
 {
     // mapModifiedTx will store sorted packages after they are modified
     // because some of their txs are already in the block
