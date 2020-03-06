@@ -141,8 +141,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     // TODO: translate addPackageTxs to addPackageAlertTxs
     addPackageTxs(nPackagesSelected, nDescendantsUpdated);
     // TODO: create new addPackageTxs copying Alerts from past block
-    // TODO: calculate hashAlertsMerkleRoot
-    pblock->hashAlertMerkleRoot.SetNull();
+    pblock->hashAlertMerkleRoot = BlockMerkleRoot(pblock->vatx);
 
     int64_t nTime1 = GetTimeMicros();
 
