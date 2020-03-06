@@ -139,6 +139,7 @@ private:
     // Information on the current status of the block
     uint64_t nBlockWeight;
     uint64_t nBlockTx;
+    uint64_t nBlockAlertTx;
     uint64_t nBlockSigOpsCost;
     CAmount nFees;
     CTxMemPool::setEntries inBlock;
@@ -169,7 +170,9 @@ private:
     /** Clear the block's state and prepare for assembling a new block */
     void resetBlock();
     /** Add a tx to the block */
-    void AddToBlock(CTxMemPool::txiter iter);
+    void AddTxToBlock(CTxMemPool::txiter iter);
+    /** Add an alert tx to the block */
+    void AddAlertTxToBlock(CTxMemPool::txiter iter);
 
     // Methods for how to add transactions to a block.
     void addPackageTxs(int &nPackagesSelected, int &nDescendantsUpdated) EXCLUSIVE_LOCKS_REQUIRED(mempool.cs);

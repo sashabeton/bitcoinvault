@@ -222,7 +222,7 @@ bool BlockAssembler::TestPackageTransactions(const CTxMemPool::setEntries& packa
     return true;
 }
 
-void BlockAssembler::AddToBlock(CTxMemPool::txiter iter)
+void BlockAssembler::AddTxToBlock(CTxMemPool::txiter iter)
 {
     pblock->vtx.emplace_back(iter->GetSharedTx());
     pblocktemplate->vTxFees.push_back(iter->GetFee());
@@ -238,6 +238,19 @@ void BlockAssembler::AddToBlock(CTxMemPool::txiter iter)
         LogPrintf("fee %s txid %s\n",
                   CFeeRate(iter->GetModifiedFee(), iter->GetTxSize()).ToString(),
                   iter->GetTx().GetHash().ToString());
+    }
+}
+
+void BlockAssembler::AddAlertTxToBlock(CTxMemPool::txiter iter)
+{
+    pblock->vtx.emplace_back(iter->GetSharedTx());
+    nBlockWeight += iter->GetTxWeight();
+    ++nBlockAlertTx;
+    inBlock.insert(iter);
+
+    bool fPrintPriority = gArgs.GetBoolArg("-printpriority", DEFAULT_PRINTPRIORITY);
+    if (fPrintPriority) {
+        LogPrintf("alert txid %s\n", iter->GetTx().GetHash().ToString());
     }
 }
 
@@ -427,7 +440,7 @@ void BlockAssembler::addPackageAlertTxs(int &nPackagesSelected, int &nDescendant
         SortForBlock(ancestors, sortedEntries);
 
         for (size_t i=0; i<sortedEntries.size(); ++i) {
-            AddToBlock(sortedEntries[i]);
+            AddAlertTxToBlock(sortedEntries[i]);
             // Erase from the modified set, if present
             mapModifiedTx.erase(sortedEntries[i]);
         }
