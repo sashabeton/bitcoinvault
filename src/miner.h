@@ -170,7 +170,7 @@ private:
     /** Clear the block's state and prepare for assembling a new block */
     void resetBlock();
     /** Add a tx to the block */
-    void AddTxToBlock(CTxMemPool::txiter iter);
+    void AddTxToBlock(const CAlertTransactionRef& vatx);
     /** Add an alert tx to the block */
     void AddAlertTxToBlock(CTxMemPool::txiter iter);
 

@@ -222,22 +222,23 @@ bool BlockAssembler::TestPackageTransactions(const CTxMemPool::setEntries& packa
     return true;
 }
 
-void BlockAssembler::AddTxToBlock(CTxMemPool::txiter iter)
+void BlockAssembler::AddTxToBlock(const CAlertTransactionRef& vatx)
 {
-    pblock->vtx.emplace_back(iter->GetSharedTx());
-    pblocktemplate->vTxFees.push_back(iter->GetFee());
-    pblocktemplate->vTxSigOpsCost.push_back(iter->GetSigOpCost());
-    nBlockWeight += iter->GetTxWeight();
+    // TODO: Add calculate fee, sigOpsCost and txWeight
+    // TODO: to CAlertTransaction and fix this function
+    pblock->vtx.emplace_back(std::move(vatx));
+    //    pblocktemplate->vTxFees.push_back(iter->GetFee());
+    //    pblocktemplate->vTxSigOpsCost.push_back(iter->GetSigOpCost());
+    //    nBlockWeight += iter->GetTxWeight();
     ++nBlockTx;
-    nBlockSigOpsCost += iter->GetSigOpCost();
-    nFees += iter->GetFee();
-    inBlock.insert(iter);
+    //    nBlockSigOpsCost += iter->GetSigOpCost();
+    //    nFees += iter->GetFee();
 
     bool fPrintPriority = gArgs.GetBoolArg("-printpriority", DEFAULT_PRINTPRIORITY);
     if (fPrintPriority) {
-        LogPrintf("fee %s txid %s\n",
-                  CFeeRate(iter->GetModifiedFee(), iter->GetTxSize()).ToString(),
-                  iter->GetTx().GetHash().ToString());
+    //        LogPrintf("fee %s txid %s\n",
+    //                  CFeeRate(iter->GetModifiedFee(), iter->GetTxSize()).ToString(),
+    //                  iter->GetTx().`GetHash`().ToString());
     }
 }
 
