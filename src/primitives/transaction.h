@@ -361,6 +361,10 @@ public:
 class CAlertTransaction : public CTransaction
 {
     using CTransaction::CTransaction;
+
+public:
+    // Return transaction fee.
+    CAmount GetFee() const;
 };
 
 /** A mutable version of CTransaction. */
