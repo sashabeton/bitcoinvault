@@ -3228,7 +3228,7 @@ CScript GenerateCoinbaseScriptSig(const int nHeight, const uint256 hashAlertMerk
 {
     CScript scriptSig = CScript() << nHeight;
 
-    if (nHeight >= consensusParams.AlertsHeight) {
+    if (nHeight >= consensusParams.AlertsHeight) { // TODO-fork use versionbits
         std::vector<unsigned char> hashAlertMerkleRootBytes = ToByteVector(hashAlertMerkleRoot);
         hashAlertMerkleRootBytes.pop_back();
         scriptSig << hashAlertMerkleRootBytes;
@@ -3362,10 +3362,8 @@ static bool ContextualCheckBlock(const CBlock& block, CValidationState& state, c
         }
     }
 
-    if (nHeight >= consensusParams.AlertsHeight)
-    {
-        // TODO
-    }
+    // TODO-fork use versionbits, check for new rules
+    // if (VersionBitsState(pindexPrev, consensusParams, Consensus::DEPLOYMENT_ALERTS, versionbitscache) == ThresholdState::ACTIVE)
 
     // Validation for witness commitments.
     // * We compute the witness hash (which is the hash including witnesses) of all the block's transactions, except the
