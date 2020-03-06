@@ -85,7 +85,7 @@ static void DuplicateInputs(benchmark::State& state)
     block.vtx.push_back(MakeTransactionRef(std::move(coinbaseTx)));
     block.vtx.push_back(MakeTransactionRef(std::move(naughtyTx)));
 
-    block.hashMerkleRoot = BlockMerkleRoot(block);
+    block.hashMerkleRoot = BlockMerkleRoot(block.vtx);
 
     while (state.KeepRunning()) {
         CValidationState cvstate{};

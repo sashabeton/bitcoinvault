@@ -32,7 +32,7 @@ static std::shared_ptr<CBlock> PrepareBlock(const CScript& coinbase_scriptPubKey
     auto block = std::make_shared<CBlock>(pblock);
 
     block->nBits = nBits;
-    block->hashMerkleRoot = BlockMerkleRoot(*block);
+    block->hashMerkleRoot = BlockMerkleRoot(block->vtx);
 
     return block;
 }
