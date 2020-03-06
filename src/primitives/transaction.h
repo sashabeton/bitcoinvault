@@ -358,6 +358,11 @@ public:
     }
 };
 
+class CAlertTransaction : public CTransaction
+{
+    using CTransaction::CTransaction;
+};
+
 /** A mutable version of CTransaction. */
 struct CMutableTransaction
 {
@@ -402,6 +407,7 @@ struct CMutableTransaction
 };
 
 typedef std::shared_ptr<const CTransaction> CTransactionRef;
+typedef std::shared_ptr<const CAlertTransaction> CAlertTransactionRef;
 static inline CTransactionRef MakeTransactionRef() { return std::make_shared<const CTransaction>(); }
 template <typename Tx> static inline CTransactionRef MakeTransactionRef(Tx&& txIn) { return std::make_shared<const CTransaction>(std::forward<Tx>(txIn)); }
 

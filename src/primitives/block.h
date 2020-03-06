@@ -74,7 +74,7 @@ class CBlock : public CBlockHeader
 public:
     // network and disk
     std::vector<CTransactionRef> vtx;
-    std::vector<CTransactionRef> vatx;
+    std::vector<CAlertTransactionRef> vatx;
 
     // memory only
     mutable bool fChecked;
