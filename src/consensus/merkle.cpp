@@ -62,7 +62,7 @@ uint256 ComputeMerkleRoot(std::vector<uint256> hashes, bool* mutated) {
     return hashes[0];
 }
 
-
+// TODO-fork: Convert to template
 uint256 BlockMerkleRoot(const std::vector<CTransactionRef>& vtx, bool* mutated)
 {
     std::vector<uint256> leaves;

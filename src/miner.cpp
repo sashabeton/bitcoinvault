@@ -139,10 +139,11 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     int nPackagesSelected = 0;
     int nDescendantsUpdated = 0;
 
+    // TODO-fork: Check if Alerts are enabled
     addPackageAlertTxs(nPackagesSelected, nDescendantsUpdated);
     pblock->hashAlertMerkleRoot = BlockMerkleRoot(pblock->vatx);
 
-    // TODO: create new addPackageTxs copying Alerts from past block
+    addPackageTxs();
 
     int64_t nTime1 = GetTimeMicros();
 
@@ -224,10 +225,10 @@ bool BlockAssembler::TestPackageTransactions(const CTxMemPool::setEntries& packa
 
 void BlockAssembler::AddTxToBlock(const CAlertTransactionRef& vatx)
 {
-    // TODO: Add calculate fee, sigOpsCost and txWeight
-    // TODO: to CAlertTransaction and fix this function
+    // TODO-fork: Add calculate sigOpsCost and txWeight
+    // TODO-fork: to CAlertTransaction and fix this function
     pblock->vtx.emplace_back(std::move(vatx));
-    //    pblocktemplate->vTxFees.push_back(iter->GetFee());
+    pblocktemplate->vTxFees.push_back(vatx->GetFee());
     //    pblocktemplate->vTxSigOpsCost.push_back(iter->GetSigOpCost());
     //    nBlockWeight += iter->GetTxWeight();
     ++nBlockTx;
@@ -308,9 +309,12 @@ void BlockAssembler::SortForBlock(const CTxMemPool::setEntries& package, std::ve
     std::sort(sortedEntries.begin(), sortedEntries.end(), CompareTxIterByAncestorCount());
 }
 
-void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpdated)
+void BlockAssembler::addPackageTxs()
 {
-    // TODO
+    // TODO-fork: Implement validation, especially to avoid used UTXO
+    for (const CAlertTransactionRef& atx : pblock->vatx) {
+        AddTxToBlock(atx);
+    }
 }
 
 // This transaction selection algorithm orders the mempool based

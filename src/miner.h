@@ -175,7 +175,7 @@ private:
     void AddAlertTxToBlock(CTxMemPool::txiter iter);
 
     // Methods for how to add transactions to a block.
-    void addPackageTxs(int &nPackagesSelected, int &nDescendantsUpdated) EXCLUSIVE_LOCKS_REQUIRED(mempool.cs);
+    void addPackageTxs();
 
     // Methods for how to add alert transactions to a block.
     /** Add transactions based on feerate including unconfirmed ancestors
