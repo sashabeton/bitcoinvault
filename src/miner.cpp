@@ -139,11 +139,13 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     int nPackagesSelected = 0;
     int nDescendantsUpdated = 0;
 
-    // TODO-fork: Check if Alerts are enabled
-    addPackageAlertTxs(nPackagesSelected, nDescendantsUpdated);
-    pblock->hashAlertMerkleRoot = BlockMerkleRoot(pblock->vatx);
-
-    addPackageTxs();
+    if (nHeight >= chainparams.GetConsensus().AlertsHeight) {
+        addPackageTxs(nPackagesSelected, nDescendantsUpdated);
+        pblock->hashAlertMerkleRoot = BlockMerkleRoot(pblock->vatx);
+        addTxsFromAlerts();
+    } else {
+        addPackageTxs(nPackagesSelected, nDescendantsUpdated, false);
+    }
 
     int64_t nTime1 = GetTimeMicros();
 
@@ -223,12 +225,12 @@ bool BlockAssembler::TestPackageTransactions(const CTxMemPool::setEntries& packa
     return true;
 }
 
-void BlockAssembler::AddTxToBlock(const CAlertTransactionRef& vatx)
+void BlockAssembler::AddTxToBlock(const CAlertTransactionRef& atx)
 {
     // TODO-fork: Add calculate sigOpsCost and txWeight
     // TODO-fork: to CAlertTransaction and fix this function
-    pblock->vtx.emplace_back(std::move(vatx));
-    pblocktemplate->vTxFees.push_back(vatx->GetFee());
+    pblock->vtx.emplace_back(std::move(atx));
+    pblocktemplate->vTxFees.push_back(atx->GetFee());
     //    pblocktemplate->vTxSigOpsCost.push_back(iter->GetSigOpCost());
     //    nBlockWeight += iter->GetTxWeight();
     ++nBlockTx;
@@ -243,8 +245,28 @@ void BlockAssembler::AddTxToBlock(const CAlertTransactionRef& vatx)
     }
 }
 
+void BlockAssembler::AddTxToBlock(CTxMemPool::txiter iter)
+{
+    pblock->vtx.emplace_back(iter->GetSharedTx());
+    pblocktemplate->vTxFees.push_back(iter->GetFee());
+    pblocktemplate->vTxSigOpsCost.push_back(iter->GetSigOpCost());
+    nBlockWeight += iter->GetTxWeight();
+    ++nBlockTx;
+    nBlockSigOpsCost += iter->GetSigOpCost();
+    nFees += iter->GetFee();
+    inBlock.insert(iter);
+
+    bool fPrintPriority = gArgs.GetBoolArg("-printpriority", DEFAULT_PRINTPRIORITY);
+    if (fPrintPriority) {
+        LogPrintf("fee %s txid %s\n",
+                  CFeeRate(iter->GetModifiedFee(), iter->GetTxSize()).ToString(),
+                  iter->GetTx().GetHash().ToString());
+    }
+}
+
 void BlockAssembler::AddAlertTxToBlock(CTxMemPool::txiter iter)
 {
+    // TODO-fork: change vector to vatx
     pblock->vtx.emplace_back(iter->GetSharedTx());
     nBlockWeight += iter->GetTxWeight();
     ++nBlockAlertTx;
@@ -309,7 +331,7 @@ void BlockAssembler::SortForBlock(const CTxMemPool::setEntries& package, std::ve
     std::sort(sortedEntries.begin(), sortedEntries.end(), CompareTxIterByAncestorCount());
 }
 
-void BlockAssembler::addPackageTxs()
+void BlockAssembler::addTxsFromAlerts()
 {
     // TODO-fork: Implement validation, especially to avoid used UTXO
     for (const CAlertTransactionRef& atx : pblock->vatx) {
@@ -327,7 +349,7 @@ void BlockAssembler::addPackageTxs()
 // Each time through the loop, we compare the best transaction in
 // mapModifiedTxs with the next transaction in the mempool to decide what
 // transaction package to work on next.
-void BlockAssembler::addPackageAlertTxs(int &nPackagesSelected, int &nDescendantsUpdated)
+void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpdated, const bool alertsEnabled)
 {
     // mapModifiedTx will store sorted packages after they are modified
     // because some of their txs are already in the block
@@ -444,8 +466,16 @@ void BlockAssembler::addPackageAlertTxs(int &nPackagesSelected, int &nDescendant
         std::vector<CTxMemPool::txiter> sortedEntries;
         SortForBlock(ancestors, sortedEntries);
 
+        // Decide if add transaction to vtx or vatx
+        auto addToBlock = [&] (CTxMemPool::txiter entry) {
+            if (!alertsEnabled) {
+                return AddTxToBlock(entry);
+            }
+            return AddAlertTxToBlock(entry);
+        };
+
         for (size_t i=0; i<sortedEntries.size(); ++i) {
-            AddAlertTxToBlock(sortedEntries[i]);
+            addToBlock(sortedEntries[i]);
             // Erase from the modified set, if present
             mapModifiedTx.erase(sortedEntries[i]);
         }

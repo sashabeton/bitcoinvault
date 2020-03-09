@@ -169,19 +169,21 @@ private:
     // utility functions
     /** Clear the block's state and prepare for assembling a new block */
     void resetBlock();
+    /** Add a tx to the block from alert */
+    void AddTxToBlock(const CAlertTransactionRef& atx);
     /** Add a tx to the block */
-    void AddTxToBlock(const CAlertTransactionRef& vatx);
+    void AddTxToBlock(CTxMemPool::txiter iter);
     /** Add an alert tx to the block */
     void AddAlertTxToBlock(CTxMemPool::txiter iter);
 
     // Methods for how to add transactions to a block.
-    void addPackageTxs();
+    void addTxsFromAlerts();
 
     // Methods for how to add alert transactions to a block.
     /** Add transactions based on feerate including unconfirmed ancestors
       * Increments nPackagesSelected / nDescendantsUpdated with corresponding
       * statistics from the package selection (for logging statistics). */
-    void addPackageAlertTxs(int &nPackagesSelected, int &nDescendantsUpdated) EXCLUSIVE_LOCKS_REQUIRED(mempool.cs);
+    void addPackageTxs(int &nPackagesSelected, int &nDescendantsUpdated, const bool alertsEnabled = true) EXCLUSIVE_LOCKS_REQUIRED(mempool.cs);
 
     // helper functions for addPackageAlertTxs()
     /** Remove confirmed (inBlock) entries from given set */
