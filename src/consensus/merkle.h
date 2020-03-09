@@ -15,15 +15,34 @@
 uint256 ComputeMerkleRoot(std::vector<uint256> hashes, bool* mutated = nullptr);
 
 /*
- * Compute the Merkle root of the transactions in a vector.
+ * Compute the Merkle root of the transactions in a given vector.
  * *mutated is set to true if a duplicated subtree was found.
  */
-uint256 BlockMerkleRoot(const std::vector<CTransactionRef>& vtx, bool* mutated = nullptr);
+template <typename T>
+uint256 BlockMerkleRoot(const std::vector<T>& vtx, bool* mutated = nullptr)
+{
+    std::vector<uint256> leaves;
+    leaves.resize(vtx.size());
+    for (size_t s = 0; s < vtx.size(); s++) {
+        leaves[s] = vtx[s]->GetHash();
+    }
+    return ComputeMerkleRoot(std::move(leaves), mutated);
+}
 
 /*
- * Compute the Merkle root of the witness transactions in a block.
+ * Compute the Merkle root of the witness transactions in a given vector.
  * *mutated is set to true if a duplicated subtree was found.
  */
-uint256 BlockWitnessMerkleRoot(const std::vector<CTransactionRef>& vtx, bool* mutated = nullptr);
+template <typename T>
+uint256 BlockWitnessMerkleRoot(const std::vector<T>& vtx, bool* mutated = nullptr)
+{
+    std::vector<uint256> leaves;
+    leaves.resize(vtx.size());
+    leaves[0].SetNull(); // The witness hash of the coinbase is 0.
+    for (size_t s = 1; s < vtx.size(); s++) {
+        leaves[s] = vtx[s]->GetWitnessHash();
+    }
+    return ComputeMerkleRoot(std::move(leaves), mutated);
+}
 
 #endif // BITCOIN_CONSENSUS_MERKLE_H
