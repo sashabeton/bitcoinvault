@@ -13,6 +13,7 @@
 class CBlockIndex;
 class CCoinsViewCache;
 class CTransaction;
+class CBaseTransaction;
 class CValidationState;
 
 /** Transaction validation functions */
@@ -37,7 +38,7 @@ bool CheckTxInputs(const CTransaction& tx, CValidationState& state, const CCoins
  * @return number of sigops this transaction's outputs will produce when spent
  * @see CTransaction::FetchInputs
  */
-unsigned int GetLegacySigOpCount(const CTransaction& tx);
+unsigned int GetLegacySigOpCount(const CBaseTransaction& tx);
 
 /**
  * Count ECDSA signature operations in pay-to-script-hash inputs.
@@ -46,7 +47,7 @@ unsigned int GetLegacySigOpCount(const CTransaction& tx);
  * @return maximum number of sigops required to validate this transaction's inputs
  * @see CTransaction::FetchInputs
  */
-unsigned int GetP2SHSigOpCount(const CTransaction& tx, const CCoinsViewCache& mapInputs);
+unsigned int GetP2SHSigOpCount(const CBaseTransaction& tx, const CCoinsViewCache& mapInputs);
 
 /**
  * Compute total signature operation cost of a transaction.
@@ -55,13 +56,13 @@ unsigned int GetP2SHSigOpCount(const CTransaction& tx, const CCoinsViewCache& ma
  * @param[out] flags Script verification flags
  * @return Total signature operation cost of tx
  */
-int64_t GetTransactionSigOpCost(const CTransaction& tx, const CCoinsViewCache& inputs, int flags);
+int64_t GetTransactionSigOpCost(const CBaseTransaction& tx, const CCoinsViewCache& inputs, int flags);
 
 /**
  * Check if transaction is final and can be included in a block with the
  * specified height and time. Consensus critical.
  */
-bool IsFinalTx(const CTransaction &tx, int nBlockHeight, int64_t nBlockTime);
+bool IsFinalTx(const CBaseTransaction &tx, int nBlockHeight, int64_t nBlockTime);
 
 /**
  * Calculates the block height and previous block's median time past at

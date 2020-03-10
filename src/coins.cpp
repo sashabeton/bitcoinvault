@@ -221,7 +221,7 @@ unsigned int CCoinsViewCache::GetCacheSize() const {
     return cacheCoins.size();
 }
 
-CAmount CCoinsViewCache::GetValueIn(const CTransaction& tx) const
+CAmount CCoinsViewCache::GetValueIn(const CBaseTransaction& tx) const
 {
     if (tx.IsCoinBase())
         return 0;

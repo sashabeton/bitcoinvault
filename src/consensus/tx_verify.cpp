@@ -14,7 +14,7 @@
 #include <coins.h>
 #include <util/moneystr.h>
 
-bool IsFinalTx(const CTransaction &tx, int nBlockHeight, int64_t nBlockTime)
+bool IsFinalTx(const CBaseTransaction &tx, int nBlockHeight, int64_t nBlockTime)
 {
     if (tx.nLockTime == 0)
         return true;
@@ -104,7 +104,7 @@ bool SequenceLocks(const CTransaction &tx, int flags, std::vector<int>* prevHeig
     return EvaluateSequenceLocks(block, CalculateSequenceLocks(tx, flags, prevHeights, block));
 }
 
-unsigned int GetLegacySigOpCount(const CTransaction& tx)
+unsigned int GetLegacySigOpCount(const CBaseTransaction& tx)
 {
     unsigned int nSigOps = 0;
     for (const auto& txin : tx.vin)
@@ -118,7 +118,7 @@ unsigned int GetLegacySigOpCount(const CTransaction& tx)
     return nSigOps;
 }
 
-unsigned int GetP2SHSigOpCount(const CTransaction& tx, const CCoinsViewCache& inputs)
+unsigned int GetP2SHSigOpCount(const CBaseTransaction& tx, const CCoinsViewCache& inputs)
 {
     if (tx.IsCoinBase())
         return 0;
@@ -135,7 +135,7 @@ unsigned int GetP2SHSigOpCount(const CTransaction& tx, const CCoinsViewCache& in
     return nSigOps;
 }
 
-int64_t GetTransactionSigOpCost(const CTransaction& tx, const CCoinsViewCache& inputs, int flags)
+int64_t GetTransactionSigOpCost(const CBaseTransaction& tx, const CCoinsViewCache& inputs, int flags)
 {
     int64_t nSigOps = GetLegacySigOpCount(tx) * WITNESS_SCALE_FACTOR;
 
