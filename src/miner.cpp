@@ -142,7 +142,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     if (nHeight >= chainparams.GetConsensus().AlertsHeight) {
         addPackageTxs(nPackagesSelected, nDescendantsUpdated);
         pblock->hashAlertMerkleRoot = BlockMerkleRoot(pblock->vatx);
-        addTxsFromAlerts();
+        addTxsFromAlerts(pindexPrev, chainparams.GetConsensus());
     } else {
         addPackageTxs(nPackagesSelected, nDescendantsUpdated, false);
     }
@@ -225,23 +225,27 @@ bool BlockAssembler::TestPackageTransactions(const CTxMemPool::setEntries& packa
     return true;
 }
 
-void BlockAssembler::AddTxToBlock(const CAlertTransactionRef& atx)
+void BlockAssembler::AddTxToBlock(const CAlertTransactionRef& atx, const int flags)
 {
-    // TODO-fork: Add calculate sigOpsCost and txWeight
-    // TODO-fork: to CAlertTransaction and fix this function
-    pblock->vtx.emplace_back(std::move(atx));
-    pblocktemplate->vTxFees.push_back(atx->GetFee());
-    //    pblocktemplate->vTxSigOpsCost.push_back(iter->GetSigOpCost());
-    //    nBlockWeight += iter->GetTxWeight();
+    CCoinsView coinsDummy;
+    CCoinsViewCache view(&coinsDummy);
+    int64_t sigOps = GetTransactionSigOpCost(*atx, view, flags);
+    CAmount fee = view.GetValueIn(*atx) - atx->GetValueOut();
+    size_t txWeight = GetTransactionWeight(*atx);
+
+    pblock->vtx.emplace_back(MakeTransactionRef(CTransaction(CMutableTransaction(*atx))));
+    pblocktemplate->vTxFees.push_back(fee);
+    pblocktemplate->vTxSigOpsCost.push_back(sigOps);
+    nBlockWeight += txWeight;
     ++nBlockTx;
-    //    nBlockSigOpsCost += iter->GetSigOpCost();
-    //    nFees += iter->GetFee();
+    nBlockSigOpsCost += sigOps;
+    nFees += fee;
 
     bool fPrintPriority = gArgs.GetBoolArg("-printpriority", DEFAULT_PRINTPRIORITY);
     if (fPrintPriority) {
-    //        LogPrintf("fee %s txid %s\n",
-    //                  CFeeRate(iter->GetModifiedFee(), iter->GetTxSize()).ToString(),
-    //                  iter->GetTx().`GetHash`().ToString());
+            LogPrintf("fee %s txid %s\n",
+                      CFeeRate(fee, atx->GetTotalSize()).ToString(),
+                      atx->GetHash().ToString());
     }
 }
 
@@ -331,11 +335,13 @@ void BlockAssembler::SortForBlock(const CTxMemPool::setEntries& package, std::ve
     std::sort(sortedEntries.begin(), sortedEntries.end(), CompareTxIterByAncestorCount());
 }
 
-void BlockAssembler::addTxsFromAlerts()
+void BlockAssembler::addTxsFromAlerts(const CBlockIndex* pindex, const Consensus::Params& params)
 {
+    int flags = GetBlockScriptFlags(pindex, params);
+
     // TODO-fork: Implement validation, especially to avoid used UTXO
     for (const CAlertTransactionRef& atx : pblock->vatx) {
-        AddTxToBlock(atx);
+        AddTxToBlock(atx, flags);
     }
 }
 

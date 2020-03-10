@@ -8,7 +8,6 @@
 #include <hash.h>
 #include <tinyformat.h>
 #include <util/strencodings.h>
-#include <coins.h>
 
 std::string COutPoint::ToString() const
 {
@@ -113,11 +112,4 @@ std::string CTransaction::ToString() const
     for (const auto& tx_out : vout)
         str += "    " + tx_out.ToString() + "\n";
     return str;
-}
-
-CAmount CAlertTransaction::GetFee() const {
-    CCoinsView coinsDummy;
-    CCoinsViewCache coins(&coinsDummy);
-
-    return coins.GetValueIn(*this) - GetValueOut();
 }

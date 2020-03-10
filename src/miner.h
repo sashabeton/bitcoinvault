@@ -170,14 +170,14 @@ private:
     /** Clear the block's state and prepare for assembling a new block */
     void resetBlock();
     /** Add a tx to the block from alert */
-    void AddTxToBlock(const CAlertTransactionRef& atx);
+    void AddTxToBlock(const CAlertTransactionRef& atx, const int flags = 0);
     /** Add a tx to the block */
     void AddTxToBlock(CTxMemPool::txiter iter);
     /** Add an alert tx to the block */
     void AddAlertTxToBlock(CTxMemPool::txiter iter);
 
     // Methods for how to add transactions to a block.
-    void addTxsFromAlerts();
+    void addTxsFromAlerts(const CBlockIndex* pindex, const Consensus::Params& params);
 
     // Methods for how to add alert transactions to a block.
     /** Add transactions based on feerate including unconfirmed ancestors
