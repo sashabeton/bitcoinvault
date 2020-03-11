@@ -129,6 +129,7 @@ UniValue blockToJSON(const CBlock& block, const CBlockIndex* tip, const CBlockIn
     result.pushKV("version", block.nVersion);
     result.pushKV("versionHex", strprintf("%08x", block.nVersion));
     result.pushKV("merkleroot", block.hashMerkleRoot.GetHex());
+    result.pushKV("alertmerkleroot", block.hashAlertMerkleRoot.GetHex());
     UniValue txs(UniValue::VARR);
     for(const auto& tx : block.vtx)
     {
@@ -142,6 +143,19 @@ UniValue blockToJSON(const CBlock& block, const CBlockIndex* tip, const CBlockIn
             txs.push_back(tx->GetHash().GetHex());
     }
     result.pushKV("tx", txs);
+    UniValue atxs(UniValue::VARR);
+    for(const auto& atx : block.vatx)
+    {
+        if(txDetails)
+        {
+            UniValue objATx(UniValue::VOBJ);
+            TxToUniv(*atx, uint256(), objATx, true, RPCSerializationFlags());
+            atxs.push_back(objATx);
+        }
+        else
+            atxs.push_back(atx->GetHash().GetHex());
+    }
+    result.pushKV("atx", atxs);
     result.pushKV("time", block.GetBlockTime());
     result.pushKV("mediantime", (int64_t)blockindex->GetMedianTimePast());
     result.pushKV("nonce", (uint64_t)block.nNonce);
@@ -848,7 +862,12 @@ static UniValue getblock(const JSONRPCRequest& request)
             "  \"version\" : n,         (numeric) The block version\n"
             "  \"versionHex\" : \"00000000\", (string) The block version formatted in hexadecimal\n"
             "  \"merkleroot\" : \"xxxx\", (string) The merkle root\n"
+            "  \"alertmerkleroot\" : \"xxxx\", (string) The merkle root\n"
             "  \"tx\" : [               (array of string) The transaction ids\n"
+            "     \"transactionid\"     (string) The transaction id\n"
+            "     ,...\n"
+            "  ],\n"
+            "  \"atx\" : [              (array of string) The alert transaction ids\n"
             "     \"transactionid\"     (string) The transaction id\n"
             "     ,...\n"
             "  ],\n"
@@ -867,6 +886,9 @@ static UniValue getblock(const JSONRPCRequest& request)
             "{\n"
             "  ...,                     Same output as verbosity = 1.\n"
             "  \"tx\" : [               (array of Objects) The transactions in the format of the getrawtransaction RPC. Different from verbosity = 1 \"tx\" result.\n"
+            "         ,...\n"
+            "  ],\n"
+            "  \"atx\" : [              (array of Objects) The alert transactions in the format of the getrawtransaction RPC. Different from verbosity = 1 \"atx\" result.\n"
             "         ,...\n"
             "  ],\n"
             "  ,...                     Same output as verbosity = 1.\n"
