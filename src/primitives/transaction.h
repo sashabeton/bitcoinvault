@@ -416,9 +416,12 @@ struct CMutableTransaction
 };
 
 typedef std::shared_ptr<const CBaseTransaction> CBaseTransactionRef;
+
 typedef std::shared_ptr<const CTransaction> CTransactionRef;
-typedef std::shared_ptr<const CAlertTransaction> CAlertTransactionRef;
 static inline CTransactionRef MakeTransactionRef() { return std::make_shared<const CTransaction>(); }
 template <typename Tx> static inline CTransactionRef MakeTransactionRef(Tx&& txIn) { return std::make_shared<const CTransaction>(std::forward<Tx>(txIn)); }
 
+typedef std::shared_ptr<const CAlertTransaction> CAlertTransactionRef;
+static inline CAlertTransactionRef MakeAlertTransactionRef() { return std::make_shared<const CAlertTransaction>(); }
+template <typename Tx> static inline CAlertTransactionRef MakeAlertTransactionRef(Tx&& txIn) { return std::make_shared<const CAlertTransaction>(std::forward<Tx>(txIn)); }
 #endif // BITCOIN_PRIMITIVES_TRANSACTION_H

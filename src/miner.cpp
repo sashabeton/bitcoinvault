@@ -140,7 +140,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     int nDescendantsUpdated = 0;
 
     if (nHeight >= chainparams.GetConsensus().AlertsHeight) {
-        addPackageTxs(nPackagesSelected, nDescendantsUpdated);
+        addPackageTxs(nPackagesSelected, nDescendantsUpdated, true);
         pblock->hashAlertMerkleRoot = BlockMerkleRoot(pblock->vatx);
         addTxsFromAlerts(pindexPrev, chainparams.GetConsensus());
     } else {
@@ -270,8 +270,7 @@ void BlockAssembler::AddTxToBlock(CTxMemPool::txiter iter)
 
 void BlockAssembler::AddAlertTxToBlock(CTxMemPool::txiter iter)
 {
-    // TODO-fork: change vector to vatx
-    pblock->vtx.emplace_back(iter->GetSharedTx());
+    pblock->vatx.emplace_back(MakeAlertTransactionRef(CAlertTransaction(CMutableTransaction(*iter->GetSharedTx()))));
     nBlockWeight += iter->GetTxWeight();
     ++nBlockAlertTx;
     inBlock.insert(iter);
