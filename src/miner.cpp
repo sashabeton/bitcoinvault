@@ -84,10 +84,12 @@ void BlockAssembler::resetBlock()
 
     // These counters do not include coinbase tx
     nBlockTx = 0;
+    nBlockAlertTx = 0;
     nFees = 0;
 }
 
 Optional<int64_t> BlockAssembler::m_last_block_num_txs{nullopt};
+Optional<int64_t> BlockAssembler::m_last_block_num_atxs{nullopt};
 Optional<int64_t> BlockAssembler::m_last_block_weight{nullopt};
 
 std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& scriptPubKeyIn)
@@ -150,6 +152,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     int64_t nTime1 = GetTimeMicros();
 
     m_last_block_num_txs = nBlockTx;
+    m_last_block_num_atxs = nBlockAlertTx;
     m_last_block_weight = nBlockWeight;
 
     // Create coinbase transaction.
@@ -167,7 +170,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     pblocktemplate->vchCoinbaseCommitment = GenerateCoinbaseCommitment(*pblock, pindexPrev, chainparams.GetConsensus());
     pblocktemplate->vTxFees[0] = -nFees;
 
-    LogPrintf("CreateNewBlock(): block weight: %u txs: %u fees: %ld sigops %d version %d height %d\n", GetBlockWeight(*pblock), nBlockTx, nFees, nBlockSigOpsCost, pblock->nVersion, nHeight);
+    LogPrintf("CreateNewBlock(): block weight: %u txs: %u atxs: %u fees: %ld sigops %d version %d height %d\n", GetBlockWeight(*pblock), nBlockTx, nBlockAlertTx, nFees, nBlockSigOpsCost, pblock->nVersion, nHeight);
 
     // Fill in header
     pblock->hashPrevBlock  = pindexPrev->GetBlockHash();

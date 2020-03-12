@@ -163,6 +163,7 @@ public:
     std::unique_ptr<CBlockTemplate> CreateNewBlock(const CScript& scriptPubKeyIn);
 
     static Optional<int64_t> m_last_block_num_txs;
+    static Optional<int64_t> m_last_block_num_atxs;
     static Optional<int64_t> m_last_block_weight;
 
 private:
