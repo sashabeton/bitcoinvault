@@ -97,8 +97,8 @@ public:
     inline void SerializationOp(Stream& s, Operation ser_action) {
         READWRITEAS(CBlockHeader, *this);
         READWRITE(vtx);
-        // TODO-fork: Enable vatx serialzition
-        // READWRITE(vatx);
+        // TODO-fork: Add enable/disable logic for vatx serialization
+        READWRITE(vatx);
     }
 
     void SetNull()
