@@ -44,19 +44,21 @@ unsigned int GetLegacySigOpCount(const CBaseTransaction& tx);
  * Count ECDSA signature operations in pay-to-script-hash inputs.
  *
  * @param[in] mapInputs Map of previous transactions that have outputs we're spending
+ * @param[in] isSpent     Coins spending status flag
  * @return maximum number of sigops required to validate this transaction's inputs
  * @see CTransaction::FetchInputs
  */
-unsigned int GetP2SHSigOpCount(const CBaseTransaction& tx, const CCoinsViewCache& mapInputs);
+unsigned int GetP2SHSigOpCount(const CBaseTransaction& tx, const CCoinsViewCache& mapInputs, bool isSpent = false);
 
 /**
  * Compute total signature operation cost of a transaction.
  * @param[in] tx     Transaction for which we are computing the cost
  * @param[in] inputs Map of previous transactions that have outputs we're spending
  * @param[out] flags Script verification flags
+ * @param[in] isSpent  Coins spending status flag
  * @return Total signature operation cost of tx
  */
-int64_t GetTransactionSigOpCost(const CBaseTransaction& tx, const CCoinsViewCache& inputs, int flags);
+int64_t GetTransactionSigOpCost(const CBaseTransaction& tx, const CCoinsViewCache& inputs, int flags, bool isSpent = false);
 
 /**
  * Check if transaction is final and can be included in a block with the

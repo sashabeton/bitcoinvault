@@ -229,7 +229,7 @@ void BlockAssembler::AddTxToBlock(const CAlertTransactionRef& atx, const int fla
 {
     CCoinsView coinsDummy;
     CCoinsViewCache view(&coinsDummy);
-    int64_t sigOps = GetTransactionSigOpCost(*atx, view, flags);
+    int64_t sigOps = GetTransactionSigOpCost(*atx, view, flags, true);
     CAmount fee = view.GetValueIn(*atx) - atx->GetValueOut();
     size_t txWeight = GetTransactionWeight(*atx);
 
