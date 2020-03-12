@@ -8,7 +8,7 @@ if [ ! -f Makefile ]; then
     echo "Makefile does not exist, generating..."
     ./autogen.sh && \
     ./configure --disable-hardening --enable-debug --without-gui && \
-    rm "./compile_commands.json"
+    rm -f "./compile_commands.json"
 else
     echo "Makefile exists"
 fi
