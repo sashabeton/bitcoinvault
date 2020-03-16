@@ -1228,6 +1228,8 @@ PrecomputedTransactionData::PrecomputedTransactionData(const T& txTo)
 
 // explicit instantiation
 template PrecomputedTransactionData::PrecomputedTransactionData(const CTransaction& txTo);
+template PrecomputedTransactionData::PrecomputedTransactionData(const CBaseTransaction& txTo);
+template PrecomputedTransactionData::PrecomputedTransactionData(const CAlertTransaction& txTo);
 template PrecomputedTransactionData::PrecomputedTransactionData(const CMutableTransaction& txTo);
 
 template <class T>
@@ -1413,7 +1415,7 @@ bool GenericTransactionSignatureChecker<T>::CheckSequence(const CScriptNum& nSeq
 }
 
 // explicit instantiation
-template class GenericTransactionSignatureChecker<CTransaction>;
+template class GenericTransactionSignatureChecker<CBaseTransaction>;
 template class GenericTransactionSignatureChecker<CMutableTransaction>;
 
 static bool VerifyWitnessProgram(const CScriptWitness& witness, int witversion, const std::vector<unsigned char>& program, unsigned int flags, const BaseSignatureChecker& checker, ScriptError* serror)
