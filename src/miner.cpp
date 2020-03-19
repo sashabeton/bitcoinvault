@@ -230,25 +230,13 @@ bool BlockAssembler::TestPackageTransactions(const CTxMemPool::setEntries& packa
 
 void BlockAssembler::AddTxToBlock(const CAlertTransactionRef& atx, const int flags)
 {
-    CCoinsView coinsDummy;
-    CCoinsViewCache view(&coinsDummy);
-    int64_t sigOps = GetTransactionSigOpCost(*atx, view, flags, true);
-    CAmount fee = view.GetValueIn(*atx) - atx->GetValueOut();
-    size_t txWeight = GetTransactionWeight(*atx);
-
     pblock->vtx.emplace_back(MakeTransactionRef(CTransaction(CMutableTransaction(*atx))));
-    pblocktemplate->vTxFees.push_back(fee);
-    pblocktemplate->vTxSigOpsCost.push_back(sigOps);
-    nBlockWeight += txWeight;
+    nBlockWeight += GetTransactionWeight(*atx);
     ++nBlockTx;
-    nBlockSigOpsCost += sigOps;
-    nFees += fee;
 
     bool fPrintPriority = gArgs.GetBoolArg("-printpriority", DEFAULT_PRINTPRIORITY);
     if (fPrintPriority) {
-            LogPrintf("fee %s txid %s\n",
-                      CFeeRate(fee, atx->GetTotalSize()).ToString(),
-                      atx->GetHash().ToString());
+            LogPrintf("txid %s\n", atx->GetHash().ToString());
     }
 }
 
@@ -274,13 +262,19 @@ void BlockAssembler::AddTxToBlock(CTxMemPool::txiter iter)
 void BlockAssembler::AddAlertTxToBlock(CTxMemPool::txiter iter)
 {
     pblock->vatx.emplace_back(MakeAlertTransactionRef(CAlertTransaction(CMutableTransaction(*iter->GetSharedTx()))));
+    pblocktemplate->vTxFees.push_back(iter->GetFee());
+    pblocktemplate->vTxSigOpsCost.push_back(iter->GetSigOpCost());
     nBlockWeight += iter->GetTxWeight();
     ++nBlockAlertTx;
+    nBlockSigOpsCost += iter->GetSigOpCost();
+    nFees += iter->GetFee();
     inBlock.insert(iter);
 
     bool fPrintPriority = gArgs.GetBoolArg("-printpriority", DEFAULT_PRINTPRIORITY);
     if (fPrintPriority) {
-        LogPrintf("alert txid %s\n", iter->GetTx().GetHash().ToString());
+        LogPrintf("alert txid %s\n",
+                  CFeeRate(iter->GetModifiedFee(), iter->GetTxSize()).ToString(),
+                  iter->GetTx().GetHash().ToString());
     }
 }
 
