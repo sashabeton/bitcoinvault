@@ -141,13 +141,22 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     int nPackagesSelected = 0;
     int nDescendantsUpdated = 0;
 
-    if (nHeight >= chainparams.GetConsensus().AlertsHeight) {
-        addPackageTxs(nPackagesSelected, nDescendantsUpdated, true);
+    bool fAlertsEnabled = nHeight >= chainparams.GetConsensus().AlertsHeight;
+    if (fAlertsEnabled) {
+        addPackageTxs(nPackagesSelected, nDescendantsUpdated, fAlertsEnabled);
         pblock->hashAlertMerkleRoot = BlockMerkleRoot(pblock->vatx);
-        addTxsFromAlerts(pindexPrev, chainparams.GetConsensus());
+
+        bool fAlertsInitialized = nHeight - chainparams.GetConsensus().AlertsHeight
+                                  >= (int) chainparams.GetConsensus().nAlertsInitializationWindow;
+
+        if(fAlertsInitialized) {
+            CBlockIndex* ancestorIndex = pindexPrev->GetAncestor(nHeight - chainparams.GetConsensus().nAlertsInitializationWindow);
+            addTxsFromAlerts(ancestorIndex, chainparams.GetConsensus());
+        }
     } else {
-        addPackageTxs(nPackagesSelected, nDescendantsUpdated, false);
+        addPackageTxs(nPackagesSelected, nDescendantsUpdated, fAlertsEnabled);
     }
+
 
     int64_t nTime1 = GetTimeMicros();
 
@@ -228,7 +237,7 @@ bool BlockAssembler::TestPackageTransactions(const CTxMemPool::setEntries& packa
     return true;
 }
 
-void BlockAssembler::AddTxToBlock(const CAlertTransactionRef& atx, const int flags)
+void BlockAssembler::AddTxToBlock(const CAlertTransactionRef& atx)
 {
     pblock->vtx.emplace_back(MakeTransactionRef(CTransaction(CMutableTransaction(*atx))));
     nBlockWeight += GetTransactionWeight(*atx);
@@ -333,11 +342,14 @@ void BlockAssembler::SortForBlock(const CTxMemPool::setEntries& package, std::ve
 
 void BlockAssembler::addTxsFromAlerts(const CBlockIndex* pindex, const Consensus::Params& params)
 {
-    int flags = GetBlockScriptFlags(pindex, params);
-
+    CBlock block;
+    if (!ReadBlockFromDisk(block, pindex, params)) {
+        assert(!"addTxsFromAlerts(): cannot load block from disk");
+    }
+    ;
     // TODO-fork: Implement validation, especially to avoid used UTXO
-    for (const CAlertTransactionRef& atx : pblock->vatx) {
-        AddTxToBlock(atx, flags);
+    for (const CAlertTransactionRef& atx : block.vatx) {
+        AddTxToBlock(atx);
     }
 }
 
