@@ -457,7 +457,7 @@ void CTxMemPool::CalculateDescendants(txiter entryit, setEntries& setDescendants
     }
 }
 
-void CTxMemPool::removeRecursive(const CTransaction &origTx, MemPoolRemovalReason reason)
+void CTxMemPool::removeRecursive(const CBaseTransaction &origTx, MemPoolRemovalReason reason)
 {
     // Remove transaction from memory pool
     {
@@ -526,14 +526,14 @@ void CTxMemPool::removeForReorg(const CCoinsViewCache *pcoins, unsigned int nMem
     RemoveStaged(setAllRemoves, false, MemPoolRemovalReason::REORG);
 }
 
-void CTxMemPool::removeConflicts(const CTransaction &tx)
+void CTxMemPool::removeConflicts(const CBaseTransaction &tx)
 {
     // Remove transactions which depend on inputs of tx, recursively
     AssertLockHeld(cs);
     for (const CTxIn &txin : tx.vin) {
         auto it = mapNextTx.find(txin.prevout);
         if (it != mapNextTx.end()) {
-            const CTransaction &txConflict = *it->second;
+            const CBaseTransaction &txConflict = *it->second;
             if (txConflict != tx)
             {
                 ClearPrioritisation(txConflict.GetHash());
@@ -541,6 +541,16 @@ void CTxMemPool::removeConflicts(const CTransaction &tx)
             }
         }
     }
+}
+
+// TODO-fork: Temporary hack -> Consider creating a template which not cause the errors
+void CTxMemPool::removeForBlock(const std::vector<CAlertTransactionRef>& vatx, unsigned int nBlockHeight)
+{
+    std::vector<CTransactionRef> vtx = {};
+    for (auto & atx : vatx) {
+        vtx.emplace_back(MakeTransactionRef(CTransaction(CMutableTransaction(*atx))));
+    }
+    return removeForBlock(vtx, nBlockHeight);
 }
 
 /**

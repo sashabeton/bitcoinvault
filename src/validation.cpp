@@ -2631,8 +2631,17 @@ bool CChainState::ConnectTip(CValidationState& state, const CChainParams& chainp
     int64_t nTime5 = GetTimeMicros(); nTimeChainState += nTime5 - nTime4;
     LogPrint(BCLog::BENCH, "  - Writing chainstate: %.2fms [%.2fs (%.2fms/blk)]\n", (nTime5 - nTime4) * MILLI, nTimeChainState * MICRO, nTimeChainState * MILLI / nBlocksTotal);
     // Remove conflicting transactions from the mempool.;
-    mempool.removeForBlock(blockConnecting.vtx, pindexNew->nHeight);
-    disconnectpool.removeForBlock(blockConnecting.vtx);
+    if (AreAlertsEnabled(pindexNew, chainparams.GetConsensus())) {
+        mempool.removeForBlock(blockConnecting.vatx, pindexNew->nHeight);
+        disconnectpool.removeForBlock(blockConnecting.vatx);
+        // TODO-fork: Extract Revert and Register tx
+        std::vector<CTransactionRef> vtx = { blockConnecting.vtx[0] };
+        mempool.removeForBlock(vtx, pindexNew->nHeight);
+        disconnectpool.removeForBlock(vtx);
+    } else {
+        mempool.removeForBlock(blockConnecting.vtx, pindexNew->nHeight);
+        disconnectpool.removeForBlock(blockConnecting.vtx);
+    }
     // Update chainActive & related variables.
     chainActive.SetTip(pindexNew);
     UpdateTip(pindexNew, chainparams);
