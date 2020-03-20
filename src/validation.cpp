@@ -168,7 +168,7 @@ public:
     bool AcceptBlock(const std::shared_ptr<const CBlock>& pblock, CValidationState& state, const CChainParams& chainparams, CBlockIndex** ppindex, bool fRequested, const CDiskBlockPos* dbp, bool* fNewBlock) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 
     // Block (dis)connection on a given view:
-    DisconnectResult DisconnectBlock(const CBlock& block, const CBlockIndex* pindex, CCoinsViewCache& view);
+    DisconnectResult DisconnectBlock(const CBlock& block, const CBlockIndex* pindex, CCoinsViewCache& view, const CChainParams& chainparams);
     bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pindex,
                       CCoinsViewCache& view, const CChainParams& chainparams, bool fJustCheck = false) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 
@@ -1588,9 +1588,10 @@ int ApplyTxInUndo(Coin&& undo, CCoinsViewCache& view, const COutPoint& out)
 
 /** Undo the effects of this block (with given index) on the UTXO set represented by coins.
  *  When FAILED is returned, view is left in an indeterminate state. */
-DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockIndex* pindex, CCoinsViewCache& view)
+DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockIndex* pindex, CCoinsViewCache& view, const CChainParams& chainparams)
 {
     bool fClean = true;
+    bool fAlertsEnabled = AreAlertsEnabled(pindex, chainparams.GetConsensus());
 
     CBlockUndo blockUndo;
     if (!UndoReadFromDisk(blockUndo, pindex)) {
@@ -1598,45 +1599,81 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
         return DISCONNECT_FAILED;
     }
 
-    if (blockUndo.vtxundo.size() + 1 != block.vtx.size()) {
+    size_t expectedUndoSize = block.vtx.size() - 1;
+    if (fAlertsEnabled) {
+        expectedUndoSize = block.vatx.size(); // TODO-fork: + Revert tx count + Register tx count
+    }
+
+    if (blockUndo.vtxundo.size() != expectedUndoSize) {
         error("DisconnectBlock(): block and undo data inconsistent");
         return DISCONNECT_FAILED;
     }
 
-    // TODO-fork: Add similar logic for alerts (vatx)
-    // undo transactions in reverse order
-    for (int i = block.vtx.size() - 1; i >= 0; i--) {
-        const CTransaction &tx = *(block.vtx[i]);
-        uint256 hash = tx.GetHash();
-        bool is_coinbase = tx.IsCoinBase();
-
-        // Check that all outputs are available and match the outputs in the block itself
-        // exactly.
+    // Check that all outputs are available and match the outputs in the block itself
+    // exactly.
+    auto checkTxOutputs = [&] (const CBaseTransaction& tx, uint256 hash, bool isCoinBase) {
         for (size_t o = 0; o < tx.vout.size(); o++) {
             if (!tx.vout[o].scriptPubKey.IsUnspendable()) {
                 COutPoint out(hash, o);
                 Coin coin;
-                bool is_spent = view.SpendCoin(out, &coin);
-                if (!is_spent || tx.vout[o] != coin.out || pindex->nHeight != coin.nHeight || is_coinbase != coin.fCoinBase) {
+                bool isSpent = view.SpendCoin(out, &coin);
+                if (!isSpent || tx.vout[o] != coin.out || pindex->nHeight != coin.nHeight || isCoinBase != coin.fCoinBase) {
                     fClean = false; // transaction output mismatch
                 }
             }
         }
+    };
 
-        // restore inputs
-        if (i > 0) { // not coinbases
-            CTxUndo &txundo = blockUndo.vtxundo[i-1];
-            if (txundo.vprevout.size() != tx.vin.size()) {
-                error("DisconnectBlock(): transaction and undo data inconsistent");
+    // Restore tx inputs
+    auto restoreTxInputs = [&] (const CBaseTransaction& tx, CTxUndo &txundo) -> DisconnectResult {
+        if (txundo.vprevout.size() != tx.vin.size()) {
+            error("DisconnectBlock(): transaction and undo data inconsistent");
+            return DISCONNECT_FAILED;
+        }
+        for (unsigned int j = tx.vin.size(); j-- > 0;) {
+            const COutPoint &out = tx.vin[j].prevout;
+            int res = ApplyTxInUndo(std::move(txundo.vprevout[j]), view, out);
+            if (res == DISCONNECT_FAILED) return DISCONNECT_FAILED;
+            fClean = fClean && res != DISCONNECT_UNCLEAN;
+        }
+        // At this point, all of txundo.vprevout should have been moved out.
+
+        return DISCONNECT_OK;
+    };
+
+    if (fAlertsEnabled) {
+        // undo alert transactions in reverse order
+        for (int i = block.vatx.size() - 1; i >= 0; i--) {
+            const CAlertTransaction &atx = *(block.vatx[i]);
+
+            checkTxOutputs(atx, atx.GetHash(), false);
+            if (restoreTxInputs(atx, blockUndo.vtxundo[i]) == DISCONNECT_FAILED)
                 return DISCONNECT_FAILED;
+        }
+    }
+
+    int txStartIndex = block.vtx.size() - 1;
+    int txEndIndex = 0;
+
+    if (fAlertsEnabled) {
+        txStartIndex = block.vatx.size() - 1; // TODO-fork: + Revert tx count + Register tx count
+        txEndIndex = block.vatx.size();
+    }
+
+    // undo transactions in reverse order
+    for (int i = txStartIndex; i >= txEndIndex; i--) {
+        const CTransaction &tx = *(block.vtx[i]);
+        bool isCoinBase = tx.IsCoinBase();
+
+        // TODO-fork: if Alerts enabled process only Coinbase, Revert and Register txs
+        if (!fAlertsEnabled || (fAlertsEnabled && isCoinBase)) {
+            checkTxOutputs(tx, tx.GetHash(), isCoinBase);
+
+            // TODO-fork: AND any tx with "generated" input
+            if (!isCoinBase) {
+                if (restoreTxInputs(tx, blockUndo.vtxundo[i-1]) == DISCONNECT_FAILED)
+                    return DISCONNECT_FAILED;
             }
-            for (unsigned int j = tx.vin.size(); j-- > 0;) {
-                const COutPoint &out = tx.vin[j].prevout;
-                int res = ApplyTxInUndo(std::move(txundo.vprevout[j]), view, out);
-                if (res == DISCONNECT_FAILED) return DISCONNECT_FAILED;
-                fClean = fClean && res != DISCONNECT_UNCLEAN;
-            }
-            // At this point, all of txundo.vprevout should have been moved out.
         }
     }
 
@@ -2447,7 +2484,7 @@ bool CChainState::DisconnectTip(CValidationState& state, const CChainParams& cha
     {
         CCoinsViewCache view(pcoinsTip.get());
         assert(view.GetBestBlock() == pindexDelete->GetBlockHash());
-        if (DisconnectBlock(block, pindexDelete, view) != DISCONNECT_OK)
+        if (DisconnectBlock(block, pindexDelete, view, chainparams) != DISCONNECT_OK)
             return error("DisconnectTip(): DisconnectBlock %s failed", pindexDelete->GetBlockHash().ToString());
         bool flushed = view.Flush();
         assert(flushed);
@@ -4244,7 +4281,7 @@ bool CVerifyDB::VerifyDB(const CChainParams& chainparams, CCoinsView *coinsview,
         // check level 3: check for inconsistencies during memory-only disconnect of tip blocks
         if (nCheckLevel >= 3 && (coins.DynamicMemoryUsage() + pcoinsTip->DynamicMemoryUsage()) <= nCoinCacheUsage) {
             assert(coins.GetBestBlock() == pindex->GetBlockHash());
-            DisconnectResult res = g_chainstate.DisconnectBlock(block, pindex, coins);
+            DisconnectResult res = g_chainstate.DisconnectBlock(block, pindex, coins, chainparams);
             if (res == DISCONNECT_FAILED) {
                 return error("VerifyDB(): *** irrecoverable inconsistency in block data at %d, hash=%s", pindex->nHeight, pindex->GetBlockHash().ToString());
             }
@@ -4350,7 +4387,7 @@ bool CChainState::ReplayBlocks(const CChainParams& params, CCoinsView* view)
                 return error("RollbackBlock(): ReadBlockFromDisk() failed at %d, hash=%s", pindexOld->nHeight, pindexOld->GetBlockHash().ToString());
             }
             LogPrintf("Rolling back %s (%i)\n", pindexOld->GetBlockHash().ToString(), pindexOld->nHeight);
-            DisconnectResult res = DisconnectBlock(block, pindexOld, cache);
+            DisconnectResult res = DisconnectBlock(block, pindexOld, cache, params);
             if (res == DISCONNECT_FAILED) {
                 return error("RollbackBlock(): DisconnectBlock failed at %d, hash=%s", pindexOld->nHeight, pindexOld->GetBlockHash().ToString());
             }
