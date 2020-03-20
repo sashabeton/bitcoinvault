@@ -1887,6 +1887,8 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     int64_t nTime1 = GetTimeMicros(); nTimeCheck += nTime1 - nTimeStart;
     LogPrint(BCLog::BENCH, "    - Sanity checks: %.2fms [%.2fs (%.2fms/blk)]\n", MILLI * (nTime1 - nTimeStart), nTimeCheck * MICRO, nTimeCheck * MILLI / nBlocksTotal);
 
+    bool fAlertsEnabled = AreAlertsEnabled(pindex, chainparams.GetConsensus());
+
     // Do not allow blocks that contain transactions which 'overwrite' older transactions,
     // unless those are already completely spent.
     // If such overwrites are allowed, coinbases and transactions depending upon those
@@ -2000,18 +2002,90 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
 
     std::vector<int> prevheights;
     CAmount nFees = 0;
-    int nInputs = 0;
+    int nTxInputs = 0;
     int64_t nSigOpsCost = 0;
-    blockundo.vtxundo.reserve(block.vtx.size() - 1);
     std::vector<PrecomputedTransactionData> txdata;
     txdata.reserve(block.vtx.size()); // Required so that pointers to individual PrecomputedTransactionData don't get invalidated
-    for (unsigned int i = 0; i < block.vtx.size(); i++)
-    {
-        const CTransaction &tx = *(block.vtx[i]);
 
-        nInputs += tx.vin.size();
+    if (!fAlertsEnabled) {
+        blockundo.vtxundo.reserve(block.vtx.size() - 1);
+    } else {
+        blockundo.vtxundo.reserve(block.vatx.size()); // TODO-fork: + Revert tx count + Register tx count
+    }
 
-        if (!tx.IsCoinBase())
+    if (fAlertsEnabled) {
+        int nAlertTxInputs = 0;
+        std::vector<PrecomputedTransactionData> atxdata;
+        atxdata.reserve(block.vatx.size()); // Required so that pointers to individual PrecomputedTransactionData don't get invalidated
+
+        auto validateAndProcessAlertTx = [&](CAlertTransactionRef atxRef) -> bool {
+            const CAlertTransaction &atx = *atxRef;
+
+            nAlertTxInputs += atx.vin.size();
+
+            CAmount txfee = 0;
+            if (!Consensus::CheckTxInputs(atx, state, view, pindex->nHeight, txfee)) {
+                return error("%s: Consensus::CheckTxInputs: %s, %s", __func__, atx.GetHash().ToString(),
+                             FormatStateMessage(state));
+            }
+            nFees += txfee;
+            if (!MoneyRange(nFees)) {
+                return state.DoS(100, error("%s: accumulated fee in the block out of range.", __func__),
+                                 REJECT_INVALID, "bad-atxns-accumulated-fee-outofrange");
+            }
+
+            // Check that transaction is BIP68 final
+            // BIP68 lock checks (as opposed to nLockTime checks) must
+            // be in ConnectBlock because they require the UTXO set
+            prevheights.resize(atx.vin.size());
+            for (size_t j = 0; j < atx.vin.size(); j++) {
+                prevheights[j] = view.AccessCoin(atx.vin[j].prevout).nHeight;
+            }
+
+            if (!SequenceLocks(atx, nLockTimeFlags, &prevheights, *pindex)) {
+                return state.DoS(100, error("%s: contains a non-BIP68-final transaction", __func__),
+                                 REJECT_INVALID, "bad-atxns-nonfinal");
+            }
+
+            // GetTransactionSigOpCost counts 3 types of sigops:
+            // * legacy (always)
+            // * p2sh (when P2SH enabled in flags and excludes coinbase)
+            // * witness (when witness enabled in flags and excludes coinbase)
+            nSigOpsCost += GetTransactionSigOpCost(atx, view, flags);
+            if (nSigOpsCost > MAX_BLOCK_SIGOPS_COST)
+                return state.DoS(100, error("ConnectBlock(): too many sigops"),
+                                 REJECT_INVALID, "bad-blk-sigops");
+
+            atxdata.emplace_back(atx);
+
+            std::vector<CScriptCheck> vChecks;
+            bool fCacheResults = fJustCheck; /* Don't cache results if we're actually connecting blocks (still consult the cache, though) */
+            if (!CheckInputs(atx, state, view, fScriptChecks, flags, fCacheResults, fCacheResults, atxdata.back(),
+                             nScriptCheckThreads ? &vChecks : nullptr))
+                return error("ConnectBlock(): CheckInputs on %s failed with %s",
+                             atx.GetHash().ToString(), FormatStateMessage(state));
+            control.Add(vChecks);
+
+            blockundo.vtxundo.push_back(CTxUndo());
+            UpdateCoins(atx, view, blockundo.vtxundo.back(), pindex->nHeight);
+
+            return true;
+        };
+
+        for (const CAlertTransactionRef &atx : block.vatx) {
+            if (!validateAndProcessAlertTx(atx)) {
+                return false;
+            }
+        }
+    }
+
+    auto validateAndProcessLegacyTx = [&] (CTransactionRef txRef) -> bool {
+        const CTransaction &tx = *txRef;
+        bool isCoinBase = tx.IsCoinBase();
+
+        nTxInputs += tx.vin.size();
+
+        if (!isCoinBase)
         {
             CAmount txfee = 0;
             if (!Consensus::CheckTxInputs(tx, state, view, pindex->nHeight, txfee)) {
@@ -2047,24 +2121,74 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                              REJECT_INVALID, "bad-blk-sigops");
 
         txdata.emplace_back(tx);
-        if (!tx.IsCoinBase())
+        if (!isCoinBase)
         {
             std::vector<CScriptCheck> vChecks;
             bool fCacheResults = fJustCheck; /* Don't cache results if we're actually connecting blocks (still consult the cache, though) */
-            if (!CheckInputs(tx, state, view, fScriptChecks, flags, fCacheResults, fCacheResults, txdata[i], nScriptCheckThreads ? &vChecks : nullptr))
+            if (!CheckInputs(tx, state, view, fScriptChecks, flags, fCacheResults, fCacheResults, txdata.back(), nScriptCheckThreads ? &vChecks : nullptr))
                 return error("ConnectBlock(): CheckInputs on %s failed with %s",
-                    tx.GetHash().ToString(), FormatStateMessage(state));
+                             tx.GetHash().ToString(), FormatStateMessage(state));
             control.Add(vChecks);
         }
 
         CTxUndo undoDummy;
-        if (i > 0) {
+        if (!isCoinBase) {
             blockundo.vtxundo.push_back(CTxUndo());
         }
-        UpdateCoins(tx, view, i == 0 ? undoDummy : blockundo.vtxundo.back(), pindex->nHeight);
+        UpdateCoins(tx, view, isCoinBase ? undoDummy : blockundo.vtxundo.back(), pindex->nHeight);
+
+        return true;
+    };
+
+    // TODO-fork: vtx transactions should be checked only for:
+    // 1. presence in past block (so its valid and inputs are spent)
+    // 2. if reverted
+    // 3. if isCoinBase, isRegister, isRevert
+    auto validateAndProcessTx = [&] (CTransactionRef txRef) -> bool {
+        const CTransaction &tx = *txRef;
+        bool isCoinBase = tx.IsCoinBase();
+        nTxInputs += tx.vin.size();
+
+        // TODO-fork: OR isRegister OR isRevert
+        if (isCoinBase) {
+            txdata.emplace_back(tx);
+
+            // TODO-fork: AND (isRegister OR isRevert)
+            if (!isCoinBase)
+            {
+                std::vector<CScriptCheck> vChecks;
+                bool fCacheResults = fJustCheck; /* Don't cache results if we're actually connecting blocks (still consult the cache, though) */
+                if (!CheckInputs(tx, state, view, fScriptChecks, flags, fCacheResults, fCacheResults, txdata.back(), nScriptCheckThreads ? &vChecks : nullptr))
+                    return error("ConnectBlock(): CheckInputs on %s failed with %s",
+                                 tx.GetHash().ToString(), FormatStateMessage(state));
+                control.Add(vChecks);
+            }
+
+            CTxUndo undoDummy;
+            if (!isCoinBase) {
+                blockundo.vtxundo.push_back(CTxUndo());
+            }
+            UpdateCoins(tx, view, isCoinBase ? undoDummy : blockundo.vtxundo.back(), pindex->nHeight);
+        }
+
+        return true;
+    };
+
+    for (const CTransactionRef &tx : block.vtx)
+    {
+        if (!fAlertsEnabled) {
+            if(!validateAndProcessLegacyTx(tx)) {
+                return false;
+            }
+        } else {
+            if(!validateAndProcessTx(tx)) {
+                return false;
+            }
+        }
     }
+
     int64_t nTime3 = GetTimeMicros(); nTimeConnect += nTime3 - nTime2;
-    LogPrint(BCLog::BENCH, "      - Connect %u transactions: %.2fms (%.3fms/tx, %.3fms/txin) [%.2fs (%.2fms/blk)]\n", (unsigned)block.vtx.size(), MILLI * (nTime3 - nTime2), MILLI * (nTime3 - nTime2) / block.vtx.size(), nInputs <= 1 ? 0 : MILLI * (nTime3 - nTime2) / (nInputs-1), nTimeConnect * MICRO, nTimeConnect * MILLI / nBlocksTotal);
+    LogPrint(BCLog::BENCH, "      - Connect %u transactions: %.2fms (%.3fms/tx, %.3fms/txin) [%.2fs (%.2fms/blk)]\n", (unsigned)block.vtx.size(), MILLI * (nTime3 - nTime2), MILLI * (nTime3 - nTime2) / block.vtx.size(), nTxInputs <= 1 ? 0 : MILLI * (nTime3 - nTime2) / (nTxInputs - 1), nTimeConnect * MICRO, nTimeConnect * MILLI / nBlocksTotal);
 
     CAmount blockReward = nFees + GetBlockSubsidy(pindex->nHeight, chainparams.GetConsensus());
     if (block.vtx[0]->GetValueOut() > blockReward)
@@ -2076,7 +2200,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     if (!control.Wait())
         return state.DoS(100, error("%s: CheckQueue failed", __func__), REJECT_INVALID, "block-validation-failed");
     int64_t nTime4 = GetTimeMicros(); nTimeVerify += nTime4 - nTime2;
-    LogPrint(BCLog::BENCH, "    - Verify %u txins: %.2fms (%.3fms/txin) [%.2fs (%.2fms/blk)]\n", nInputs - 1, MILLI * (nTime4 - nTime2), nInputs <= 1 ? 0 : MILLI * (nTime4 - nTime2) / (nInputs-1), nTimeVerify * MICRO, nTimeVerify * MILLI / nBlocksTotal);
+    LogPrint(BCLog::BENCH, "    - Verify %u txins: %.2fms (%.3fms/txin) [%.2fs (%.2fms/blk)]\n", nTxInputs - 1, MILLI * (nTime4 - nTime2), nTxInputs <= 1 ? 0 : MILLI * (nTime4 - nTime2) / (nTxInputs - 1), nTimeVerify * MICRO, nTimeVerify * MILLI / nBlocksTotal);
 
     if (fJustCheck)
         return true;
@@ -3120,6 +3244,7 @@ static bool CheckBlockHeader(const CBlockHeader& block, CValidationState& state,
     return true;
 }
 
+// TODO-fork: add Alerts conditions
 bool CheckBlock(const CBlock& block, CValidationState& state, const Consensus::Params& consensusParams, bool fCheckPOW, bool fCheckMerkleRoot)
 {
     // These are checks that are independent of context.
