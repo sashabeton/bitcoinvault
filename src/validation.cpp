@@ -3419,6 +3419,48 @@ CScript GenerateCoinbaseScriptSig(const int nHeight, const uint256 hashAlertMerk
     return scriptSig;
 }
 
+unsigned int GetCoinbaseHeight(const CBlock& block, const Consensus::Params& consensusParams) {
+    bool isGenesisBlock = block.GetHash() == consensusParams.hashGenesisBlock;
+
+    unsigned int nHeight = 0;
+    if (!isGenesisBlock) {
+        if (block.vtx.size() > 0) {
+            const CScript &script = block.vtx[0]->vin[0].scriptSig;
+            CScript::const_iterator pc = script.begin();
+            opcodetype opcode;
+            std::vector<unsigned char> vch;
+            script.GetOp(pc, opcode, vch);
+
+            if (opcode >= OP_1 && opcode <= OP_16) {
+                nHeight = opcode - OP_1 + 1;
+            } else if (vch.size() > 0) {
+                std::memcpy(&nHeight, &vch[0], vch.size() * sizeof(unsigned char));
+            }
+        }
+    }
+
+    return nHeight;
+}
+
+uint256 GetCoinbaseAlertMerkleRoot(const CBlock& block) {
+    uint256 hashAlertMerkleRoot;
+
+    if (block.vtx.size() > 0) {
+        const CScript& script = block.vtx[0]->vin[0].scriptSig;
+        CScript::const_iterator pc = script.begin();
+        opcodetype opcode;
+        std::vector<unsigned char> vch;
+        script.GetOp(pc, opcode, vch);
+        script.GetOp(pc, opcode, vch);
+
+        if (vch.size() == 32) {
+            hashAlertMerkleRoot = uint256(vch);
+        }
+    }
+
+    return hashAlertMerkleRoot;
+}
+
 std::vector<unsigned char> GenerateCoinbaseCommitment(CBlock& block, const CBlockIndex* pindexPrev, const Consensus::Params& consensusParams)
 {
     std::vector<unsigned char> commitment;

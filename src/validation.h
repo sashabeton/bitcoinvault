@@ -431,6 +431,10 @@ void UpdateUncommittedBlockStructures(CBlock& block, const CBlockIndex* pindexPr
 /** Generate the necessary coinbase scriptSig depending on block height. */
 CScript GenerateCoinbaseScriptSig(int nHeight, uint256 hashAlertMerkleRoot, const Consensus::Params& consensusParams);
 
+unsigned int GetCoinbaseHeight(const CBlock& block, const Consensus::Params& consensusParams);
+
+uint256 GetCoinbaseAlertMerkleRoot(const CBlock& block);
+
 /** Produce the necessary coinbase commitment for a block (modifies the hash, don't call for mined blocks). */
 std::vector<unsigned char> GenerateCoinbaseCommitment(CBlock& block, const CBlockIndex* pindexPrev, const Consensus::Params& consensusParams);
 
