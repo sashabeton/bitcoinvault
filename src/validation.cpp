@@ -1591,7 +1591,7 @@ int ApplyTxInUndo(Coin&& undo, CCoinsViewCache& view, const COutPoint& out)
 DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockIndex* pindex, CCoinsViewCache& view, const CChainParams& chainparams)
 {
     bool fClean = true;
-    bool fAlertsEnabled = AreAlertsEnabled(pindex, chainparams.GetConsensus());
+    bool fAlertsEnabled = AreAlertsEnabled(pindex->nHeight, chainparams.GetConsensus());
 
     CBlockUndo blockUndo;
     if (!UndoReadFromDisk(blockUndo, pindex)) {
@@ -1924,8 +1924,6 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     int64_t nTime1 = GetTimeMicros(); nTimeCheck += nTime1 - nTimeStart;
     LogPrint(BCLog::BENCH, "    - Sanity checks: %.2fms [%.2fs (%.2fms/blk)]\n", MILLI * (nTime1 - nTimeStart), nTimeCheck * MICRO, nTimeCheck * MILLI / nBlocksTotal);
 
-    bool fAlertsEnabled = AreAlertsEnabled(pindex, chainparams.GetConsensus());
-
     // Do not allow blocks that contain transactions which 'overwrite' older transactions,
     // unless those are already completely spent.
     // If such overwrites are allowed, coinbases and transactions depending upon those
@@ -2044,6 +2042,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     std::vector<PrecomputedTransactionData> txdata;
     txdata.reserve(block.vtx.size()); // Required so that pointers to individual PrecomputedTransactionData don't get invalidated
 
+    bool fAlertsEnabled = AreAlertsEnabled(pindex->nHeight, chainparams.GetConsensus());
     if (!fAlertsEnabled) {
         blockundo.vtxundo.reserve(block.vtx.size() - 1);
     } else {
@@ -2631,7 +2630,7 @@ bool CChainState::ConnectTip(CValidationState& state, const CChainParams& chainp
     int64_t nTime5 = GetTimeMicros(); nTimeChainState += nTime5 - nTime4;
     LogPrint(BCLog::BENCH, "  - Writing chainstate: %.2fms [%.2fs (%.2fms/blk)]\n", (nTime5 - nTime4) * MILLI, nTimeChainState * MICRO, nTimeChainState * MILLI / nBlocksTotal);
     // Remove conflicting transactions from the mempool.;
-    if (AreAlertsEnabled(pindexNew, chainparams.GetConsensus())) {
+    if (AreAlertsEnabled(pindexNew->nHeight, chainparams.GetConsensus())) {
         mempool.removeForBlock(blockConnecting.vatx, pindexNew->nHeight);
         disconnectpool.removeForBlock(blockConnecting.vatx);
         // TODO-fork: Extract Revert and Register tx
@@ -3303,6 +3302,8 @@ bool CheckBlock(const CBlock& block, CValidationState& state, const Consensus::P
     if (!CheckBlockHeader(block, state, consensusParams, fCheckPOW))
         return false;
 
+    bool fAlertsEnabled = AreAlertsEnabled(GetCoinbaseHeight(block, consensusParams), consensusParams);
+
     // Check the merkle root.
     if (fCheckMerkleRoot) {
         bool mutated;
@@ -3315,6 +3316,15 @@ bool CheckBlock(const CBlock& block, CValidationState& state, const Consensus::P
         // while still invalidating it.
         if (mutated)
             return state.DoS(100, false, REJECT_INVALID, "bad-txns-duplicate", true, "duplicate transaction");
+
+        if (fAlertsEnabled) {
+            uint256 hashAlertsMerkleRoot = BlockMerkleRoot(block.vatx, &mutated);
+            if (GetCoinbaseAlertMerkleRoot(block) != hashAlertsMerkleRoot)
+                return state.DoS(100, false, REJECT_INVALID, "bad-atxnmrklroot", true, "hashAlertsMerkleRoot mismatch");
+
+            if (mutated)
+                return state.DoS(100, false, REJECT_INVALID, "bad-atxns-duplicate", true, "duplicate transaction");
+        }
     }
 
     // All potential-corruption validation must be done before we do any
@@ -3324,27 +3334,49 @@ bool CheckBlock(const CBlock& block, CValidationState& state, const Consensus::P
     // checks that use witness data may be performed here.
 
     // Size limits
-    if (block.vtx.empty() || block.vtx.size() * WITNESS_SCALE_FACTOR > MAX_BLOCK_WEIGHT || ::GetSerializeSize(block, PROTOCOL_VERSION | SERIALIZE_TRANSACTION_NO_WITNESS) * WITNESS_SCALE_FACTOR > MAX_BLOCK_WEIGHT)
+    size_t vatxSize = fAlertsEnabled ? block.vatx.size() : 0;
+    if (block.vtx.empty() || (vatxSize + block.vtx.size()) * WITNESS_SCALE_FACTOR > MAX_BLOCK_WEIGHT || ::GetSerializeSize(block, PROTOCOL_VERSION | SERIALIZE_TRANSACTION_NO_WITNESS) * WITNESS_SCALE_FACTOR > MAX_BLOCK_WEIGHT)
         return state.DoS(100, false, REJECT_INVALID, "bad-blk-length", false, "size limits failed");
+
+    if (fAlertsEnabled) {
+        // Check transaction alerts
+        for (const auto& atx : block.vatx) {
+            if (atx->IsCoinBase())
+                return state.DoS(100, false, REJECT_INVALID, "bad-cb-alerts", false, "coinbase in alerts");
+
+            if (!CheckTransaction(*atx, state, true))
+                return state.Invalid(false, state.GetRejectCode(), state.GetRejectReason(),
+                                     strprintf("Transaction Alert check failed (atx hash %s) %s",
+                                               atx->GetHash().ToString(), state.GetDebugMessage()));
+        }
+    }
 
     // First transaction must be coinbase, the rest must not be
     if (block.vtx.empty() || !block.vtx[0]->IsCoinBase())
         return state.DoS(100, false, REJECT_INVALID, "bad-cb-missing", false, "first tx is not coinbase");
 
-    for (unsigned int i = 1; i < block.vtx.size(); i++)
-        if (block.vtx[i]->IsCoinBase())
-            return state.DoS(100, false, REJECT_INVALID, "bad-cb-multiple", false, "more than one coinbase");
+    if (!fAlertsEnabled) {
+        for (unsigned int i = 1; i < block.vtx.size(); i++)
+            if (block.vtx[i]->IsCoinBase())
+                return state.DoS(100, false, REJECT_INVALID, "bad-cb-multiple", false, "more than one coinbase");
 
-    // Check transactions
-    for (const auto& tx : block.vtx)
-        if (!CheckTransaction(*tx, state, true))
-            return state.Invalid(false, state.GetRejectCode(), state.GetRejectReason(),
-                                 strprintf("Transaction check failed (tx hash %s) %s", tx->GetHash().ToString(), state.GetDebugMessage()));
+        // Check transactions
+        for (const auto &tx : block.vtx)
+            if (!CheckTransaction(*tx, state, true))
+                return state.Invalid(false, state.GetRejectCode(), state.GetRejectReason(),
+                                     strprintf("Transaction check failed (tx hash %s) %s", tx->GetHash().ToString(),
+                                               state.GetDebugMessage()));
+    } else {
+        // TODO-fork: Check if tx is present in past block as transaction alert
+    }
 
     unsigned int nSigOps = 0;
-    for (const auto& tx : block.vtx)
-    {
-        nSigOps += GetLegacySigOpCount(*tx);
+    if (fAlertsEnabled) {
+        for (const auto& atx : block.vatx)
+            nSigOps += GetLegacySigOpCount(*atx);
+    } else {
+        for (const auto& tx : block.vtx)
+            nSigOps += GetLegacySigOpCount(*tx);
     }
     if (nSigOps * WITNESS_SCALE_FACTOR > MAX_BLOCK_SIGOPS_COST)
         return state.DoS(100, false, REJECT_INVALID, "bad-blk-sigops", false, "out-of-bounds SigOpCount");
@@ -3367,10 +3399,10 @@ bool IsNullDummyEnabled(const CBlockIndex* pindexPrev, const Consensus::Params& 
     return (VersionBitsState(pindexPrev, params, Consensus::DEPLOYMENT_SEGWIT, versionbitscache) == ThresholdState::ACTIVE);
 }
 
-bool AreAlertsEnabled(const CBlockIndex* pindex, const Consensus::Params& params)
+bool AreAlertsEnabled(const int nHeight, const Consensus::Params& params)
 {
     LOCK(cs_main);
-    return pindex->nHeight >= params.AlertsHeight;
+    return nHeight >= params.AlertsHeight;
 }
 
 // Compute at which vout of the block's coinbase transaction the witness
@@ -3411,7 +3443,6 @@ CScript GenerateCoinbaseScriptSig(const int nHeight, const uint256 hashAlertMerk
     CScript scriptSig = CScript() << nHeight;
     if (AreAlertsEnabled(nHeight, consensusParams)) {
         std::vector<unsigned char> hashAlertMerkleRootBytes = ToByteVector(hashAlertMerkleRoot);
-        hashAlertMerkleRootBytes.pop_back();
         scriptSig << hashAlertMerkleRootBytes;
     }
 

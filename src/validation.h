@@ -420,7 +420,7 @@ bool IsWitnessEnabled(const CBlockIndex* pindexPrev, const Consensus::Params& pa
 bool IsNullDummyEnabled(const CBlockIndex* pindexPrev, const Consensus::Params& params);
 
 /** Check whether Alerts has activated. */
-bool AreAlertsEnabled(const CBlockIndex* pindex, const Consensus::Params& params);
+bool AreAlertsEnabled(int nHeight, const Consensus::Params& params);
 
 /** When there are blocks in the active chain with missing data, rewind the chainstate and remove them from the block index */
 bool RewindBlockIndex(const CChainParams& params);
