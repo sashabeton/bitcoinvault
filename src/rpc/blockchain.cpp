@@ -129,7 +129,7 @@ UniValue blockToJSON(const CBlock& block, const CBlockIndex* tip, const CBlockIn
     result.pushKV("version", block.nVersion);
     result.pushKV("versionHex", strprintf("%08x", block.nVersion));
     result.pushKV("merkleroot", block.hashMerkleRoot.GetHex());
-    result.pushKV("alertmerkleroot", block.hashAlertMerkleRoot.GetHex());
+    result.pushKV("alertmerkleroot", GetCoinbaseAlertMerkleRoot(block).GetHex());
     UniValue txs(UniValue::VARR);
     for(const auto& tx : block.vtx)
     {

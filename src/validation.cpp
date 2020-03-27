@@ -3409,8 +3409,7 @@ void UpdateUncommittedBlockStructures(CBlock& block, const CBlockIndex* pindexPr
 CScript GenerateCoinbaseScriptSig(const int nHeight, const uint256 hashAlertMerkleRoot, const Consensus::Params& consensusParams)
 {
     CScript scriptSig = CScript() << nHeight;
-
-    if (nHeight >= consensusParams.AlertsHeight) { // TODO-fork use versionbits
+    if (AreAlertsEnabled(nHeight, consensusParams)) {
         std::vector<unsigned char> hashAlertMerkleRootBytes = ToByteVector(hashAlertMerkleRoot);
         hashAlertMerkleRootBytes.pop_back();
         scriptSig << hashAlertMerkleRootBytes;

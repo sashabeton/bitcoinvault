@@ -78,7 +78,6 @@ public:
 
     // memory only
     mutable bool fChecked;
-    uint256 hashAlertMerkleRoot;
 
     CBlock()
     {
@@ -107,7 +106,6 @@ public:
         vtx.clear();
         vatx.clear();
         fChecked = false;
-        hashAlertMerkleRoot.SetNull();
     }
 
     CBlockHeader GetBlockHeader() const

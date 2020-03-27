@@ -141,11 +141,10 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     int nPackagesSelected = 0;
     int nDescendantsUpdated = 0;
 
-    bool fAlertsEnabled = nHeight >= chainparams.GetConsensus().AlertsHeight;
-    if (fAlertsEnabled) {
-        addPackageTxs(nPackagesSelected, nDescendantsUpdated, fAlertsEnabled);
-        pblock->hashAlertMerkleRoot = BlockMerkleRoot(pblock->vatx);
+    bool fAlertsEnabled = AreAlertsEnabled(nHeight, chainparams.GetConsensus());
 
+    addPackageTxs(nPackagesSelected, nDescendantsUpdated, fAlertsEnabled);
+    if (fAlertsEnabled) {
         bool fAlertsInitialized = nHeight - chainparams.GetConsensus().AlertsHeight
                                   >= (int) chainparams.GetConsensus().nAlertsInitializationWindow;
 
@@ -153,10 +152,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
             CBlockIndex* ancestorIndex = pindexPrev->GetAncestor(nHeight - chainparams.GetConsensus().nAlertsInitializationWindow);
             addTxsFromAlerts(ancestorIndex, chainparams.GetConsensus());
         }
-    } else {
-        addPackageTxs(nPackagesSelected, nDescendantsUpdated, fAlertsEnabled);
     }
-
 
     int64_t nTime1 = GetTimeMicros();
 
@@ -171,7 +167,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     coinbaseTx.vout.resize(1);
     coinbaseTx.vout[0].scriptPubKey = scriptPubKeyIn;
     coinbaseTx.vout[0].nValue = nFees + GetBlockSubsidy(nHeight, chainparams.GetConsensus());
-    coinbaseTx.vin[0].scriptSig = GenerateCoinbaseScriptSig(nHeight, pblock->hashAlertMerkleRoot, chainparams.GetConsensus());
+    coinbaseTx.vin[0].scriptSig = GenerateCoinbaseScriptSig(nHeight, BlockMerkleRoot(pblock->vatx), chainparams.GetConsensus());
     coinbaseTx.vin[0].scriptSig << OP_0;
     assert(coinbaseTx.vin[0].scriptSig.size() >= 2);
     assert(coinbaseTx.vin[0].scriptSig.size() <= 100);
@@ -347,7 +343,8 @@ void BlockAssembler::addTxsFromAlerts(const CBlockIndex* pindex, const Consensus
         assert(!"addTxsFromAlerts(): cannot load block from disk");
     }
     ;
-    // TODO-fork: Implement validation, especially to avoid used UTXO
+    // TODO-fork: Implement validation, especially:
+    // - check if Alert wasn't reverted
     for (const CAlertTransactionRef& atx : block.vatx) {
         AddTxToBlock(atx);
     }
@@ -482,6 +479,7 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
 
         // Decide if add transaction to vtx or vatx
         auto addToBlock = [&] (CTxMemPool::txiter entry) {
+            // TODO-fork: OR (alertsEnabled AND (tx.isRevert OR tx.isRegister)):
             if (!alertsEnabled) {
                 return AddTxToBlock(entry);
             }
@@ -514,7 +512,7 @@ void IncrementExtraNonce(CBlock* pblock, const CBlockIndex* pindexPrev, unsigned
     unsigned int nHeight = pindexPrev->nHeight+1; // Height first in coinbase required for block.version=2
     CMutableTransaction txCoinbase(*pblock->vtx[0]);
 
-    txCoinbase.vin[0].scriptSig = GenerateCoinbaseScriptSig(nHeight, pblock->hashAlertMerkleRoot, consensusParams);
+    txCoinbase.vin[0].scriptSig = GenerateCoinbaseScriptSig(nHeight, BlockMerkleRoot(pblock->vatx), consensusParams);
     (txCoinbase.vin[0].scriptSig << CScriptNum(nExtraNonce)) + COINBASE_FLAGS;
     assert(txCoinbase.vin[0].scriptSig.size() >= 2);
     assert(txCoinbase.vin[0].scriptSig.size() <= 100);
