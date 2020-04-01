@@ -1871,7 +1871,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     // is enforced in ContextualCheckBlockHeader(); we wouldn't want to
     // re-enforce that rule here (at least until we make it impossible for
     // GetAdjustedTime() to go backward).
-    if (!CheckBlock(block, state, chainparams.GetConsensus(), !fJustCheck, !fJustCheck)) {
+    if (!CheckBlock(block, state, chainparams.GetConsensus(), pindex->pprev, !fJustCheck, !fJustCheck)) {
         if (state.CorruptionPossible()) {
             // We don't write down blocks to disk if they may have been
             // corrupted, so this should be impossible unless we're having hardware
@@ -3290,7 +3290,7 @@ static bool CheckBlockHeader(const CBlockHeader& block, CValidationState& state,
 }
 
 // TODO-fork: add Alerts conditions
-bool CheckBlock(const CBlock& block, CValidationState& state, const Consensus::Params& consensusParams, bool fCheckPOW, bool fCheckMerkleRoot)
+bool CheckBlock(const CBlock& block, CValidationState& state, const Consensus::Params& consensusParams, CBlockIndex* pindexPrev, bool fCheckPOW, bool fCheckMerkleRoot)
 {
     // These are checks that are independent of context.
 
@@ -3302,7 +3302,8 @@ bool CheckBlock(const CBlock& block, CValidationState& state, const Consensus::P
     if (!CheckBlockHeader(block, state, consensusParams, fCheckPOW))
         return false;
 
-    bool fAlertsEnabled = AreAlertsEnabled(GetCoinbaseHeight(block, consensusParams), consensusParams);
+    int nHeight = GetCoinbaseHeight(block, consensusParams);
+    bool fAlertsEnabled = AreAlertsEnabled(nHeight, consensusParams);
 
     // Check the merkle root.
     if (fCheckMerkleRoot) {
@@ -3367,7 +3368,33 @@ bool CheckBlock(const CBlock& block, CValidationState& state, const Consensus::P
                                      strprintf("Transaction check failed (tx hash %s) %s", tx->GetHash().ToString(),
                                                state.GetDebugMessage()));
     } else {
-        // TODO-fork: Check if tx is present in past block as transaction alert
+        bool fAlertsInitialized = nHeight - consensusParams.AlertsHeight
+                                  >= (int) consensusParams.nAlertsInitializationWindow;
+
+        // Check if transactions are present as alerts in past block
+        if(fAlertsInitialized && pindexPrev != nullptr && block.vtx.size() > 1) {
+            CBlock ancestorBlock;
+            CBlockIndex* ancestorIndex = pindexPrev->GetAncestor(nHeight - consensusParams.nAlertsInitializationWindow);
+            if (!ReadBlockFromDisk(ancestorBlock, ancestorIndex, consensusParams)) {
+                assert(!"CheckBlock(): cannot load block from disk");
+            }
+
+            for (const auto& tx : block.vtx)
+            {
+                // TODO-fork: OR isRegister OR isRevert
+                if (tx->IsCoinBase())
+                    continue;
+
+                auto compareHashes = [&] (const CAlertTransactionRef& atx) -> bool {
+                    return atx->GetHash() == tx->GetHash();
+                };
+
+                if (std::find_if(ancestorBlock.vatx.begin(), ancestorBlock.vatx.end(), compareHashes) == ancestorBlock.vatx.end())
+                    return state.Invalid(false, state.GetRejectCode(), state.GetRejectReason(),
+                                         strprintf("Transaction check failed (tx hash %s) %s", tx->GetHash().ToString(),
+                                                   state.GetDebugMessage()));
+            }
+        }
     }
 
     unsigned int nSigOps = 0;
@@ -3836,7 +3863,7 @@ bool CChainState::AcceptBlock(const std::shared_ptr<const CBlock>& pblock, CVali
         if (pindex->nChainWork < nMinimumChainWork) return true;
     }
 
-    if (!CheckBlock(block, state, chainparams.GetConsensus()) ||
+    if (!CheckBlock(block, state, chainparams.GetConsensus(), pindex->pprev) ||
         !ContextualCheckBlock(block, state, chainparams.GetConsensus(), pindex->pprev)) {
         if (state.IsInvalid() && !state.CorruptionPossible()) {
             pindex->nStatus |= BLOCK_FAILED_VALID;
@@ -3885,7 +3912,7 @@ bool ProcessNewBlock(const CChainParams& chainparams, const std::shared_ptr<cons
 
         // Ensure that CheckBlock() passes before calling AcceptBlock, as
         // belt-and-suspenders.
-        bool ret = CheckBlock(*pblock, state, chainparams.GetConsensus());
+        bool ret = CheckBlock(*pblock, state, chainparams.GetConsensus(), chainActive.Tip());
         if (ret) {
             // Store to disk
             ret = g_chainstate.AcceptBlock(pblock, state, chainparams, &pindex, fForceProcessing, nullptr, fNewBlock);
@@ -3919,7 +3946,7 @@ bool TestBlockValidity(CValidationState& state, const CChainParams& chainparams,
     // NOTE: CheckBlockHeader is called by CheckBlock
     if (!ContextualCheckBlockHeader(block, state, chainparams, pindexPrev, GetAdjustedTime()))
         return error("%s: Consensus::ContextualCheckBlockHeader: %s", __func__, FormatStateMessage(state));
-    if (!CheckBlock(block, state, chainparams.GetConsensus(), fCheckPOW, fCheckMerkleRoot))
+    if (!CheckBlock(block, state, chainparams.GetConsensus(), pindexPrev, fCheckPOW, fCheckMerkleRoot))
         return error("%s: Consensus::CheckBlock: %s", __func__, FormatStateMessage(state));
     if (!ContextualCheckBlock(block, state, chainparams.GetConsensus(), pindexPrev))
         return error("%s: Consensus::ContextualCheckBlock: %s", __func__, FormatStateMessage(state));
@@ -4347,7 +4374,7 @@ bool CVerifyDB::VerifyDB(const CChainParams& chainparams, CCoinsView *coinsview,
         if (!ReadBlockFromDisk(block, pindex, chainparams.GetConsensus()))
             return error("VerifyDB(): *** ReadBlockFromDisk failed at %d, hash=%s", pindex->nHeight, pindex->GetBlockHash().ToString());
         // check level 1: verify block validity
-        if (nCheckLevel >= 1 && !CheckBlock(block, state, chainparams.GetConsensus()))
+        if (nCheckLevel >= 1 && !CheckBlock(block, state, chainparams.GetConsensus(), pindex->pprev))
             return error("%s: *** found bad block at %d, hash=%s (%s)\n", __func__,
                          pindex->nHeight, pindex->GetBlockHash().ToString(), FormatStateMessage(state));
         // check level 2: verify undo validity
