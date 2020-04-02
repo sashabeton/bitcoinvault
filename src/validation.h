@@ -431,7 +431,7 @@ void UpdateUncommittedBlockStructures(CBlock& block, const CBlockIndex* pindexPr
 /** Generate the necessary coinbase scriptSig depending on block height. */
 CScript GenerateCoinbaseScriptSig(int nHeight, uint256 hashAlertMerkleRoot, const Consensus::Params& consensusParams);
 
-unsigned int GetCoinbaseHeight(const CBlock& block, const Consensus::Params& consensusParams);
+unsigned int GetCoinbaseHeight(const CBlock& block);
 
 uint256 GetCoinbaseAlertMerkleRoot(const CBlock& block);
 

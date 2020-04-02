@@ -1924,6 +1924,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     int64_t nTime1 = GetTimeMicros(); nTimeCheck += nTime1 - nTimeStart;
     LogPrint(BCLog::BENCH, "    - Sanity checks: %.2fms [%.2fs (%.2fms/blk)]\n", MILLI * (nTime1 - nTimeStart), nTimeCheck * MICRO, nTimeCheck * MILLI / nBlocksTotal);
 
+    bool fAlertsEnabled = AreAlertsEnabled(pindex->nHeight, chainparams.GetConsensus());
     // Do not allow blocks that contain transactions which 'overwrite' older transactions,
     // unless those are already completely spent.
     // If such overwrites are allowed, coinbases and transactions depending upon those
@@ -2009,11 +2010,22 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     if (fEnforceBIP30) {
     // Original Bitcoin:
     // if (fEnforceBIP30 || pindex->nHeight >= BIP34_IMPLIES_BIP30_LIMIT) {
-        for (const auto& atx : block.vatx) {
-            for (size_t o = 0; o < atx->vout.size(); o++) {
-                if (view.HaveCoin(COutPoint(atx->GetHash(), o))) {
-                    return state.DoS(100, error("ConnectBlock(): tried to overwrite transaction"),
-                                     REJECT_INVALID, "bad-atxns-BIP30");
+        if (fAlertsEnabled) {
+            for (const auto& atx : block.vatx) {
+                for (size_t o = 0; o < atx->vout.size(); o++) {
+                    if (view.HaveCoin(COutPoint(atx->GetHash(), o))) {
+                        return state.DoS(100, error("ConnectBlock(): tried to overwrite transaction"),
+                                         REJECT_INVALID, "bad-atxns-BIP30");
+                    }
+                }
+            }
+        } else {
+            for (const auto& tx : block.vtx) {
+                for (size_t o = 0; o < tx->vout.size(); o++) {
+                    if (view.HaveCoin(COutPoint(tx->GetHash(), o))) {
+                        return state.DoS(100, error("ConnectBlock(): tried to overwrite transaction"),
+                                         REJECT_INVALID, "bad-txns-BIP30");
+                    }
                 }
             }
         }
@@ -2042,7 +2054,6 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     std::vector<PrecomputedTransactionData> txdata;
     txdata.reserve(block.vtx.size()); // Required so that pointers to individual PrecomputedTransactionData don't get invalidated
 
-    bool fAlertsEnabled = AreAlertsEnabled(pindex->nHeight, chainparams.GetConsensus());
     if (!fAlertsEnabled) {
         blockundo.vtxundo.reserve(block.vtx.size() - 1);
     } else {
@@ -2494,6 +2505,7 @@ bool CChainState::DisconnectTip(CValidationState& state, const CChainParams& cha
         return false;
 
     if (disconnectpool) {
+        // TODO-fork: Do it also for alerts, register and revert
         // Save transactions to re-add to mempool at end of reorg
         for (auto it = block.vtx.rbegin(); it != block.vtx.rend(); ++it) {
             disconnectpool->addTransaction(*it);
@@ -3302,7 +3314,7 @@ bool CheckBlock(const CBlock& block, CValidationState& state, const Consensus::P
     if (!CheckBlockHeader(block, state, consensusParams, fCheckPOW))
         return false;
 
-    int nHeight = GetCoinbaseHeight(block, consensusParams);
+    int nHeight = block.GetHash() != consensusParams.hashGenesisBlock ? GetCoinbaseHeight(block) : 0;
     bool fAlertsEnabled = AreAlertsEnabled(nHeight, consensusParams);
 
     // Check the merkle root.
@@ -3339,8 +3351,8 @@ bool CheckBlock(const CBlock& block, CValidationState& state, const Consensus::P
     if (block.vtx.empty() || (vatxSize + block.vtx.size()) * WITNESS_SCALE_FACTOR > MAX_BLOCK_WEIGHT || ::GetSerializeSize(block, PROTOCOL_VERSION | SERIALIZE_TRANSACTION_NO_WITNESS) * WITNESS_SCALE_FACTOR > MAX_BLOCK_WEIGHT)
         return state.DoS(100, false, REJECT_INVALID, "bad-blk-length", false, "size limits failed");
 
+    // Check transaction alerts
     if (fAlertsEnabled) {
-        // Check transaction alerts
         for (const auto& atx : block.vatx) {
             if (atx->IsCoinBase())
                 return state.DoS(100, false, REJECT_INVALID, "bad-cb-alerts", false, "coinbase in alerts");
@@ -3356,18 +3368,12 @@ bool CheckBlock(const CBlock& block, CValidationState& state, const Consensus::P
     if (block.vtx.empty() || !block.vtx[0]->IsCoinBase())
         return state.DoS(100, false, REJECT_INVALID, "bad-cb-missing", false, "first tx is not coinbase");
 
-    if (!fAlertsEnabled) {
-        for (unsigned int i = 1; i < block.vtx.size(); i++)
-            if (block.vtx[i]->IsCoinBase())
-                return state.DoS(100, false, REJECT_INVALID, "bad-cb-multiple", false, "more than one coinbase");
+    for (unsigned int i = 1; i < block.vtx.size(); i++)
+        if (block.vtx[i]->IsCoinBase())
+            return state.DoS(100, false, REJECT_INVALID, "bad-cb-multiple", false, "more than one coinbase");
 
-        // Check transactions
-        for (const auto &tx : block.vtx)
-            if (!CheckTransaction(*tx, state, true))
-                return state.Invalid(false, state.GetRejectCode(), state.GetRejectReason(),
-                                     strprintf("Transaction check failed (tx hash %s) %s", tx->GetHash().ToString(),
-                                               state.GetDebugMessage()));
-    } else {
+    // Check transactions
+    if (fAlertsEnabled) {
         bool fAlertsInitialized = nHeight - consensusParams.AlertsHeight
                                   >= (int) consensusParams.nAlertsInitializationWindow;
 
@@ -3395,6 +3401,12 @@ bool CheckBlock(const CBlock& block, CValidationState& state, const Consensus::P
                                                    state.GetDebugMessage()));
             }
         }
+    } else {
+        for (const auto &tx : block.vtx)
+            if (!CheckTransaction(*tx, state, true))
+                return state.Invalid(false, state.GetRejectCode(), state.GetRejectReason(),
+                                     strprintf("Transaction check failed (tx hash %s) %s", tx->GetHash().ToString(),
+                                               state.GetDebugMessage()));
     }
 
     unsigned int nSigOps = 0;
@@ -3429,7 +3441,7 @@ bool IsNullDummyEnabled(const CBlockIndex* pindexPrev, const Consensus::Params& 
 bool AreAlertsEnabled(const int nHeight, const Consensus::Params& params)
 {
     LOCK(cs_main);
-    return nHeight >= params.AlertsHeight;
+    return params.AlertsHeight && nHeight >= params.AlertsHeight;
 }
 
 // Compute at which vout of the block's coinbase transaction the witness
@@ -3476,23 +3488,20 @@ CScript GenerateCoinbaseScriptSig(const int nHeight, const uint256 hashAlertMerk
     return scriptSig;
 }
 
-unsigned int GetCoinbaseHeight(const CBlock& block, const Consensus::Params& consensusParams) {
-    bool isGenesisBlock = block.GetHash() == consensusParams.hashGenesisBlock;
-
+unsigned int GetCoinbaseHeight(const CBlock& block) {
     unsigned int nHeight = 0;
-    if (!isGenesisBlock) {
-        if (block.vtx.size() > 0) {
-            const CScript &script = block.vtx[0]->vin[0].scriptSig;
-            CScript::const_iterator pc = script.begin();
-            opcodetype opcode;
-            std::vector<unsigned char> vch;
-            script.GetOp(pc, opcode, vch);
 
-            if (opcode >= OP_1 && opcode <= OP_16) {
-                nHeight = opcode - OP_1 + 1;
-            } else if (vch.size() > 0) {
-                std::memcpy(&nHeight, &vch[0], vch.size() * sizeof(unsigned char));
-            }
+    if (block.vtx.size() > 0) {
+        const CScript &script = block.vtx[0]->vin[0].scriptSig;
+        CScript::const_iterator pc = script.begin();
+        opcodetype opcode;
+        std::vector<unsigned char> vch;
+        script.GetOp(pc, opcode, vch);
+
+        if (opcode >= OP_1 && opcode <= OP_16) {
+            nHeight = opcode - OP_1 + 1;
+        } else if (vch.size() > 0) {
+            std::memcpy(&nHeight, &vch[0], vch.size() * sizeof(unsigned char));
         }
     }
 
