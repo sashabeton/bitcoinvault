@@ -77,6 +77,7 @@ public:
     std::vector<CAlertTransactionRef> vatx;
 
     // memory only
+    mutable bool fAlertsSerialization;
     mutable bool fChecked;
 
     CBlock()
@@ -96,8 +97,8 @@ public:
     inline void SerializationOp(Stream& s, Operation ser_action) {
         READWRITEAS(CBlockHeader, *this);
         READWRITE(vtx);
-        // TODO-fork: Add enable/disable logic for vatx serialization
-        READWRITE(vatx);
+        if (fAlertsSerialization)
+            READWRITE(vatx);
     }
 
     void SetNull()
@@ -105,6 +106,7 @@ public:
         CBlockHeader::SetNull();
         vtx.clear();
         vatx.clear();
+        fAlertsSerialization = false;
         fChecked = false;
     }
 
