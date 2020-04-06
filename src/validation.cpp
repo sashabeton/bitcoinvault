@@ -3594,7 +3594,7 @@ void UpdateUncommittedBlockStructures(CBlock& block, const CBlockIndex* pindexPr
     }
 }
 
-CScript GenerateCoinbaseScriptSig(const int nHeight, const uint256 hashAlertMerkleRoot, const Consensus::Params& consensusParams)
+CScript GenerateCoinbaseScriptSig(const int nHeight, const std::vector<CAlertTransactionRef>& vatx, const Consensus::Params& consensusParams)
 {
     CScript scriptSig = CScript() << nHeight;
     if (AreAlertsEnabled(nHeight, consensusParams.AlertsHeight)) {
@@ -3627,6 +3627,7 @@ unsigned int GetCoinbaseHeight(const CBlock& block) {
 
 uint256 GetCoinbaseAlertMerkleRoot(const CBlock& block) {
     uint256 hashAlertMerkleRoot;
+    hashAlertMerkleRoot.SetNull();
 
     if (block.vtx.size() > 0) {
         const CScript& script = block.vtx[0]->vin[0].scriptSig;
