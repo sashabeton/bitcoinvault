@@ -15,7 +15,7 @@ For more information, read the [original whitepaper](https://bitcoinvault.org/bi
 | **Coin name** | BTCV |
 | **Premine / ICO** | none |
 | **Total number of coins** | 21,000,000 BTCV (like Bitcoin) |
-| **Initial block reward** | 175 BTCV ([full schedule](https://github.com/bitcoinvault/whitepaper/issues/14)) |
+| **Initial block reward** | 175 BTCV ([full schedule](https://github.com/bitcoinroyale/whitepaper/issues/14)) |
 | **Average block time** | 10 minutes (like Bitcoin) |
 | **Algorithm** | SHA256 PoW (like Bitcoin) |
 
