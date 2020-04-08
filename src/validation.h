@@ -422,6 +422,9 @@ bool IsNullDummyEnabled(const CBlockIndex* pindexPrev, const Consensus::Params& 
 /** Check whether Alerts has activated. */
 bool AreAlertsEnabled(int nHeight, const Consensus::Params& params);
 
+/** Calculate tx fee. */
+CAmount CalculateTxFee(const CBaseTransaction& tx, const Consensus::Params& params);
+
 /** When there are blocks in the active chain with missing data, rewind the chainstate and remove them from the block index */
 bool RewindBlockIndex(const CChainParams& params);
 

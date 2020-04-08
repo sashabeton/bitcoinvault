@@ -346,37 +346,8 @@ void BlockAssembler::addTxsFromAlerts(const CBlockIndex* pindex, const Consensus
     // TODO-fork: Implement validation, especially:
     // - check if Alert wasn't reverted
     for (const CAlertTransactionRef& atx : block.vatx) {
-        AddTxToBlock(atx, calculateTxFee(*atx, params));
+        AddTxToBlock(atx, CalculateTxFee(*atx, params));
     }
-}
-
-CAmount calculateTxFee(const CBaseTransaction& tx, const Consensus::Params& params)
-{
-    CAmount nValueIn = 0;
-    for (const auto & vin : tx.vin) {
-        CBaseTransactionRef prevTx;
-        uint256 hashBlock;
-        if(!GetTransaction(vin.prevout.hash, prevTx, params, hashBlock)){
-            assert(!"calculateTxFee(): cannot load transaction");
-        }
-        nValueIn += prevTx->vout[vin.prevout.n].nValue;
-        if (!MoneyRange(nValueIn)) {
-            assert(!"calculateTxFee(): nValueIn out of range");
-        }
-    }
-
-    const CAmount nValueOut = tx.GetValueOut();
-    if (nValueIn < nValueOut) {
-        assert(!"calculateTxFee(): nValueOut must be greater than nValueIn");
-    }
-
-    // Tally transaction fees
-    const CAmount nTxFee = nValueIn - nValueOut;
-    if (!MoneyRange(nTxFee)) {
-       assert(!"calculateTxFee(): nTxFee out of range");
-    }
-
-    return nTxFee;
 }
 
 // This transaction selection algorithm orders the mempool based

@@ -180,8 +180,6 @@ private:
     // Methods for how to add transactions to a block.
     void addTxsFromAlerts(const CBlockIndex* pindex, const Consensus::Params& params);
 
-    CAmount calculateTxFee(const CBaseTransaction& tx, const Consensus::Params& params);
-
     // Methods for how to add alert transactions to a block.
     /** Add transactions based on feerate including unconfirmed ancestors
       * Increments nPackagesSelected / nDescendantsUpdated with corresponding

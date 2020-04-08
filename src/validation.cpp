@@ -2078,11 +2078,6 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                 return error("%s: Consensus::CheckTxInputs: %s, %s", __func__, atx.GetHash().ToString(),
                              FormatStateMessage(state));
             }
-            nFees += txfee;
-            if (!MoneyRange(nFees)) {
-                return state.DoS(100, error("%s: accumulated fee in the block out of range.", __func__),
-                                 REJECT_INVALID, "bad-atxns-accumulated-fee-outofrange");
-            }
 
             // Check that transaction is BIP68 final
             // BIP68 lock checks (as opposed to nLockTime checks) must
@@ -2198,6 +2193,11 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         const CTransaction &tx = *txRef;
         bool isCoinBase = tx.IsCoinBase();
         nTxInputs += tx.vin.size();
+
+        if (!isCoinBase)
+        {
+            nFees += CalculateTxFee(tx, chainparams.GetConsensus());
+        }
 
         // TODO-fork: OR isRegister OR isRevert
         if (isCoinBase) {
@@ -2891,7 +2891,7 @@ bool CChainState::ActivateBestChain(CValidationState &state, const CChainParams&
         LimitValidationInterfaceQueue();
 
         {
-            LOCK(cs_main);
+            LOCK2(cs_main, mempool.cs);
             CBlockIndex* starting_tip = chainActive.Tip();
             bool blocks_connected = false;
             do {
@@ -3445,6 +3445,35 @@ bool AreAlertsEnabled(const int nHeight, const Consensus::Params& params)
 {
     LOCK(cs_main);
     return params.AlertsHeight && nHeight >= params.AlertsHeight;
+}
+
+CAmount CalculateTxFee(const CBaseTransaction& tx, const Consensus::Params& params)
+{
+    CAmount nValueIn = 0;
+    for (const auto & vin : tx.vin) {
+        CBaseTransactionRef prevTx;
+        uint256 hashBlock;
+        if(!GetTransaction(vin.prevout.hash, prevTx, params, hashBlock)){
+            assert(!"calculateTxFee(): cannot load transaction");
+        }
+        nValueIn += prevTx->vout[vin.prevout.n].nValue;
+        if (!MoneyRange(nValueIn)) {
+            assert(!"calculateTxFee(): nValueIn out of range");
+        }
+    }
+
+    const CAmount nValueOut = tx.GetValueOut();
+    if (nValueIn < nValueOut) {
+        assert(!"calculateTxFee(): nValueOut must be greater than nValueIn");
+    }
+
+    // Tally transaction fees
+    const CAmount nTxFee = nValueIn - nValueOut;
+    if (!MoneyRange(nTxFee)) {
+        assert(!"calculateTxFee(): nTxFee out of range");
+    }
+
+    return nTxFee;
 }
 
 // Compute at which vout of the block's coinbase transaction the witness
