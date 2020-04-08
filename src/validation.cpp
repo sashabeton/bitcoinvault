@@ -2052,6 +2052,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
 
     std::vector<int> prevheights;
     CAmount nFees = 0;
+    CAmount nAncestorAlertsFees = 0;
     int nTxInputs = 0;
     int64_t nSigOpsCost = 0;
     std::vector<PrecomputedTransactionData> txdata;
@@ -2196,7 +2197,9 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
 
         if (!isCoinBase)
         {
-            nFees += CalculateTxFee(tx, chainparams.GetConsensus());
+            // TODO-fork: if !(isRegister OR isRevert)
+            nAncestorAlertsFees += CalculateTxFee(tx, chainparams.GetConsensus());
+            // TODO-fork: else increase nFee
         }
 
         // TODO-fork: OR isRegister OR isRevert
@@ -2240,12 +2243,31 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     int64_t nTime3 = GetTimeMicros(); nTimeConnect += nTime3 - nTime2;
     LogPrint(BCLog::BENCH, "      - Connect %u transactions: %.2fms (%.3fms/tx, %.3fms/txin) [%.2fs (%.2fms/blk)]\n", (unsigned)block.vtx.size(), MILLI * (nTime3 - nTime2), MILLI * (nTime3 - nTime2) / block.vtx.size(), nTxInputs <= 1 ? 0 : MILLI * (nTime3 - nTime2) / (nTxInputs - 1), nTimeConnect * MICRO, nTimeConnect * MILLI / nBlocksTotal);
 
-    CAmount blockReward = nFees + GetBlockSubsidy(pindex->nHeight, chainparams.GetConsensus());
+    CAmount blockReward = nAncestorAlertsFees + nFees + GetBlockSubsidy(pindex->nHeight, chainparams.GetConsensus());
     if (block.vtx[0]->GetValueOut() > blockReward)
         return state.DoS(100,
                          error("ConnectBlock(): coinbase pays too much (actual=%d vs limit=%d)",
                                block.vtx[0]->GetValueOut(), blockReward),
                                REJECT_INVALID, "bad-cb-amount");
+
+    if (fAlertsEnabled && nAncestorAlertsFees > 0) {
+        // Validate if coinbase pays fee to transaction's alerts miner
+        CBlock ancestorBlock;
+        CBlockIndex* ancestorIndex = pindex->GetAncestor(pindex->nHeight - chainparams.GetConsensus().nAlertsInitializationWindow);
+        if (!ReadBlockFromDisk(ancestorBlock, ancestorIndex, chainparams.GetConsensus())) {
+            assert(!"ConnectBlock(): cannot load block from disk");
+        }
+
+        auto isCoinbaseFeeVout = [&] (const CTxOut& vout) -> bool {
+            return vout.nValue == nAncestorAlertsFees && vout.scriptPubKey == ancestorBlock.vtx[0]->vout[0].scriptPubKey;
+        };
+
+        std::vector<CTxOut>::const_iterator vout_it = std::find_if(block.vtx[0]->vout.begin(), block.vtx[0]->vout.end(), isCoinbaseFeeVout);
+        if (vout_it == block.vtx[0]->vout.end()) {
+            return state.DoS(100, error("ConnectBlock(): coinbase fee vout not found"),
+                             REJECT_INVALID, "bad-cb-fee");
+        }
+    }
 
     if (!control.Wait())
         return state.DoS(100, error("%s: CheckQueue failed", __func__), REJECT_INVALID, "block-validation-failed");
