@@ -233,11 +233,13 @@ bool BlockAssembler::TestPackageTransactions(const CTxMemPool::setEntries& packa
     return true;
 }
 
-void BlockAssembler::AddTxToBlock(const CAlertTransactionRef& atx)
+void BlockAssembler::AddTxToBlock(const CAlertTransactionRef& atx, const CAmount txFee)
 {
     pblock->vtx.emplace_back(MakeTransactionRef(CTransaction(CMutableTransaction(*atx))));
+    pblocktemplate->vTxFees.push_back(txFee);
     nBlockWeight += GetTransactionWeight(*atx);
     ++nBlockTx;
+    nFees += txFee;
 
     bool fPrintPriority = gArgs.GetBoolArg("-printpriority", DEFAULT_PRINTPRIORITY);
     if (fPrintPriority) {
@@ -267,17 +269,15 @@ void BlockAssembler::AddTxToBlock(CTxMemPool::txiter iter)
 void BlockAssembler::AddAlertTxToBlock(CTxMemPool::txiter iter)
 {
     pblock->vatx.emplace_back(MakeAlertTransactionRef(CAlertTransaction(CMutableTransaction(*iter->GetSharedTx()))));
-    pblocktemplate->vTxFees.push_back(iter->GetFee());
     pblocktemplate->vTxSigOpsCost.push_back(iter->GetSigOpCost());
     nBlockWeight += iter->GetTxWeight();
     ++nBlockAlertTx;
     nBlockSigOpsCost += iter->GetSigOpCost();
-    nFees += iter->GetFee();
     inBlock.insert(iter);
 
     bool fPrintPriority = gArgs.GetBoolArg("-printpriority", DEFAULT_PRINTPRIORITY);
     if (fPrintPriority) {
-        LogPrintf("alert txid %s\n",
+        LogPrintf("fee %s alert txid %s\n",
                   CFeeRate(iter->GetModifiedFee(), iter->GetTxSize()).ToString(),
                   iter->GetTx().GetHash().ToString());
     }
@@ -346,8 +346,37 @@ void BlockAssembler::addTxsFromAlerts(const CBlockIndex* pindex, const Consensus
     // TODO-fork: Implement validation, especially:
     // - check if Alert wasn't reverted
     for (const CAlertTransactionRef& atx : block.vatx) {
-        AddTxToBlock(atx);
+        AddTxToBlock(atx, calculateTxFee(*atx, params));
     }
+}
+
+CAmount calculateTxFee(const CBaseTransaction& tx, const Consensus::Params& params)
+{
+    CAmount nValueIn = 0;
+    for (const auto & vin : tx.vin) {
+        CBaseTransactionRef prevTx;
+        uint256 hashBlock;
+        if(!GetTransaction(vin.prevout.hash, prevTx, params, hashBlock)){
+            assert(!"calculateTxFee(): cannot load transaction");
+        }
+        nValueIn += prevTx->vout[vin.prevout.n].nValue;
+        if (!MoneyRange(nValueIn)) {
+            assert(!"calculateTxFee(): nValueIn out of range");
+        }
+    }
+
+    const CAmount nValueOut = tx.GetValueOut();
+    if (nValueIn < nValueOut) {
+        assert(!"calculateTxFee(): nValueOut must be greater than nValueIn");
+    }
+
+    // Tally transaction fees
+    const CAmount nTxFee = nValueIn - nValueOut;
+    if (!MoneyRange(nTxFee)) {
+       assert(!"calculateTxFee(): nTxFee out of range");
+    }
+
+    return nTxFee;
 }
 
 // This transaction selection algorithm orders the mempool based
