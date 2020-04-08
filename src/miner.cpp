@@ -86,6 +86,7 @@ void BlockAssembler::resetBlock()
     nBlockTx = 0;
     nBlockAlertTx = 0;
     nFees = 0;
+    nAncestorAlertsFees = 0;
 }
 
 Optional<int64_t> BlockAssembler::m_last_block_num_txs{nullopt};
@@ -144,13 +145,15 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     bool fAlertsEnabled = AreAlertsEnabled(nHeight, chainparams.GetConsensus());
 
     addPackageTxs(nPackagesSelected, nDescendantsUpdated, fAlertsEnabled);
+
+    CScript ancestorScriptPubKey;
     if (fAlertsEnabled) {
         bool fAlertsInitialized = nHeight - chainparams.GetConsensus().AlertsHeight
                                   >= (int) chainparams.GetConsensus().nAlertsInitializationWindow;
 
         if(fAlertsInitialized) {
             CBlockIndex* ancestorIndex = pindexPrev->GetAncestor(nHeight - chainparams.GetConsensus().nAlertsInitializationWindow);
-            addTxsFromAlerts(ancestorIndex, chainparams.GetConsensus());
+            addTxsFromAlerts(ancestorIndex, ancestorScriptPubKey, chainparams.GetConsensus());
         }
     }
 
@@ -167,15 +170,21 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     coinbaseTx.vout.resize(1);
     coinbaseTx.vout[0].scriptPubKey = scriptPubKeyIn;
     coinbaseTx.vout[0].nValue = nFees + GetBlockSubsidy(nHeight, chainparams.GetConsensus());
+    if (fAlertsEnabled && nAncestorAlertsFees > 0) {
+        // TODO-fork: Update weight + sigops
+        coinbaseTx.vout.resize(2);
+        coinbaseTx.vout[1].scriptPubKey = ancestorScriptPubKey;
+        coinbaseTx.vout[1].nValue = nAncestorAlertsFees;
+    }
     coinbaseTx.vin[0].scriptSig = GenerateCoinbaseScriptSig(nHeight, BlockMerkleRoot(pblock->vatx), chainparams.GetConsensus());
     coinbaseTx.vin[0].scriptSig << OP_0;
     assert(coinbaseTx.vin[0].scriptSig.size() >= 2);
     assert(coinbaseTx.vin[0].scriptSig.size() <= 100);
     pblock->vtx[0] = MakeTransactionRef(std::move(coinbaseTx));
     pblocktemplate->vchCoinbaseCommitment = GenerateCoinbaseCommitment(*pblock, pindexPrev, chainparams.GetConsensus());
-    pblocktemplate->vTxFees[0] = -nFees;
+    pblocktemplate->vTxFees[0] = -nFees - nAncestorAlertsFees;
 
-    LogPrintf("CreateNewBlock(): block weight: %u txs: %u atxs: %u fees: %ld sigops %d version %d height %d\n", GetBlockWeight(*pblock), nBlockTx, nBlockAlertTx, nFees, nBlockSigOpsCost, pblock->nVersion, nHeight);
+    LogPrintf("CreateNewBlock(): block weight: %u txs: %u atxs: %u fees: %ld sigops %d version %d height %d\n", GetBlockWeight(*pblock), nBlockTx, nBlockAlertTx, nFees + nAncestorAlertsFees, nBlockSigOpsCost, pblock->nVersion, nHeight);
 
     // Fill in header
     pblock->hashPrevBlock  = pindexPrev->GetBlockHash();
@@ -239,7 +248,7 @@ void BlockAssembler::AddTxToBlock(const CAlertTransactionRef& atx, const CAmount
     pblocktemplate->vTxFees.push_back(txFee);
     nBlockWeight += GetTransactionWeight(*atx);
     ++nBlockTx;
-    nFees += txFee;
+    nAncestorAlertsFees += txFee;
 
     bool fPrintPriority = gArgs.GetBoolArg("-printpriority", DEFAULT_PRINTPRIORITY);
     if (fPrintPriority) {
@@ -336,13 +345,13 @@ void BlockAssembler::SortForBlock(const CTxMemPool::setEntries& package, std::ve
     std::sort(sortedEntries.begin(), sortedEntries.end(), CompareTxIterByAncestorCount());
 }
 
-void BlockAssembler::addTxsFromAlerts(const CBlockIndex* pindex, const Consensus::Params& params)
+void BlockAssembler::addTxsFromAlerts(const CBlockIndex* pindex, CScript& ancestorScriptPubKey, const Consensus::Params& params)
 {
     CBlock block;
     if (!ReadBlockFromDisk(block, pindex, params)) {
         assert(!"addTxsFromAlerts(): cannot load block from disk");
     }
-    ;
+    ancestorScriptPubKey = block.vtx[0]->vout[0].scriptPubKey;
     // TODO-fork: Implement validation, especially:
     // - check if Alert wasn't reverted
     for (const CAlertTransactionRef& atx : block.vatx) {

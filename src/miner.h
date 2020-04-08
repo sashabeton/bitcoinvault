@@ -142,6 +142,7 @@ private:
     uint64_t nBlockAlertTx;
     uint64_t nBlockSigOpsCost;
     CAmount nFees;
+    CAmount nAncestorAlertsFees;
     CTxMemPool::setEntries inBlock;
 
     // Chain context for the block
@@ -178,7 +179,7 @@ private:
     void AddAlertTxToBlock(CTxMemPool::txiter iter);
 
     // Methods for how to add transactions to a block.
-    void addTxsFromAlerts(const CBlockIndex* pindex, const Consensus::Params& params);
+    void addTxsFromAlerts(const CBlockIndex* pindex, CScript& ancestorScriptPubKey, const Consensus::Params& params);
 
     // Methods for how to add alert transactions to a block.
     /** Add transactions based on feerate including unconfirmed ancestors
