@@ -2200,10 +2200,23 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
             // TODO-fork: if !(isRegister OR isRevert)
             nAncestorAlertsFees += CalculateTxFee(tx, chainparams.GetConsensus());
             // TODO-fork: else increase nFee
+            if (!MoneyRange(nAncestorAlertsFees + nFees)) {
+                return state.DoS(100, error("%s: accumulated fee in the block out of range.", __func__),
+                                 REJECT_INVALID, "bad-txns-accumulated-fee-outofrange");
+            }
         }
 
         // TODO-fork: OR isRegister OR isRevert
         if (isCoinBase) {
+            // GetTransactionSigOpCost counts 3 types of sigops:
+            // * legacy (always)
+            // * p2sh (when P2SH enabled in flags and excludes coinbase)
+            // * witness (when witness enabled in flags and excludes coinbase)
+            nSigOpsCost += GetTransactionSigOpCost(tx, view, flags);
+            if (nSigOpsCost > MAX_BLOCK_SIGOPS_COST)
+                return state.DoS(100, error("ConnectBlock(): too many sigops"),
+                                 REJECT_INVALID, "bad-blk-sigops");
+
             txdata.emplace_back(tx);
 
             // TODO-fork: AND (isRegister OR isRevert)
@@ -2251,21 +2264,24 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                                REJECT_INVALID, "bad-cb-amount");
 
     if (fAlertsEnabled && nAncestorAlertsFees > 0) {
-        // Validate if coinbase pays fee to transaction's alerts miner
         CBlock ancestorBlock;
         CBlockIndex* ancestorIndex = pindex->GetAncestor(pindex->nHeight - chainparams.GetConsensus().nAlertsInitializationWindow);
         if (!ReadBlockFromDisk(ancestorBlock, ancestorIndex, chainparams.GetConsensus())) {
             assert(!"ConnectBlock(): cannot load block from disk");
         }
 
-        auto isCoinbaseFeeVout = [&] (const CTxOut& vout) -> bool {
-            return vout.nValue == nAncestorAlertsFees && vout.scriptPubKey == ancestorBlock.vtx[0]->vout[0].scriptPubKey;
-        };
+        // Validate if coinbase pays a fee to the original miner
+        // Skip this check if the original miner is same as the current one
+        if (block.vtx[0]->vout[0].scriptPubKey != ancestorBlock.vtx[0]->vout[0].scriptPubKey) {
+            auto isCoinbaseFeeVout = [&] (const CTxOut& vout) -> bool {
+                return vout.nValue == nAncestorAlertsFees && vout.scriptPubKey == ancestorBlock.vtx[0]->vout[0].scriptPubKey;
+            };
 
-        std::vector<CTxOut>::const_iterator vout_it = std::find_if(block.vtx[0]->vout.begin(), block.vtx[0]->vout.end(), isCoinbaseFeeVout);
-        if (vout_it == block.vtx[0]->vout.end()) {
-            return state.DoS(100, error("ConnectBlock(): coinbase fee vout not found"),
-                             REJECT_INVALID, "bad-cb-fee");
+            auto vout_it = std::find_if(block.vtx[0]->vout.begin(), block.vtx[0]->vout.end(), isCoinbaseFeeVout);
+            if (vout_it == block.vtx[0]->vout.end()) {
+                return state.DoS(100, error("ConnectBlock(): coinbase fee vout not found"),
+                                 REJECT_INVALID, "bad-cb-fee");
+            }
         }
     }
 

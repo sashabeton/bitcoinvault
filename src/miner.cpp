@@ -154,6 +154,12 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
         if(fAlertsInitialized) {
             CBlockIndex* ancestorIndex = pindexPrev->GetAncestor(nHeight - chainparams.GetConsensus().nAlertsInitializationWindow);
             addTxsFromAlerts(ancestorIndex, ancestorScriptPubKey, chainparams.GetConsensus());
+
+            // If the current miner is the same as original one then merge fee outputs
+            if (ancestorScriptPubKey == scriptPubKeyIn) {
+                nFees += nAncestorAlertsFees;
+                nAncestorAlertsFees = 0;
+            }
         }
     }
 
@@ -171,7 +177,6 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     coinbaseTx.vout[0].scriptPubKey = scriptPubKeyIn;
     coinbaseTx.vout[0].nValue = nFees + GetBlockSubsidy(nHeight, chainparams.GetConsensus());
     if (fAlertsEnabled && nAncestorAlertsFees > 0) {
-        // TODO-fork: Update weight + sigops
         coinbaseTx.vout.resize(2);
         coinbaseTx.vout[1].scriptPubKey = ancestorScriptPubKey;
         coinbaseTx.vout[1].nValue = nAncestorAlertsFees;
