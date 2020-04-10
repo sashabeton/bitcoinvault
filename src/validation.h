@@ -422,6 +422,9 @@ bool IsNullDummyEnabled(const CBlockIndex* pindexPrev, const Consensus::Params& 
 /** Check whether Alerts has activated. */
 bool AreAlertsEnabled(int nHeight, const Consensus::Params& params);
 
+/** Get ancestor block. */
+bool GetAncestorBlock(CBlockIndex* pindexPrev, const Consensus::Params& params, CBlock& ancestorBlock);
+
 /** Calculate tx fee. */
 CAmount CalculateTxFee(const CBaseTransaction& tx, const Consensus::Params& params);
 

@@ -152,9 +152,13 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
                                   >= (int) chainparams.GetConsensus().nAlertsInitializationWindow;
 
         if(fAlertsInitialized) {
-            CBlockIndex* ancestorIndex = pindexPrev->GetAncestor(nHeight - chainparams.GetConsensus().nAlertsInitializationWindow);
-            addTxsFromAlerts(ancestorIndex, ancestorScriptPubKey, chainparams.GetConsensus());
+            CBlock ancestorBlock;
+            if(!GetAncestorBlock(pindexPrev, chainparams.GetConsensus(), ancestorBlock)) {
+                assert(!"CreateNewBlock(): cannot get ancestor block");
+            }
+            addTxsFromAlerts(ancestorBlock, chainparams.GetConsensus());
 
+            ancestorScriptPubKey = ancestorBlock.vtx[0]->vout[0].scriptPubKey;
             // If the current miner is the same as original one then merge fee outputs
             if (ancestorScriptPubKey == scriptPubKeyIn) {
                 nFees += nAncestorAlertsFees;
@@ -350,16 +354,11 @@ void BlockAssembler::SortForBlock(const CTxMemPool::setEntries& package, std::ve
     std::sort(sortedEntries.begin(), sortedEntries.end(), CompareTxIterByAncestorCount());
 }
 
-void BlockAssembler::addTxsFromAlerts(const CBlockIndex* pindex, CScript& ancestorScriptPubKey, const Consensus::Params& params)
+void BlockAssembler::addTxsFromAlerts(const CBlock& ancestorBlock, const Consensus::Params& params)
 {
-    CBlock block;
-    if (!ReadBlockFromDisk(block, pindex, params)) {
-        assert(!"addTxsFromAlerts(): cannot load block from disk");
-    }
-    ancestorScriptPubKey = block.vtx[0]->vout[0].scriptPubKey;
     // TODO-fork: Implement validation, especially:
     // - check if Alert wasn't reverted
-    for (const CAlertTransactionRef& atx : block.vatx) {
+    for (const CAlertTransactionRef& atx : ancestorBlock.vatx) {
         AddTxToBlock(atx, CalculateTxFee(*atx, params));
     }
 }

@@ -2265,11 +2265,9 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
 
     if (fAlertsEnabled && nAncestorAlertsFees > 0) {
         CBlock ancestorBlock;
-        CBlockIndex* ancestorIndex = pindex->GetAncestor(pindex->nHeight - chainparams.GetConsensus().nAlertsInitializationWindow);
-        if (!ReadBlockFromDisk(ancestorBlock, ancestorIndex, chainparams.GetConsensus())) {
-            assert(!"ConnectBlock(): cannot load block from disk");
+        if(!GetAncestorBlock(pindex->pprev, chainparams.GetConsensus(), ancestorBlock)) {
+            assert(!"ConnectBlock(): cannot get ancestor block");
         }
-
         // Validate if coinbase pays a fee to the original miner
         // Skip this check if the original miner is same as the current one
         if (block.vtx[0]->vout[0].scriptPubKey != ancestorBlock.vtx[0]->vout[0].scriptPubKey) {
@@ -3483,6 +3481,20 @@ bool AreAlertsEnabled(const int nHeight, const Consensus::Params& params)
 {
     LOCK(cs_main);
     return params.AlertsHeight && nHeight >= params.AlertsHeight;
+}
+
+bool GetAncestorBlock(CBlockIndex* pindexPrev, const Consensus::Params& params, CBlock& ancestorBlock) {
+    int nHeight = pindexPrev->nHeight + 1;
+    if (nHeight <= (int) params.nAlertsInitializationWindow) {
+        return false;
+    }
+
+    CBlockIndex* ancestorIndex = pindexPrev->GetAncestor(nHeight - params.nAlertsInitializationWindow);
+    if (!ReadBlockFromDisk(ancestorBlock, ancestorIndex, params)) {
+        assert(!"GetAncestorBlock(): cannot load block from disk");
+    }
+
+    return true;
 }
 
 CAmount CalculateTxFee(const CBaseTransaction& tx, const Consensus::Params& params)
