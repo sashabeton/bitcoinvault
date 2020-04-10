@@ -31,6 +31,7 @@
 #include <vector>
 
 #include <atomic>
+#include "undo.h"
 
 class CBlockIndex;
 class CBlockTreeDB;
@@ -325,6 +326,10 @@ int VersionBitsTipStateSinceHeight(const Consensus::Params& params, Consensus::D
 
 /** Apply the effects of this transaction on the UTXO set represented by view */
 void UpdateCoins(const CBaseTransaction& tx, CCoinsViewCache& inputs, int nHeight);
+
+void SpendInputsCoins(const CBaseTransaction& tx, CCoinsViewCache& inputs, CTxUndo &txundo, int nHeight);
+
+void AddOutputsCoins(const CBaseTransaction& tx, CCoinsViewCache& inputs, int nHeight);
 
 /** Transaction validation functions */
 

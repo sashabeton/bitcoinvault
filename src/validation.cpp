@@ -1331,9 +1331,7 @@ void CChainState::InvalidBlockFound(CBlockIndex *pindex, const CValidationState 
     }
 }
 
-void UpdateCoins(const CBaseTransaction& tx, CCoinsViewCache& inputs, CTxUndo &txundo, int nHeight)
-{
-    // mark inputs spent
+void SpendInputsCoins(const CBaseTransaction& tx, CCoinsViewCache& inputs, CTxUndo &txundo, int nHeight) {
     if (!tx.IsCoinBase()) {
         txundo.vprevout.reserve(tx.vin.size());
         for (const CTxIn &txin : tx.vin) {
@@ -1342,8 +1340,18 @@ void UpdateCoins(const CBaseTransaction& tx, CCoinsViewCache& inputs, CTxUndo &t
             assert(is_spent);
         }
     }
-    // add outputs
+}
+
+void AddOutputsCoins(const CBaseTransaction& tx, CCoinsViewCache& inputs, int nHeight) {
     AddCoins(inputs, tx, nHeight);
+}
+
+void UpdateCoins(const CBaseTransaction& tx, CCoinsViewCache& inputs, CTxUndo &txundo, int nHeight)
+{
+    // mark inputs spent
+    SpendInputsCoins(tx, inputs, txundo, nHeight);
+    // add outputs
+    AddOutputsCoins(tx, inputs, nHeight);
 }
 
 void UpdateCoins(const CBaseTransaction& tx, CCoinsViewCache& inputs, int nHeight)
@@ -2113,7 +2121,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
             control.Add(vChecks);
 
             blockundo.vtxundo.push_back(CTxUndo());
-            UpdateCoins(atx, view, blockundo.vtxundo.back(), pindex->nHeight);
+            SpendInputsCoins(atx, view, blockundo.vtxundo.back(), pindex->nHeight);
 
             return true;
         };
@@ -2235,6 +2243,8 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                 blockundo.vtxundo.push_back(CTxUndo());
             }
             UpdateCoins(tx, view, isCoinBase ? undoDummy : blockundo.vtxundo.back(), pindex->nHeight);
+        } else {
+            AddOutputsCoins(tx, view, pindex->nHeight);
         }
 
         return true;
