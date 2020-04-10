@@ -30,7 +30,7 @@
 class Coin
 {
 public:
-    //! unspent transaction output
+    //! unspent and/or unconfirmed transaction output
     CTxOut out;
 
     //! whether containing transaction was a coinbase
@@ -46,8 +46,8 @@ public:
     uint32_t fAlertsHeight;
 
     //! construct a Coin from a CTxOut and height/coinbase/confirmation information.
-    Coin(CTxOut&& outIn, int nHeightIn, bool fCoinBaseIn, bool fSpentIn = true) : out(std::move(outIn)), fCoinBase(fCoinBaseIn), nHeight(nHeightIn), fSpent(fSpentIn) {}
-    Coin(const CTxOut& outIn, int nHeightIn, bool fCoinBaseIn, bool fSpentIn = true) : out(outIn), fCoinBase(fCoinBaseIn), nHeight(nHeightIn), fSpent(fSpentIn) {}
+    Coin(CTxOut&& outIn, int nHeightIn, bool fCoinBaseIn, bool fSpentIn = false) : out(std::move(outIn)), fCoinBase(fCoinBaseIn), nHeight(nHeightIn), fSpent(fSpentIn) {}
+    Coin(const CTxOut& outIn, int nHeightIn, bool fCoinBaseIn, bool fSpentIn = false) : out(outIn), fCoinBase(fCoinBaseIn), nHeight(nHeightIn), fSpent(fSpentIn) {}
 
     void Clear() {
         out.SetNull();
@@ -65,7 +65,7 @@ public:
 
     template<typename Stream>
     void Serialize(Stream &s) const {
-        assert(!IsSpent());
+        assert(!IsConfirmed());
         uint32_t code = nHeight * 2 + fCoinBase;
         ::Serialize(s, VARINT(code));
         ::Serialize(s, CTxOutCompressor(REF(out)));
@@ -84,7 +84,7 @@ public:
             ::Unserialize(s, fSpent);
     }
 
-    bool IsSpent() const {
+    bool IsConfirmed() const {
         return out.IsNull();
     }
 

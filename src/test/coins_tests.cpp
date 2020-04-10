@@ -25,7 +25,7 @@ namespace
 //! equality test
 bool operator==(const Coin &a, const Coin &b) {
     // Empty Coin objects are always equal.
-    if (a.IsSpent() && b.IsSpent()) return true;
+    if (a.IsConfirmed() && b.IsConfirmed()) return true;
     return a.fCoinBase == b.fCoinBase &&
            a.nHeight == b.nHeight &&
            a.out == b.out;
@@ -44,7 +44,7 @@ public:
             return false;
         }
         coin = it->second;
-        if (coin.IsSpent() && InsecureRandBool() == 0) {
+        if (coin.IsConfirmed() && InsecureRandBool() == 0) {
             // Randomly return false in case of an empty entry.
             return false;
         }
@@ -59,7 +59,7 @@ public:
             if (it->second.flags & CCoinsCacheEntry::DIRTY) {
                 // Same optimization used in CCoinsViewDB is to only write dirty entries.
                 map_[it->first] = it->second.coin;
-                if (it->second.coin.IsSpent() && InsecureRandRange(3) == 0) {
+                if (it->second.coin.IsConfirmed() && InsecureRandRange(3) == 0) {
                     // Randomly delete empty entries on write.
                     map_.erase(it->first);
                 }
@@ -152,27 +152,27 @@ BOOST_AUTO_TEST_CASE(coins_cache_simulation_test)
             bool result_havecoin = test_havecoin_before ? stack.back()->HaveCoin(COutPoint(txid, 0)) : false;
             const Coin& entry = (InsecureRandRange(500) == 0) ? AccessByTxid(*stack.back(), txid) : stack.back()->AccessCoin(COutPoint(txid, 0));
             BOOST_CHECK(coin == entry);
-            BOOST_CHECK(!test_havecoin_before || result_havecoin == !entry.IsSpent());
+            BOOST_CHECK(!test_havecoin_before || result_havecoin == !entry.IsConfirmed());
 
             if (test_havecoin_after) {
                 bool ret = stack.back()->HaveCoin(COutPoint(txid, 0));
-                BOOST_CHECK(ret == !entry.IsSpent());
+                BOOST_CHECK(ret == !entry.IsConfirmed());
             }
 
-            if (InsecureRandRange(5) == 0 || coin.IsSpent()) {
+            if (InsecureRandRange(5) == 0 || coin.IsConfirmed()) {
                 Coin newcoin;
                 newcoin.out.nValue = InsecureRand32();
                 newcoin.nHeight = 1;
-                if (InsecureRandRange(16) == 0 && coin.IsSpent()) {
+                if (InsecureRandRange(16) == 0 && coin.IsConfirmed()) {
                     newcoin.out.scriptPubKey.assign(1 + InsecureRandBits(6), OP_RETURN);
                     BOOST_CHECK(newcoin.out.scriptPubKey.IsUnspendable());
                     added_an_unspendable_entry = true;
                 } else {
                     newcoin.out.scriptPubKey.assign(InsecureRandBits(6), 0); // Random sizes so we can test memory usage accounting
-                    (coin.IsSpent() ? added_an_entry : updated_an_entry) = true;
+                    (coin.IsConfirmed() ? added_an_entry : updated_an_entry) = true;
                     coin = newcoin;
                 }
-                stack.back()->AddCoin(COutPoint(txid, 0), std::move(newcoin), !coin.IsSpent() || InsecureRand32() & 1);
+                stack.back()->AddCoin(COutPoint(txid, 0), std::move(newcoin), !coin.IsConfirmed() || InsecureRand32() & 1);
             } else {
                 removed_an_entry = true;
                 coin.Clear();
@@ -193,9 +193,9 @@ BOOST_AUTO_TEST_CASE(coins_cache_simulation_test)
             for (const auto& entry : result) {
                 bool have = stack.back()->HaveCoin(entry.first);
                 const Coin& coin = stack.back()->AccessCoin(entry.first);
-                BOOST_CHECK(have == !coin.IsSpent());
+                BOOST_CHECK(have == !coin.IsConfirmed());
                 BOOST_CHECK(coin == entry.second);
-                if (coin.IsSpent()) {
+                if (coin.IsConfirmed()) {
                     missed_an_entry = true;
                 } else {
                     BOOST_CHECK(stack.back()->HaveCoinInCache(entry.first));
@@ -426,7 +426,7 @@ BOOST_AUTO_TEST_CASE(updatecoins_simulation_test)
             for (const auto& entry : result) {
                 bool have = stack.back()->HaveCoin(entry.first);
                 const Coin& coin = stack.back()->AccessCoin(entry.first);
-                BOOST_CHECK(have == !coin.IsSpent());
+                BOOST_CHECK(have == !coin.IsConfirmed());
                 BOOST_CHECK(coin == entry.second);
             }
         }
@@ -547,11 +547,11 @@ static void SetCoinsValue(CAmount value, Coin& coin)
 {
     assert(value != ABSENT);
     coin.Clear();
-    assert(coin.IsSpent());
+    assert(coin.IsConfirmed());
     if (value != PRUNED) {
         coin.out.nValue = value;
         coin.nHeight = 1;
-        assert(!coin.IsSpent());
+        assert(!coin.IsConfirmed());
     }
 }
 
@@ -577,7 +577,7 @@ void GetCoinsMapEntry(const CCoinsMap& map, CAmount& value, char& flags)
         value = ABSENT;
         flags = NO_ENTRY;
     } else {
-        if (it->second.coin.IsSpent()) {
+        if (it->second.coin.IsConfirmed()) {
             value = PRUNED;
         } else {
             value = it->second.coin.out.nValue;

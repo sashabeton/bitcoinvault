@@ -46,7 +46,7 @@ CCoinsMap::iterator CCoinsViewCache::FetchCoin(const COutPoint &outpoint) const 
     if (!base->GetCoin(outpoint, tmp))
         return cacheCoins.end();
     CCoinsMap::iterator ret = cacheCoins.emplace(std::piecewise_construct, std::forward_as_tuple(outpoint), std::forward_as_tuple(std::move(tmp))).first;
-    if (ret->second.coin.IsSpent()) {
+    if (ret->second.coin.IsConfirmed()) {
         // The parent only has an empty entry for this outpoint; we can consider our
         // version as fresh.
         ret->second.flags = CCoinsCacheEntry::FRESH;
@@ -59,13 +59,13 @@ bool CCoinsViewCache::GetCoin(const COutPoint &outpoint, Coin &coin) const {
     CCoinsMap::const_iterator it = FetchCoin(outpoint);
     if (it != cacheCoins.end()) {
         coin = it->second.coin;
-        return !coin.IsSpent();
+        return !coin.IsConfirmed();
     }
     return false;
 }
 
 void CCoinsViewCache::AddCoin(const COutPoint &outpoint, Coin&& coin, bool possible_overwrite) {
-    assert(!coin.IsSpent());
+    assert(!coin.IsConfirmed());
     if (coin.out.scriptPubKey.IsUnspendable()) return;
     CCoinsMap::iterator it;
     bool inserted;
@@ -75,7 +75,7 @@ void CCoinsViewCache::AddCoin(const COutPoint &outpoint, Coin&& coin, bool possi
         cachedCoinsUsage -= it->second.coin.DynamicMemoryUsage();
     }
     if (!possible_overwrite) {
-        if (!it->second.coin.IsSpent()) {
+        if (!it->second.coin.IsConfirmed()) {
             throw std::logic_error("Adding new coin that replaces non-pruned entry");
         }
         fresh = !(it->second.flags & CCoinsCacheEntry::DIRTY);
@@ -125,12 +125,12 @@ const Coin& CCoinsViewCache::AccessCoin(const COutPoint &outpoint) const {
 
 bool CCoinsViewCache::HaveCoin(const COutPoint &outpoint) const {
     CCoinsMap::const_iterator it = FetchCoin(outpoint);
-    return (it != cacheCoins.end() && !it->second.coin.IsSpent());
+    return (it != cacheCoins.end() && !it->second.coin.IsConfirmed());
 }
 
 bool CCoinsViewCache::HaveCoinInCache(const COutPoint &outpoint) const {
     CCoinsMap::const_iterator it = cacheCoins.find(outpoint);
-    return (it != cacheCoins.end() && !it->second.coin.IsSpent());
+    return (it != cacheCoins.end() && !it->second.coin.IsConfirmed());
 }
 
 uint256 CCoinsViewCache::GetBestBlock() const {
@@ -153,7 +153,7 @@ bool CCoinsViewCache::BatchWrite(CCoinsMap &mapCoins, const uint256 &hashBlockIn
         if (itUs == cacheCoins.end()) {
             // The parent cache does not have an entry, while the child does
             // We can ignore it if it's both FRESH and pruned in the child
-            if (!(it->second.flags & CCoinsCacheEntry::FRESH && it->second.coin.IsSpent())) {
+            if (!(it->second.flags & CCoinsCacheEntry::FRESH && it->second.coin.IsConfirmed())) {
                 // Otherwise we will need to create it in the parent
                 // and move the data up and mark it as dirty
                 CCoinsCacheEntry& entry = cacheCoins[it->first];
@@ -172,12 +172,12 @@ bool CCoinsViewCache::BatchWrite(CCoinsMap &mapCoins, const uint256 &hashBlockIn
             // parent cache entry has unspent outputs. If this ever happens,
             // it means the FRESH flag was misapplied and there is a logic
             // error in the calling code.
-            if ((it->second.flags & CCoinsCacheEntry::FRESH) && !itUs->second.coin.IsSpent()) {
+            if ((it->second.flags & CCoinsCacheEntry::FRESH) && !itUs->second.coin.IsConfirmed()) {
                 throw std::logic_error("FRESH flag misapplied to cache entry for base transaction with spendable outputs");
             }
 
             // Found the entry in the parent cache
-            if ((itUs->second.flags & CCoinsCacheEntry::FRESH) && it->second.coin.IsSpent()) {
+            if ((itUs->second.flags & CCoinsCacheEntry::FRESH) && it->second.coin.IsConfirmed()) {
                 // The grandparent does not have an entry, and the child is
                 // modified and being pruned. This means we can just delete
                 // it from the parent.
@@ -253,7 +253,7 @@ const Coin& AccessByTxid(const CCoinsViewCache& view, const uint256& txid)
     COutPoint iter(txid, 0);
     while (iter.n < MAX_OUTPUTS_PER_BLOCK) {
         const Coin& alternate = view.AccessCoin(iter);
-        if (!alternate.IsSpent()) return alternate;
+        if (!alternate.IsConfirmed()) return alternate;
         ++iter.n;
     }
     return coinEmpty;
