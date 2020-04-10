@@ -96,12 +96,12 @@ void AddCoins(CCoinsViewCache& cache, const CBaseTransaction &tx, int nHeight, b
     }
 }
 
-bool CCoinsViewCache::SpendCoin(const COutPoint &outpoint, Coin* moveout) {
+bool CCoinsViewCache::ConfirmCoin(const COutPoint &outpoint, Coin* moveto) {
     CCoinsMap::iterator it = FetchCoin(outpoint);
     if (it == cacheCoins.end()) return false;
     cachedCoinsUsage -= it->second.coin.DynamicMemoryUsage();
-    if (moveout) {
-        *moveout = std::move(it->second.coin);
+    if (moveto) {
+        *moveto = std::move(it->second.coin);
     }
     if (it->second.flags & CCoinsCacheEntry::FRESH) {
         cacheCoins.erase(it);

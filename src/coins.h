@@ -267,11 +267,11 @@ public:
     void AddCoin(const COutPoint& outpoint, Coin&& coin, bool potential_overwrite);
 
     /**
-     * Spend a coin. Pass moveto in order to get the deleted data.
+     * Confirm a coin. Pass moveto in order to get the deleted data.
      * If no unspent output exists for the passed outpoint, this call
      * has no effect.
      */
-    bool SpendCoin(const COutPoint &outpoint, Coin* moveto = nullptr);
+    bool ConfirmCoin(const COutPoint &outpoint, Coin* moveto = nullptr);
 
     /**
      * Push the modifications applied to this cache to its base.

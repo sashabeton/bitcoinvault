@@ -1331,13 +1331,13 @@ void CChainState::InvalidBlockFound(CBlockIndex *pindex, const CValidationState 
     }
 }
 
-void SpendInputsCoins(const CBaseTransaction& tx, CCoinsViewCache& inputs, CTxUndo &txundo, int nHeight) {
+void ConfirmInputsCoins(const CBaseTransaction& tx, CCoinsViewCache& inputs, CTxUndo &txundo) {
     if (!tx.IsCoinBase()) {
         txundo.vprevout.reserve(tx.vin.size());
         for (const CTxIn &txin : tx.vin) {
             txundo.vprevout.emplace_back();
-            bool is_spent = inputs.SpendCoin(txin.prevout, &txundo.vprevout.back());
-            assert(is_spent);
+            bool is_confirmed = inputs.ConfirmCoin(txin.prevout, &txundo.vprevout.back());
+            assert(is_confirmed);
         }
     }
 }
@@ -1349,7 +1349,7 @@ void AddOutputsCoins(const CBaseTransaction& tx, CCoinsViewCache& inputs, int nH
 void UpdateCoins(const CBaseTransaction& tx, CCoinsViewCache& inputs, CTxUndo &txundo, int nHeight)
 {
     // mark inputs spent
-    SpendInputsCoins(tx, inputs, txundo, nHeight);
+    ConfirmInputsCoins(tx, inputs, txundo);
     // add outputs
     AddOutputsCoins(tx, inputs, nHeight);
 }
@@ -1627,7 +1627,7 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
             if (!tx.vout[o].scriptPubKey.IsUnspendable()) {
                 COutPoint out(hash, o);
                 Coin coin;
-                bool isSpent = view.SpendCoin(out, &coin);
+                bool isSpent = view.ConfirmCoin(out, &coin);
                 if (!isSpent || tx.vout[o] != coin.out || pindex->nHeight != coin.nHeight || isCoinBase != coin.fCoinBase) {
                     fClean = false; // transaction output mismatch
                 }
@@ -2121,7 +2121,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
             control.Add(vChecks);
 
             blockundo.vtxundo.push_back(CTxUndo());
-            SpendInputsCoins(atx, view, blockundo.vtxundo.back(), pindex->nHeight);
+            SpendInputsCoins(atx, view, blockundo.vtxundo.back());
 
             return true;
         };
@@ -4550,7 +4550,7 @@ bool CChainState::RollforwardBlock(const CBlockIndex* pindex, CCoinsViewCache& i
     for (const CTransactionRef& tx : block.vtx) {
         if (!tx->IsCoinBase()) {
             for (const CTxIn &txin : tx->vin) {
-                inputs.SpendCoin(txin.prevout);
+                inputs.ConfirmCoin(txin.prevout);
             }
         }
         // Pass check = true as every addition may be an overwrite.

@@ -176,7 +176,7 @@ BOOST_AUTO_TEST_CASE(coins_cache_simulation_test)
             } else {
                 removed_an_entry = true;
                 coin.Clear();
-                BOOST_CHECK(stack.back()->SpendCoin(COutPoint(txid, 0)));
+                BOOST_CHECK(stack.back()->ConfirmCoin(COutPoint(txid, 0)));
             }
         }
 
@@ -405,7 +405,7 @@ BOOST_AUTO_TEST_CASE(updatecoins_simulation_test)
             // Disconnect the tx from the current UTXO
             // See code in DisconnectBlock
             // remove outputs
-            BOOST_CHECK(stack.back()->SpendCoin(utxod->first));
+            BOOST_CHECK(stack.back()->ConfirmCoin(utxod->first));
             // restore inputs
             if (!tx.IsCoinBase()) {
                 const COutPoint &out = tx.vin[0].prevout;
@@ -662,7 +662,7 @@ BOOST_AUTO_TEST_CASE(ccoins_access)
 static void CheckSpendCoins(CAmount base_value, CAmount cache_value, CAmount expected_value, char cache_flags, char expected_flags)
 {
     SingleEntryCacheTest test(base_value, cache_value, cache_flags);
-    test.cache.SpendCoin(OUTPOINT);
+    test.cache.ConfirmCoin(OUTPOINT);
     test.cache.SelfTest();
 
     CAmount result_value;
@@ -674,7 +674,7 @@ static void CheckSpendCoins(CAmount base_value, CAmount cache_value, CAmount exp
 
 BOOST_AUTO_TEST_CASE(ccoins_spend)
 {
-    /* Check SpendCoin behavior, requesting a coin from a cache view layered on
+    /* Check ConfirmCoin behavior, requesting a coin from a cache view layered on
      * top of a base view, spending, and then checking
      * the resulting entry in the cache after the modification.
      *
