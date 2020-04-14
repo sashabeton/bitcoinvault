@@ -250,3 +250,37 @@ bool Consensus::CheckTxInputs(const CBaseTransaction& tx, CValidationState& stat
     txfee = txfee_aux;
     return true;
 }
+
+CAmount Consensus::GetTxFee(const CBaseTransaction &tx, const CCoinsViewCache &inputs)
+{
+    // are the actual inputs available?
+    if (!inputs.HaveInputs(tx)) {
+        assert(!"GetTxFee(): Inputs are missing");
+    }
+
+    CAmount nValueIn = 0;
+    for (unsigned int i = 0; i < tx.vin.size(); ++i) {
+        const COutPoint &prevout = tx.vin[i].prevout;
+        const Coin& coin = inputs.AccessCoin(prevout);
+        assert(!coin.IsConfirmed());
+
+        // Check for negative or overflow input values
+        nValueIn += coin.out.nValue;
+        if (!MoneyRange(coin.out.nValue) || !MoneyRange(nValueIn)) {
+            assert(!"GetTxFee(): Inputs value out of range");
+        }
+    }
+
+    const CAmount value_out = tx.GetValueOut();
+    if (nValueIn < value_out) {
+        assert(!"GetTxFee(): Value in < Value out");
+    }
+
+    // Tally transaction fees
+    const CAmount txfee_aux = nValueIn - value_out;
+    if (!MoneyRange(txfee_aux)) {
+        assert(!"GetTxFee(): Outputs value out of range");
+    }
+
+    return txfee_aux;
+}

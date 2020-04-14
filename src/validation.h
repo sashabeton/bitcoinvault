@@ -432,9 +432,6 @@ bool AreAlertsEnabled(int nHeight, const Consensus::Params& params);
 /** Get ancestor block. */
 bool GetAncestorBlock(CBlockIndex* pindexPrev, const Consensus::Params& params, CBlock& ancestorBlock);
 
-/** Calculate tx fee. */
-CAmount CalculateTxFee(const CBaseTransaction& tx, const Consensus::Params& params);
-
 /** When there are blocks in the active chain with missing data, rewind the chainstate and remove them from the block index */
 bool RewindBlockIndex(const CChainParams& params);
 

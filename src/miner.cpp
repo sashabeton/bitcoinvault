@@ -356,10 +356,11 @@ void BlockAssembler::SortForBlock(const CTxMemPool::setEntries& package, std::ve
 
 void BlockAssembler::addTxsFromAlerts(const CBlock& ancestorBlock, const Consensus::Params& params)
 {
+    CCoinsViewCache view(pcoinsTip.get());
     // TODO-fork: Implement validation, especially:
     // - check if Alert wasn't reverted
     for (const CAlertTransactionRef& atx : ancestorBlock.vatx) {
-        AddTxToBlock(atx, CalculateTxFee(*atx, params));
+        AddTxToBlock(atx, Consensus::GetTxFee(*atx, view));
     }
 }
 

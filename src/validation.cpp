@@ -2214,7 +2214,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         if (!isCoinBase)
         {
             // TODO-fork: if !(isRegister OR isRevert)
-            nAncestorAlertsFees += CalculateTxFee(tx, chainparams.GetConsensus());
+            nAncestorAlertsFees += Consensus::GetTxFee(tx, view);
             // TODO-fork: else increase nFee
             if (!MoneyRange(nAncestorAlertsFees + nFees)) {
                 return state.DoS(100, error("%s: accumulated fee in the block out of range.", __func__),
@@ -2245,17 +2245,13 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                                  tx.GetHash().ToString(), FormatStateMessage(state));
                 control.Add(vChecks);
             }
-
-            CTxUndo undoDummy;
-            if (!isCoinBase) {
-                blockundo.vtxundo.push_back(CTxUndo());
-            }
-            UpdateCoins(tx, view, isCoinBase ? undoDummy : blockundo.vtxundo.back(), pindex->nHeight);
-        } else {
-            blockundo.vtxundo.push_back(CTxUndo());
-            ConfirmInputsCoins(tx, view, blockundo.vtxundo.back());
-            AddOutputsCoins(tx, view, pindex->nHeight);
         }
+
+        CTxUndo undoDummy;
+        if (!isCoinBase) {
+            blockundo.vtxundo.push_back(CTxUndo());
+        }
+        UpdateCoins(tx, view, isCoinBase ? undoDummy : blockundo.vtxundo.back(), pindex->nHeight);
 
         return true;
     };
@@ -3515,35 +3511,6 @@ bool GetAncestorBlock(CBlockIndex* pindexPrev, const Consensus::Params& params, 
     }
 
     return true;
-}
-
-CAmount CalculateTxFee(const CBaseTransaction& tx, const Consensus::Params& params)
-{
-    CAmount nValueIn = 0;
-    for (const auto & vin : tx.vin) {
-        CBaseTransactionRef prevTx;
-        uint256 hashBlock;
-        if(!GetTransaction(vin.prevout.hash, prevTx, params, hashBlock)){
-            assert(!"calculateTxFee(): cannot load transaction");
-        }
-        nValueIn += prevTx->vout[vin.prevout.n].nValue;
-        if (!MoneyRange(nValueIn)) {
-            assert(!"calculateTxFee(): nValueIn out of range");
-        }
-    }
-
-    const CAmount nValueOut = tx.GetValueOut();
-    if (nValueIn < nValueOut) {
-        assert(!"calculateTxFee(): nValueOut must be greater than nValueIn");
-    }
-
-    // Tally transaction fees
-    const CAmount nTxFee = nValueIn - nValueOut;
-    if (!MoneyRange(nTxFee)) {
-        assert(!"calculateTxFee(): nTxFee out of range");
-    }
-
-    return nTxFee;
 }
 
 // Compute at which vout of the block's coinbase transaction the witness
