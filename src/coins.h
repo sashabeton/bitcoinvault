@@ -90,7 +90,7 @@ public:
     }
 
     bool IsSpent() const {
-        return fSpent;
+        return fSpent || IsConfirmed();
     }
 
     size_t DynamicMemoryUsage() const {

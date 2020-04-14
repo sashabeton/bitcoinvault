@@ -96,12 +96,12 @@ void AddCoins(CCoinsViewCache& cache, const CBaseTransaction &tx, int nHeight, b
     }
 }
 
-bool CCoinsViewCache::ConfirmCoin(const COutPoint &outpoint, Coin* moveto) {
+bool CCoinsViewCache::ConfirmCoin(const COutPoint &outpoint, Coin* moveout) {
     CCoinsMap::iterator it = FetchCoin(outpoint);
     if (it == cacheCoins.end()) return false;
     cachedCoinsUsage -= it->second.coin.DynamicMemoryUsage();
-    if (moveto) {
-        *moveto = std::move(it->second.coin);
+    if (moveout) {
+        *moveout = std::move(it->second.coin);
     }
     if (it->second.flags & CCoinsCacheEntry::FRESH) {
         cacheCoins.erase(it);
@@ -116,6 +116,7 @@ bool CCoinsViewCache::SpendCoin(const COutPoint &outpoint) {
     CCoinsMap::iterator it = FetchCoin(outpoint);
     if (it == cacheCoins.end()) return false;
     it->second.coin.fSpent = true;
+    AddCoin(it->first, std::move(it->second.coin), true);
     return true;
 }
 
@@ -260,7 +261,7 @@ const Coin& AccessByTxid(const CCoinsViewCache& view, const uint256& txid)
     COutPoint iter(txid, 0);
     while (iter.n < MAX_OUTPUTS_PER_BLOCK) {
         const Coin& alternate = view.AccessCoin(iter);
-        if (!alternate.IsConfirmed()) return alternate;
+        if (!alternate.IsSpent()) return alternate;
         ++iter.n;
     }
     return coinEmpty;

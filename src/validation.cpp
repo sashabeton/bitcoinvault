@@ -547,7 +547,7 @@ static bool CheckInputsFromMempoolAndCache(const CTransaction& tx, CValidationSt
         // available (or shouldn't assume we have, since CheckInputs does).
         // So we just return failure if the inputs are not available here,
         // and then only have to check equivalence for available inputs.
-        if (coin.IsConfirmed()) return false;
+        if (coin.IsSpent()) return false;
 
         const CTransactionRef& txFrom = pool.get(txin.prevout.hash);
         if (txFrom) {
@@ -556,7 +556,7 @@ static bool CheckInputsFromMempoolAndCache(const CTransaction& tx, CValidationSt
             assert(txFrom->vout[txin.prevout.n] == coin.out);
         } else {
             const Coin& coinFromDisk = pcoinsTip->AccessCoin(txin.prevout);
-            assert(!coinFromDisk.IsConfirmed());
+            assert(!coinFromDisk.IsSpent());
             assert(coinFromDisk.out == coin.out);
         }
     }
@@ -1445,7 +1445,7 @@ bool CheckInputs(const CBaseTransaction& tx, CValidationState &state, const CCoi
             for (unsigned int i = 0; i < tx.vin.size(); i++) {
                 const COutPoint &prevout = tx.vin[i].prevout;
                 const Coin& coin = inputs.AccessCoin(prevout);
-                assert(!coin.IsConfirmed());
+                assert(!coin.IsSpent());
 
                 // We very carefully only pass in things to CScriptCheck which
                 // are clearly committed to by tx' witness hash. This provides
@@ -1591,7 +1591,7 @@ int ApplyTxInUndo(Coin&& undo, CCoinsViewCache& view, const COutPoint& out)
         // information only in undo records for the last spend of a transactions'
         // outputs. This implies that it must be present for some other output of the same tx.
         const Coin& alternate = AccessByTxid(view, out.hash);
-        if (!alternate.IsConfirmed()) {
+        if (!alternate.IsSpent()) {
             undo.nHeight = alternate.nHeight;
             undo.fCoinBase = alternate.fCoinBase;
         } else {
