@@ -1637,8 +1637,8 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
             if (!tx.vout[o].scriptPubKey.IsUnspendable()) {
                 COutPoint out(hash, o);
                 Coin coin;
-                bool isSpent = view.ConfirmCoin(out, &coin);
-                if (!isSpent || tx.vout[o] != coin.out || pindex->nHeight != coin.nHeight || isCoinBase != coin.fCoinBase) {
+                bool isConfirmed = view.ConfirmCoin(out, &coin);
+                if (!isConfirmed || tx.vout[o] != coin.out || pindex->nHeight != coin.nHeight || isCoinBase != coin.fCoinBase) {
                     fClean = false; // transaction output mismatch
                 }
             }

@@ -46,18 +46,19 @@ public:
     uint32_t fAlertsHeight;
 
     //! construct a Coin from a CTxOut and height/coinbase/confirmation information.
-    Coin(CTxOut&& outIn, int nHeightIn, bool fCoinBaseIn, bool fSpentIn = false) : out(std::move(outIn)), fCoinBase(fCoinBaseIn), nHeight(nHeightIn), fSpent(fSpentIn) {}
-    Coin(const CTxOut& outIn, int nHeightIn, bool fCoinBaseIn, bool fSpentIn = false) : out(outIn), fCoinBase(fCoinBaseIn), nHeight(nHeightIn), fSpent(fSpentIn) {}
+    Coin(CTxOut&& outIn, int nHeightIn, bool fCoinBaseIn, bool fSpentIn = false, uint32_t fAlertsHeightIn = 0) : out(std::move(outIn)), fCoinBase(fCoinBaseIn), nHeight(nHeightIn), fSpent(fSpentIn), fAlertsHeight(fAlertsHeightIn) {}
+    Coin(const CTxOut& outIn, int nHeightIn, bool fCoinBaseIn, bool fSpentIn = false, uint32_t fAlertsHeightIn = 0) : out(outIn), fCoinBase(fCoinBaseIn), nHeight(nHeightIn), fSpent(fSpentIn), fAlertsHeight(fAlertsHeightIn) {}
 
     void Clear() {
         out.SetNull();
         fCoinBase = false;
         nHeight = 0;
         fSpent = false;
+        fAlertsHeight = 0;
     }
 
     //! empty constructor
-    Coin() : fCoinBase(false), nHeight(0) { }
+    Coin() : fCoinBase(false), nHeight(0), fSpent(false), fAlertsHeight(0) { }
 
     bool IsCoinBase() const {
         return fCoinBase;
@@ -69,7 +70,7 @@ public:
         uint32_t code = nHeight * 2 + fCoinBase;
         ::Serialize(s, VARINT(code));
         ::Serialize(s, CTxOutCompressor(REF(out)));
-        if (nHeight > fAlertsHeight)
+        if (fAlertsHeight && nHeight > fAlertsHeight)
             ::Serialize(s, fSpent);
     }
 
@@ -80,12 +81,16 @@ public:
         nHeight = code >> 1;
         fCoinBase = code & 1;
         ::Unserialize(s, CTxOutCompressor(out));
-        if (nHeight > fAlertsHeight)
+        if (fAlertsHeight && nHeight > fAlertsHeight)
             ::Unserialize(s, fSpent);
     }
 
     bool IsConfirmed() const {
         return out.IsNull();
+    }
+
+    bool IsSpent() const {
+        return fSpent;
     }
 
     size_t DynamicMemoryUsage() const {
