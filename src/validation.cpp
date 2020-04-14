@@ -1331,6 +1331,16 @@ void CChainState::InvalidBlockFound(CBlockIndex *pindex, const CValidationState 
     }
 }
 
+void SpendInputsCoins(const CBaseTransaction& tx, CCoinsViewCache& inputs) {
+    // TODO-fork: Check if txUndo can be created
+    if (!tx.IsCoinBase()) {
+        for (const CTxIn &txin : tx.vin) {
+            bool is_spent = inputs.SpendCoin(txin.prevout);
+            assert(is_spent);
+        }
+    }
+}
+
 void ConfirmInputsCoins(const CBaseTransaction& tx, CCoinsViewCache& inputs, CTxUndo &txundo) {
     if (!tx.IsCoinBase()) {
         txundo.vprevout.reserve(tx.vin.size());
@@ -2120,9 +2130,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                              atx.GetHash().ToString(), FormatStateMessage(state));
             control.Add(vChecks);
 
-            blockundo.vtxundo.push_back(CTxUndo());
-            SpendInputsCoins(atx, view, blockundo.vtxundo.back());
-
+            SpendInputsCoins(atx, view);
             return true;
         };
 
@@ -2244,6 +2252,8 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
             }
             UpdateCoins(tx, view, isCoinBase ? undoDummy : blockundo.vtxundo.back(), pindex->nHeight);
         } else {
+            blockundo.vtxundo.push_back(CTxUndo());
+            ConfirmInputsCoins(tx, view, blockundo.vtxundo.back());
             AddOutputsCoins(tx, view, pindex->nHeight);
         }
 

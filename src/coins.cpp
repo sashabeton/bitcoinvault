@@ -92,7 +92,7 @@ void AddCoins(CCoinsViewCache& cache, const CBaseTransaction &tx, int nHeight, b
         bool overwrite = check ? cache.HaveCoin(COutPoint(txid, i)) : fCoinbase;
         // Always set the possible_overwrite flag to AddCoin for coinbase txn, in order to correctly
         // deal with the pre-BIP30 occurrences of duplicate coinbase transactions.
-        cache.AddCoin(COutPoint(txid, i), Coin(tx.vout[i], nHeight, fCoinbase), overwrite);
+        cache.AddCoin(COutPoint(txid, i), Coin(tx.vout[i], nHeight, fCoinbase, false), overwrite);
     }
 }
 
@@ -109,6 +109,13 @@ bool CCoinsViewCache::ConfirmCoin(const COutPoint &outpoint, Coin* moveto) {
         it->second.flags |= CCoinsCacheEntry::DIRTY;
         it->second.coin.Clear();
     }
+    return true;
+}
+
+bool CCoinsViewCache::SpendCoin(const COutPoint &outpoint) {
+    CCoinsMap::iterator it = FetchCoin(outpoint);
+    if (it == cacheCoins.end()) return false;
+    it->second.coin.fSpent = true;
     return true;
 }
 

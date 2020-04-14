@@ -274,6 +274,13 @@ public:
     bool ConfirmCoin(const COutPoint &outpoint, Coin* moveto = nullptr);
 
     /**
+     * Spend a coin.
+     * If no unspent output exists for the passed outpoint, this call
+     * has no effect.
+     */
+    bool SpendCoin(const COutPoint &outpoint);
+
+    /**
      * Push the modifications applied to this cache to its base.
      * Failure to call this method before destruction will cause the changes to be forgotten.
      * If false is returned, the state of this cache (and its backing view) will be undefined.

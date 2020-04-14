@@ -327,7 +327,7 @@ int VersionBitsTipStateSinceHeight(const Consensus::Params& params, Consensus::D
 /** Apply the effects of this transaction on the UTXO set represented by view */
 void UpdateCoins(const CBaseTransaction& tx, CCoinsViewCache& inputs, int nHeight);
 
-void SpendInputsCoins(const CBaseTransaction& tx, CCoinsViewCache& inputs, CTxUndo &txundo);
+void SpendInputsCoins(const CBaseTransaction& tx, CCoinsViewCache& inputs);
 
 void ConfirmInputsCoins(const CBaseTransaction& tx, CCoinsViewCache& inputs, CTxUndo &txundo);
 
