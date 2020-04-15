@@ -23,8 +23,11 @@ if [ ! -f compile_commands.json ]; then
         eval "$(pyenv init -)"
         eval "$(pyenv virtualenv-init -)"
     fi
-
-    compiledb -n make
+    if [ -x "$(command -v compiledb)" ]; then
+        compiledb -n make
+    else
+      python3 -m compiledb -n make || python2 -m compiledb -n make
+    fi
 else
     echo "compile_commands.json exists"
 fi
