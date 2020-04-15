@@ -70,6 +70,7 @@ public:
         uint32_t code = nHeight * 2 + fCoinBase;
         ::Serialize(s, VARINT(code));
         ::Serialize(s, CTxOutCompressor(REF(out)));
+        // TODO-fork: Use AreAlertsEnable function
         if (fAlertsHeight && nHeight > fAlertsHeight)
             ::Serialize(s, fSpent);
     }
@@ -81,6 +82,7 @@ public:
         nHeight = code >> 1;
         fCoinBase = code & 1;
         ::Unserialize(s, CTxOutCompressor(out));
+        // TODO-fork: Use AreAlertsEnable function
         if (fAlertsHeight && nHeight > fAlertsHeight)
             ::Unserialize(s, fSpent);
     }
