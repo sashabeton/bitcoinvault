@@ -1089,7 +1089,7 @@ bool ReadBlockFromDisk(CBlock& block, const CDiskBlockPos& pos, const Consensus:
 
 bool ReadBlockFromDisk(CBlock& block, const CBlockIndex* pindex, const Consensus::Params& consensusParams)
 {
-    bool fAlertsSerialization = AreAlertsEnabled(pindex->nHeight, consensusParams);
+    bool fAlertsSerialization = AreAlertsEnabled(pindex->nHeight, consensusParams.AlertsHeight);
 
     CDiskBlockPos blockPos;
     {
@@ -1612,7 +1612,7 @@ int ApplyTxInUndo(Coin&& undo, CCoinsViewCache& view, const COutPoint& out)
 DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockIndex* pindex, CCoinsViewCache& view, const CChainParams& chainparams)
 {
     bool fClean = true;
-    bool fAlertsEnabled = AreAlertsEnabled(pindex->nHeight, chainparams.GetConsensus());
+    bool fAlertsEnabled = AreAlertsEnabled(pindex->nHeight, chainparams.GetConsensus().AlertsHeight);
 
     CBlockUndo blockUndo;
     if (!UndoReadFromDisk(blockUndo, pindex)) {
@@ -1945,7 +1945,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     int64_t nTime1 = GetTimeMicros(); nTimeCheck += nTime1 - nTimeStart;
     LogPrint(BCLog::BENCH, "    - Sanity checks: %.2fms [%.2fs (%.2fms/blk)]\n", MILLI * (nTime1 - nTimeStart), nTimeCheck * MICRO, nTimeCheck * MILLI / nBlocksTotal);
 
-    bool fAlertsEnabled = AreAlertsEnabled(pindex->nHeight, chainparams.GetConsensus());
+    bool fAlertsEnabled = AreAlertsEnabled(pindex->nHeight, chainparams.GetConsensus().AlertsHeight);
     // Do not allow blocks that contain transactions which 'overwrite' older transactions,
     // unless those are already completely spent.
     // If such overwrites are allowed, coinbases and transactions depending upon those
@@ -2697,7 +2697,7 @@ bool CChainState::ConnectTip(CValidationState& state, const CChainParams& chainp
     int64_t nTime5 = GetTimeMicros(); nTimeChainState += nTime5 - nTime4;
     LogPrint(BCLog::BENCH, "  - Writing chainstate: %.2fms [%.2fs (%.2fms/blk)]\n", (nTime5 - nTime4) * MILLI, nTimeChainState * MICRO, nTimeChainState * MILLI / nBlocksTotal);
     // Remove conflicting transactions from the mempool.;
-    if (AreAlertsEnabled(pindexNew->nHeight, chainparams.GetConsensus())) {
+    if (AreAlertsEnabled(pindexNew->nHeight, chainparams.GetConsensus().AlertsHeight)) {
         mempool.removeForBlock(blockConnecting.vatx, pindexNew->nHeight);
         disconnectpool.removeForBlock(blockConnecting.vatx);
         // TODO-fork: Extract Revert and Register tx
@@ -3370,7 +3370,7 @@ bool CheckBlock(const CBlock& block, CValidationState& state, const Consensus::P
         return false;
 
     int nHeight = block.GetHash() != consensusParams.hashGenesisBlock ? GetCoinbaseHeight(block) : 0;
-    bool fAlertsEnabled = AreAlertsEnabled(nHeight, consensusParams);
+    bool fAlertsEnabled = AreAlertsEnabled(nHeight, consensusParams.AlertsHeight);
 
     // Check the merkle root.
     if (fCheckMerkleRoot) {
@@ -3493,10 +3493,10 @@ bool IsNullDummyEnabled(const CBlockIndex* pindexPrev, const Consensus::Params& 
     return (VersionBitsState(pindexPrev, params, Consensus::DEPLOYMENT_SEGWIT, versionbitscache) == ThresholdState::ACTIVE);
 }
 
-bool AreAlertsEnabled(const int nHeight, const Consensus::Params& params)
+bool AreAlertsEnabled(const int nHeight, int nAlertsHeight)
 {
     LOCK(cs_main);
-    return params.AlertsHeight && nHeight >= params.AlertsHeight;
+    return nAlertsHeight && nHeight >= nAlertsHeight;
 }
 
 bool GetAncestorBlock(CBlockIndex* pindexPrev, const Consensus::Params& params, CBlock& ancestorBlock) {
@@ -3549,7 +3549,7 @@ void UpdateUncommittedBlockStructures(CBlock& block, const CBlockIndex* pindexPr
 CScript GenerateCoinbaseScriptSig(const int nHeight, const uint256 hashAlertMerkleRoot, const Consensus::Params& consensusParams)
 {
     CScript scriptSig = CScript() << nHeight;
-    if (AreAlertsEnabled(nHeight, consensusParams)) {
+    if (AreAlertsEnabled(nHeight, consensusParams.AlertsHeight)) {
         std::vector<unsigned char> hashAlertMerkleRootBytes = ToByteVector(hashAlertMerkleRoot);
         scriptSig << hashAlertMerkleRootBytes;
     }
@@ -3878,7 +3878,7 @@ bool ProcessNewBlockHeaders(const std::vector<CBlockHeader>& headers, CValidatio
 
 /** Store block on disk. If dbp is non-nullptr, the file is known to already reside on disk */
 static CDiskBlockPos SaveBlockToDisk(const CBlock& block, int nHeight, const CChainParams& chainparams, const CDiskBlockPos* dbp) {
-    block.fAlertsSerialization = AreAlertsEnabled(nHeight, chainparams.GetConsensus());
+    block.fAlertsSerialization = AreAlertsEnabled(nHeight, chainparams.GetConsensus().AlertsHeight);
 
     unsigned int nBlockSize = ::GetSerializeSize(block, CLIENT_VERSION);
     CDiskBlockPos blockPos;

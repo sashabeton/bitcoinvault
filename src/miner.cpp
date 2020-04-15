@@ -142,7 +142,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     int nPackagesSelected = 0;
     int nDescendantsUpdated = 0;
 
-    bool fAlertsEnabled = AreAlertsEnabled(nHeight, chainparams.GetConsensus());
+    bool fAlertsEnabled = AreAlertsEnabled(nHeight, chainparams.GetConsensus().AlertsHeight);
 
     addPackageTxs(nPackagesSelected, nDescendantsUpdated, fAlertsEnabled);
 

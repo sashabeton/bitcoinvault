@@ -427,7 +427,7 @@ bool IsWitnessEnabled(const CBlockIndex* pindexPrev, const Consensus::Params& pa
 bool IsNullDummyEnabled(const CBlockIndex* pindexPrev, const Consensus::Params& params);
 
 /** Check whether Alerts has activated. */
-bool AreAlertsEnabled(int nHeight, const Consensus::Params& params);
+bool AreAlertsEnabled(int nHeight, int nAlertsHeight);
 
 /** Get ancestor block. */
 bool GetAncestorBlock(CBlockIndex* pindexPrev, const Consensus::Params& params, CBlock& ancestorBlock);
