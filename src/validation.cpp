@@ -1858,6 +1858,10 @@ unsigned int GetBlockScriptFlags(const CBlockIndex* pindex, const Consensus::Par
         flags |= SCRIPT_VERIFY_NULLDUMMY;
     }
 
+    if (AreAlertsEnabled(pindex->nHeight, consensusparams)) {
+        flags |= SCRIPT_VERIFY_ALERTS;
+    }
+
     return flags;
 }
 
