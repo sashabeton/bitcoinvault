@@ -360,7 +360,7 @@ void BlockAssembler::addTxsFromAlerts(const CBlock& ancestorBlock, const Consens
     // TODO-fork: Implement validation, especially:
     // - check if Alert wasn't reverted
     for (const CAlertTransactionRef& atx : ancestorBlock.vatx) {
-        AddTxToBlock(atx, Consensus::GetTxFee(*atx, view));
+        AddTxToBlock(atx, GetTxFee(*atx, view));
     }
 }
 

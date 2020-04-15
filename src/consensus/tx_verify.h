@@ -28,8 +28,6 @@ namespace Consensus {
  * Preconditions: tx.IsCoinBase() is false.
  */
 bool CheckTxInputs(const CBaseTransaction& tx, CValidationState& state, const CCoinsViewCache& inputs, int nSpendHeight, CAmount& txfee);
-
-CAmount GetTxFee(const CBaseTransaction& tx, const CCoinsViewCache& inputs);
 } // namespace Consensus
 
 /** Auxiliary functions for transaction validation (ideally should not be exposed) */

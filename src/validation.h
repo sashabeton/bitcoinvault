@@ -18,6 +18,7 @@
 #include <protocol.h> // For CMessageHeader::MessageStartChars
 #include <script/script_error.h>
 #include <sync.h>
+#include <undo.h>
 #include <versionbits.h>
 
 #include <algorithm>
@@ -31,7 +32,6 @@
 #include <vector>
 
 #include <atomic>
-#include "undo.h"
 
 class CBlockIndex;
 class CBlockTreeDB;
@@ -431,6 +431,9 @@ bool AreAlertsEnabled(int nHeight, int nAlertsHeight);
 
 /** Get ancestor block. */
 bool GetAncestorBlock(CBlockIndex* pindexPrev, const Consensus::Params& params, CBlock& ancestorBlock);
+
+/** Calculate tx fee. */
+CAmount GetTxFee(const CBaseTransaction& tx, const CCoinsViewCache& inputs);
 
 /** When there are blocks in the active chain with missing data, rewind the chainstate and remove them from the block index */
 bool RewindBlockIndex(const CChainParams& params);
