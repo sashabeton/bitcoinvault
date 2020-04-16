@@ -3476,13 +3476,12 @@ bool CheckBlock(const CBlock& block, CValidationState& state, const Consensus::P
     }
 
     unsigned int nSigOps = 0;
-    if (fAlertsEnabled) {
-        for (const auto& atx : block.vatx)
-            nSigOps += GetLegacySigOpCount(*atx);
-    } else {
-        for (const auto& tx : block.vtx)
-            nSigOps += GetLegacySigOpCount(*tx);
-    }
+    for (const auto& tx : block.vtx)
+        nSigOps += GetLegacySigOpCount(*tx);
+
+    for (const auto& atx : block.vatx)
+        nSigOps += GetLegacySigOpCount(*atx);
+
     if (nSigOps * WITNESS_SCALE_FACTOR > MAX_BLOCK_SIGOPS_COST)
         return state.DoS(100, false, REJECT_INVALID, "bad-blk-sigops", false, "out-of-bounds SigOpCount");
 
@@ -4580,7 +4579,7 @@ bool CChainState::RollforwardBlock(const CBlockIndex* pindex, CCoinsViewCache& i
     if (!ReadBlockFromDisk(block, pindex, params.GetConsensus())) {
         return error("ReplayBlock(): ReadBlockFromDisk failed at %d, hash=%s", pindex->nHeight, pindex->GetBlockHash().ToString());
     }
-
+    
     for (const CTransactionRef& tx : block.vtx) {
         if (!tx->IsCoinBase()) {
             for (const CTxIn &txin : tx->vin) {

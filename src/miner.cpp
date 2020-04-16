@@ -251,13 +251,18 @@ bool BlockAssembler::TestPackageTransactions(const CTxMemPool::setEntries& packa
     return true;
 }
 
-void BlockAssembler::AddTxToBlock(const CAlertTransactionRef& atx, const CAmount txFee)
+void BlockAssembler::AddTxToBlock(const CAlertTransactionRef& atx, const CCoinsViewCache& view)
 {
+    CAmount txFee = GetTxFee(*atx, view);
+    int64_t sigOpsCost = GetTransactionSigOpCost(*atx, view, STANDARD_SCRIPT_VERIFY_FLAGS, true);
+
     pblock->vtx.emplace_back(MakeTransactionRef(CTransaction(CMutableTransaction(*atx))));
     pblocktemplate->vTxFees.push_back(txFee);
+    pblocktemplate->vTxSigOpsCost.push_back(sigOpsCost);
     nBlockWeight += GetTransactionWeight(*atx);
     ++nBlockTx;
     nAncestorAlertsFees += txFee;
+    nBlockSigOpsCost += sigOpsCost;
 
     bool fPrintPriority = gArgs.GetBoolArg("-printpriority", DEFAULT_PRINTPRIORITY);
     if (fPrintPriority) {
@@ -287,7 +292,6 @@ void BlockAssembler::AddTxToBlock(CTxMemPool::txiter iter)
 void BlockAssembler::AddAlertTxToBlock(CTxMemPool::txiter iter)
 {
     pblock->vatx.emplace_back(MakeAlertTransactionRef(CAlertTransaction(CMutableTransaction(*iter->GetSharedTx()))));
-    pblocktemplate->vTxSigOpsCost.push_back(iter->GetSigOpCost());
     nBlockWeight += iter->GetTxWeight();
     ++nBlockAlertTx;
     nBlockSigOpsCost += iter->GetSigOpCost();
@@ -360,7 +364,7 @@ void BlockAssembler::addTxsFromAlerts(const CBlock& ancestorBlock, const Consens
     // TODO-fork: Implement validation, especially:
     // - check if Alert wasn't reverted
     for (const CAlertTransactionRef& atx : ancestorBlock.vatx) {
-        AddTxToBlock(atx, GetTxFee(*atx, view));
+        AddTxToBlock(atx, view);
     }
 }
 
