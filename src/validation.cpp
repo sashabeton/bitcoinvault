@@ -2068,7 +2068,6 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
 
     CCheckQueueControl<CScriptCheck> control(fScriptChecks && nScriptCheckThreads ? &scriptcheckqueue : nullptr);
 
-    std::vector<int> prevheights;
     CAmount nFees = 0;
     CAmount nAncestorAlertsFees = 0;
     int nTxInputs = 0;
@@ -2076,11 +2075,8 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     std::vector<PrecomputedTransactionData> txdata;
     txdata.reserve(block.vtx.size()); // Required so that pointers to individual PrecomputedTransactionData don't get invalidated
 
-    if (!fAlertsEnabled) {
-        blockundo.vtxundo.reserve(block.vtx.size() - 1);
-    } else {
-        blockundo.vtxundo.reserve(block.vatx.size()); // TODO-fork: + Revert tx count + Register tx count
-    }
+    // TODO-fork: Create undos for alerts
+    blockundo.vtxundo.reserve(block.vtx.size() - 1);
 
     if (fAlertsEnabled) {
         int nAlertTxInputs = 0;
@@ -2101,6 +2097,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
             // Check that transaction is BIP68 final
             // BIP68 lock checks (as opposed to nLockTime checks) must
             // be in ConnectBlock because they require the UTXO set
+            std::vector<int> prevheights;
             prevheights.resize(atx.vin.size());
             for (size_t j = 0; j < atx.vin.size(); j++) {
                 prevheights[j] = view.AccessCoin(atx.vin[j].prevout).nHeight;
@@ -2162,6 +2159,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
             // Check that transaction is BIP68 final
             // BIP68 lock checks (as opposed to nLockTime checks) must
             // be in ConnectBlock because they require the UTXO set
+            std::vector<int> prevheights;
             prevheights.resize(tx.vin.size());
             for (size_t j = 0; j < tx.vin.size(); j++) {
                 prevheights[j] = view.AccessCoin(tx.vin[j].prevout).nHeight;
@@ -2220,6 +2218,20 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                 return state.DoS(100, error("%s: accumulated fee in the block out of range.", __func__),
                                  REJECT_INVALID, "bad-txns-accumulated-fee-outofrange");
             }
+
+            // Check that transaction is BIP68 final
+            // BIP68 lock checks (as opposed to nLockTime checks) must
+            // be in ConnectBlock because they require the UTXO set
+            std::vector<int> prevheights;
+            prevheights.resize(tx.vin.size());
+            for (size_t j = 0; j < tx.vin.size(); j++) {
+                prevheights[j] = view.AccessCoin(tx.vin[j].prevout).nHeight;
+            }
+
+            if (!SequenceLocks(tx, nLockTimeFlags, &prevheights, *pindex)) {
+                return state.DoS(100, error("%s: contains a non-BIP68-final transaction", __func__),
+                                 REJECT_INVALID, "bad-txns-nonfinal");
+            }
         }
 
         // TODO-fork: OR isRegister OR isRevert
@@ -2234,7 +2246,6 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                                  REJECT_INVALID, "bad-blk-sigops");
 
             txdata.emplace_back(tx);
-
             // TODO-fork: AND (isRegister OR isRevert)
             if (!isCoinBase)
             {
