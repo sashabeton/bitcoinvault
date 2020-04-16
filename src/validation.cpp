@@ -4915,10 +4915,18 @@ bool LoadExternalBlockFile(const CChainParams& chainparams, FILE* fileIn, CDiskB
                 if (dbp)
                     dbp->nPos = nBlockPos;
                 blkdat.SetLimit(nBlockPos + nSize);
-                blkdat.SetPos(nBlockPos);
                 std::shared_ptr<CBlock> pblock = std::make_shared<CBlock>();
                 CBlock& block = *pblock;
-                blkdat >> block;
+                try {
+                    blkdat.SetPos(nBlockPos);
+                    block.fAlertsSerialization = true;
+                    blkdat >> block;
+                } catch (const std::exception& e) {
+                    LogPrintf("%s: Deserializing without Alerts because of: %s\n", __func__, e.what());
+                    blkdat.SetPos(nBlockPos);
+                    block.fAlertsSerialization = false;
+                    blkdat >> block;
+                }
                 nRewind = blkdat.GetPos();
 
                 uint256 hash = block.GetHash();
@@ -4968,7 +4976,7 @@ bool LoadExternalBlockFile(const CChainParams& chainparams, FILE* fileIn, CDiskB
                     while (range.first != range.second) {
                         std::multimap<uint256, CDiskBlockPos>::iterator it = range.first;
                         std::shared_ptr<CBlock> pblockrecursive = std::make_shared<CBlock>();
-                        // TODO-fork: Add fAlertsSerialization flag here
+                        pblockrecursive->fAlertsSerialization = AreAlertsEnabled(LookupBlockIndex(it->first)->nHeight, chainparams.GetConsensus().AlertsHeight);
                         if (ReadBlockFromDisk(*pblockrecursive, it->second, chainparams.GetConsensus()))
                         {
                             LogPrint(BCLog::REINDEX, "%s: Processing out of order child %s of %s\n", __func__, pblockrecursive->GetHash().ToString(),
