@@ -656,6 +656,10 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
 
         // do all inputs exist?
         for (const CTxIn& txin : tx.vin) {
+            Coin coin = pcoinsTip->AccessCoin(txin.prevout);
+            if (coin.IsSpent() && !coin.IsConfirmed()) {
+                return true; // do not add tx if coins are spent but unconfirmed;
+            }
             if (!pcoinsTip->HaveCoinInCache(txin.prevout)) {
                 coins_to_uncache.push_back(txin.prevout);
             }
