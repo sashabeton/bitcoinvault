@@ -442,7 +442,7 @@ bool RewindBlockIndex(const CChainParams& params);
 void UpdateUncommittedBlockStructures(CBlock& block, const CBlockIndex* pindexPrev, const Consensus::Params& consensusParams);
 
 /** Generate the necessary coinbase scriptSig depending on block height. */
-CScript GenerateCoinbaseScriptSig(int nHeight, const std::vector<CAlertTransactionRef>& vatx, const Consensus::Params& consensusParams);
+CScript GenerateCoinbaseScriptSig(int nHeight, uint256 hashAlertMerkleRoot, const Consensus::Params& consensusParams);
 
 unsigned int GetCoinbaseHeight(const CBlock& block);
 

@@ -1858,7 +1858,7 @@ unsigned int GetBlockScriptFlags(const CBlockIndex* pindex, const Consensus::Par
         flags |= SCRIPT_VERIFY_NULLDUMMY;
     }
 
-    if (AreAlertsEnabled(pindex->nHeight, consensusparams)) {
+    if (AreAlertsEnabled(pindex->nHeight, consensusparams.AlertsHeight)) {
         flags |= SCRIPT_VERIFY_ALERTS;
     }
 
@@ -3598,7 +3598,7 @@ void UpdateUncommittedBlockStructures(CBlock& block, const CBlockIndex* pindexPr
     }
 }
 
-CScript GenerateCoinbaseScriptSig(const int nHeight, const std::vector<CAlertTransactionRef>& vatx, const Consensus::Params& consensusParams)
+CScript GenerateCoinbaseScriptSig(const int nHeight, uint256 hashAlertMerkleRoot, const Consensus::Params& consensusParams)
 {
     CScript scriptSig = CScript() << nHeight;
     if (AreAlertsEnabled(nHeight, consensusParams.AlertsHeight)) {
