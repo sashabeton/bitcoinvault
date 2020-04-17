@@ -53,8 +53,12 @@ public:
         out.SetNull();
         fCoinBase = false;
         nHeight = 0;
-        fSpent = false;
         fAlertsHeight = 0;
+        fSpent = true;
+    }
+
+    void Spend() {
+        fSpent = true;
     }
 
     //! empty constructor
