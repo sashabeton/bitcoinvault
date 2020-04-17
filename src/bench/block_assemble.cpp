@@ -68,6 +68,7 @@ static void AssembleBlock(benchmark::State& state)
     // Switch to regtest so we can mine faster
     // Also segwit is active, so we can include witness transactions
     SelectParams(CBaseChainParams::REGTEST);
+    const CChainParams& chainparams = Params();
 
     InitScriptExecutionCache();
 
@@ -76,11 +77,10 @@ static void AssembleBlock(benchmark::State& state)
     {
         LOCK(cs_main);
         ::pblocktree.reset(new CBlockTreeDB(1 << 20, true));
-        ::pcoinsdbview.reset(new CCoinsViewDB(1 << 23, true));
+        ::pcoinsdbview.reset(new CCoinsViewDB(1 << 23, chainparams, true));
         ::pcoinsTip.reset(new CCoinsViewCache(pcoinsdbview.get()));
     }
     {
-        const CChainParams& chainparams = Params();
         thread_group.create_thread(std::bind(&CScheduler::serviceQueue, &scheduler));
         GetMainSignals().RegisterBackgroundSignalScheduler(scheduler);
         LoadGenesisBlock(chainparams);

@@ -79,7 +79,7 @@ TestingSetup::TestingSetup(const std::string& chainName) : BasicTestingSetup(cha
 
         mempool.setSanityCheck(1.0);
         pblocktree.reset(new CBlockTreeDB(1 << 20, true));
-        pcoinsdbview.reset(new CCoinsViewDB(1 << 23, true));
+        pcoinsdbview.reset(new CCoinsViewDB(1 << 23, chainparams, true));
         pcoinsTip.reset(new CCoinsViewCache(pcoinsdbview.get()));
         if (!LoadGenesisBlock(chainparams)) {
             throw std::runtime_error("LoadGenesisBlock failed.");

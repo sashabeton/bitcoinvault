@@ -39,7 +39,7 @@ static void DuplicateInputs(benchmark::State& state)
     {
         LOCK(cs_main);
         ::pblocktree.reset(new CBlockTreeDB(1 << 20, true));
-        ::pcoinsdbview.reset(new CCoinsViewDB(1 << 23, true));
+        ::pcoinsdbview.reset(new CCoinsViewDB(1 << 23, chainparams, true));
         ::pcoinsTip.reset(new CCoinsViewCache(pcoinsdbview.get()));
     }
     {
