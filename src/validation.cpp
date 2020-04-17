@@ -4579,7 +4579,12 @@ bool CChainState::RollforwardBlock(const CBlockIndex* pindex, CCoinsViewCache& i
     if (!ReadBlockFromDisk(block, pindex, params.GetConsensus())) {
         return error("ReplayBlock(): ReadBlockFromDisk failed at %d, hash=%s", pindex->nHeight, pindex->GetBlockHash().ToString());
     }
-    
+
+    for (const CAlertTransactionRef& atx : block.vatx) {
+        for (const CTxIn &txin : atx->vin) {
+            inputs.SpendCoin(txin.prevout);
+        }
+    }
     for (const CTransactionRef& tx : block.vtx) {
         if (!tx->IsCoinBase()) {
             for (const CTxIn &txin : tx->vin) {

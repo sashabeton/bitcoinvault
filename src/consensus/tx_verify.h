@@ -27,7 +27,7 @@ namespace Consensus {
  * @param[out] txfee Set to the transaction fee if successful.
  * Preconditions: tx.IsCoinBase() is false.
  */
-bool CheckTxInputs(const CBaseTransaction& tx, CValidationState& state, const CCoinsViewCache& inputs, int nSpendHeight, CAmount& txfee);
+bool CheckTxInputs(const CBaseTransaction& tx, CValidationState& state, const CCoinsViewCache& inputs, int nSpendHeight, CAmount& txfee, bool acceptSpent = false);
 } // namespace Consensus
 
 /** Auxiliary functions for transaction validation (ideally should not be exposed) */
@@ -47,7 +47,7 @@ unsigned int GetLegacySigOpCount(const CBaseTransaction& tx);
  * @return maximum number of sigops required to validate this transaction's inputs
  * @see CTransaction::FetchInputs
  */
-unsigned int GetP2SHSigOpCount(const CBaseTransaction& tx, const CCoinsViewCache& mapInputs, bool isSpent = false);
+unsigned int GetP2SHSigOpCount(const CBaseTransaction& tx, const CCoinsViewCache& mapInputs, bool acceptSpent = false);
 
 /**
  * Compute total signature operation cost of a transaction.
@@ -57,7 +57,7 @@ unsigned int GetP2SHSigOpCount(const CBaseTransaction& tx, const CCoinsViewCache
  * @param[in] isSpent  Coins spending status flag
  * @return Total signature operation cost of tx
  */
-int64_t GetTransactionSigOpCost(const CBaseTransaction& tx, const CCoinsViewCache& inputs, int flags, bool isSpent = false);
+int64_t GetTransactionSigOpCost(const CBaseTransaction& tx, const CCoinsViewCache& inputs, int flags, bool acceptSpent = false);
 
 /**
  * Check if transaction is final and can be included in a block with the
