@@ -74,6 +74,68 @@ static UniValue validateaddress(const JSONRPCRequest& request)
     return ret;
 }
 
+static UniValue createinstantalertaddress(const JSONRPCRequest& request)
+{
+    if (request.fHelp || request.params.size() < 3 || request.params.size() > 4)
+    {
+        std::string msg =
+            RPCHelpMan{"createinstantalertaddress",
+                "\nCreates an instant/alert address which generates: recoverable transaction alert when signed with 1 signature of 3 keys and instant transaction when signed with 2 signatures of 3 keys.\n"
+                "It returns a json object with the address and redeemScript.\n",
+                {
+                    {"alert_key", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The hex-encoded public key used to generates transaction alerts"},
+                    {"instant_key", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The hex-encoded public key used to generates instant transaction"},
+                    {"recovery_key", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The hex-encoded public key used to recover transaction alerts"},
+                    {"address_type", RPCArg::Type::STR, /* default */ "legacy", "The address type to use. Options are \"legacy\", \"p2sh-segwit\", and \"bech32\"."},
+                },
+                RPCResult{
+                    "{\n"
+                    "  \"address\":\"instantalertaddress\",  (string) The value of the new instant/alert address.\n"
+                    "  \"redeemScript\":\"script\"           (string) The string value of the hex-encoded redemption script.\n"
+                    "}\n"
+                },
+            RPCExamples{
+                    "\nCreate an instant alert address from 3 public keys\n"
+                    + HelpExampleCli("createinstantalertaddress", "\"03789ed0bb717d88f7d321a368d905e7430207ebbd82bd342cf11ae157a7ace5fd\",\"03dbc6764b8884a92e871274b87583e6d5c2a58819473e17e107ef3f6aa5a61626\",\"039d4b4d19413c726b359351273e9d5249b7c184561ff1e920384b04079ae74f36\"") +
+                    "\nAs a JSON-RPC call\n"
+                    + HelpExampleRpc("createinstantalertaddress", "\"03789ed0bb717d88f7d321a368d905e7430207ebbd82bd342cf11ae157a7ace5fd\",\"03dbc6764b8884a92e871274b87583e6d5c2a58819473e17e107ef3f6aa5a61626\",\"039d4b4d19413c726b359351273e9d5249b7c184561ff1e920384b04079ae74f36\"")
+                },
+            }.ToString();
+        throw std::runtime_error(msg);
+    }
+}
+
+
+static UniValue createalertaddress(const JSONRPCRequest& request)
+{
+    if (request.fHelp || request.params.size() < 2 || request.params.size() > 3)
+    {
+        std::string msg =
+            RPCHelpMan{"createalertaddress",
+                "\nCreates an alert address which generates recoverable transaction alert when signed with 1 signature of 2 keys.\n"
+                "It returns a json object with the address and redeemScript.\n",
+                {
+                    {"alert_key", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The hex-encoded public key used to generates transaction alerts"},
+                    {"recovery_key", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The hex-encoded public key used to recover transaction alerts"},
+                    {"address_type", RPCArg::Type::STR, /* default */ "legacy", "The address type to use. Options are \"legacy\", \"p2sh-segwit\", and \"bech32\"."},
+                },
+                RPCResult{
+                    "{\n"
+                    "  \"address\":\"alertaddress\",  (string) The value of the new alert address.\n"
+                    "  \"redeemScript\":\"script\"    (string) The string value of the hex-encoded redemption script.\n"
+                    "}\n"
+                },
+                RPCExamples{
+                    "\nCreate an alert address from 2 public keys\n"
+                    + HelpExampleCli("createalertaddress", "\"03789ed0bb717d88f7d321a368d905e7430207ebbd82bd342cf11ae157a7ace5fd\",\"03dbc6764b8884a92e871274b87583e6d5c2a58819473e17e107ef3f6aa5a61626\"") +
+                    "\nAs a JSON-RPC call\n"
+                    + HelpExampleRpc("createalertaddress", "\"03789ed0bb717d88f7d321a368d905e7430207ebbd82bd342cf11ae157a7ace5fd\",\"03dbc6764b8884a92e871274b87583e6d5c2a58819473e17e107ef3f6aa5a61626\"")
+                },
+            }.ToString();
+        throw std::runtime_error(msg);
+    }
+}
+
 static UniValue createmultisig(const JSONRPCRequest& request)
 {
     if (request.fHelp || request.params.size() < 2 || request.params.size() > 3)
@@ -595,19 +657,21 @@ static UniValue echo(const JSONRPCRequest& request)
 static const CRPCCommand commands[] =
 { //  category              name                      actor (function)         argNames
   //  --------------------- ------------------------  -----------------------  ----------
-    { "control",            "getmemoryinfo",          &getmemoryinfo,          {"mode"} },
-    { "control",            "logging",                &logging,                {"include", "exclude"}},
-    { "util",               "validateaddress",        &validateaddress,        {"address"} },
-    { "util",               "createmultisig",         &createmultisig,         {"nrequired","keys","address_type"} },
-    { "util",               "deriveaddresses",        &deriveaddresses,        {"descriptor", "range"} },
-    { "util",               "getdescriptorinfo",      &getdescriptorinfo,      {"descriptor"} },
-    { "util",               "verifymessage",          &verifymessage,          {"address","signature","message"} },
-    { "util",               "signmessagewithprivkey", &signmessagewithprivkey, {"privkey","message"} },
+    { "control",            "getmemoryinfo",             &getmemoryinfo,             {"mode"} },
+    { "control",            "logging",                   &logging,                   {"include", "exclude"}},
+    { "util",               "validateaddress",           &validateaddress,           {"address"} },
+    { "util",               "createmultisig",            &createmultisig,            {"nrequired","keys","address_type"} },
+    { "util",               "createalertaddress",        &createalertaddress,        {"alert_key","recovery_key","address_type"} },
+    { "util",               "createinstantalertaddress", &createinstantalertaddress, {"alert_key","instant_key","recovery_key","address_type"} },
+    { "util",               "deriveaddresses",           &deriveaddresses,           {"descriptor", "range"} },
+    { "util",               "getdescriptorinfo",         &getdescriptorinfo,         {"descriptor"} },
+    { "util",               "verifymessage",             &verifymessage,             {"address","signature","message"} },
+    { "util",               "signmessagewithprivkey",    &signmessagewithprivkey,    {"privkey","message"} },
 
     /* Not shown in help */
-    { "hidden",             "setmocktime",            &setmocktime,            {"timestamp"}},
-    { "hidden",             "echo",                   &echo,                   {"arg0","arg1","arg2","arg3","arg4","arg5","arg6","arg7","arg8","arg9"}},
-    { "hidden",             "echojson",               &echo,                   {"arg0","arg1","arg2","arg3","arg4","arg5","arg6","arg7","arg8","arg9"}},
+    { "hidden",             "setmocktime",               &setmocktime,               {"timestamp"}},
+    { "hidden",             "echo",                      &echo,                      {"arg0","arg1","arg2","arg3","arg4","arg5","arg6","arg7","arg8","arg9"}},
+    { "hidden",             "echojson",                  &echo,                      {"arg0","arg1","arg2","arg3","arg4","arg5","arg6","arg7","arg8","arg9"}},
 };
 // clang-format on
 
