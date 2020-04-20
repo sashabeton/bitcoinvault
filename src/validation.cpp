@@ -5012,7 +5012,10 @@ bool LoadExternalBlockFile(const CChainParams& chainparams, FILE* fileIn, CDiskB
                     while (range.first != range.second) {
                         std::multimap<uint256, CDiskBlockPos>::iterator it = range.first;
                         std::shared_ptr<CBlock> pblockrecursive = std::make_shared<CBlock>();
-                        pblockrecursive->fAlertsSerialization = AreAlertsEnabled(LookupBlockIndex(it->first)->nHeight, chainparams.GetConsensus().AlertsHeight);
+                        {
+                            LOCK(cs_main);
+                            pblockrecursive->fAlertsSerialization = AreAlertsEnabled(LookupBlockIndex(it->first)->nHeight, chainparams.GetConsensus().AlertsHeight);
+                        }
                         if (ReadBlockFromDisk(*pblockrecursive, it->second, chainparams.GetConsensus()))
                         {
                             LogPrint(BCLog::REINDEX, "%s: Processing out of order child %s of %s\n", __func__, pblockrecursive->GetHash().ToString(),
