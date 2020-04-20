@@ -248,9 +248,20 @@ bool TxIndex::WriteBlock(const CBlock& block, const CBlockIndex* pindex)
     // Exclude genesis block transaction because outputs are not spendable.
     if (pindex->nHeight == 0) return true;
 
-    CDiskTxPos pos(pindex->GetBlockPos(), GetSizeOfCompactSize(block.vtx.size()));
+    size_t txSize = block.vtx.size();
+    if (block.fAlertsSerialization)
+        txSize += block.vatx.size();
+
+    CDiskTxPos pos(pindex->GetBlockPos(), GetSizeOfCompactSize(txSize));
     std::vector<std::pair<uint256, CDiskTxPos>> vPos;
-    vPos.reserve(block.vtx.size());
+    vPos.reserve(txSize);
+
+    if (block.fAlertsSerialization)
+        for (const auto& atx : block.vatx) {
+            vPos.emplace_back(atx->GetHash(), pos);
+            pos.nTxOffset += ::GetSerializeSize(*atx, CLIENT_VERSION);
+        }
+
     for (const auto& tx : block.vtx) {
         vPos.emplace_back(tx->GetHash(), pos);
         pos.nTxOffset += ::GetSerializeSize(*tx, CLIENT_VERSION);
@@ -260,7 +271,7 @@ bool TxIndex::WriteBlock(const CBlock& block, const CBlockIndex* pindex)
 
 BaseIndex::DB& TxIndex::GetDB() const { return *m_db; }
 
-bool TxIndex::FindTx(const uint256& tx_hash, uint256& block_hash, CTransactionRef& tx) const
+bool TxIndex::FindTx(const uint256& tx_hash, uint256& block_hash, CBaseTransactionRef& tx) const
 {
     CDiskTxPos postx;
     if (!m_db->ReadTxPos(tx_hash, postx)) {

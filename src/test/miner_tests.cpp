@@ -282,7 +282,7 @@ BOOST_AUTO_TEST_CASE(CreateNewBlock_validity)
                 baseheight = chainActive.Height();
             if (txFirst.size() < 4)
                 txFirst.push_back(pblock->vtx[0]);
-            pblock->hashMerkleRoot = BlockMerkleRoot(*pblock);
+            pblock->hashMerkleRoot = BlockMerkleRoot(pblock->vtx);
             
             // do not rely on the preset nonces in blockinfo, do actual mining (with easier difficulty)
             // pblock->nNonce = blockinfo[i].nonce;
