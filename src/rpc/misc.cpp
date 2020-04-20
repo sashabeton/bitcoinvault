@@ -96,9 +96,9 @@ static UniValue createinstantalertaddress(const JSONRPCRequest& request)
                 },
             RPCExamples{
                     "\nCreate an instant alert address from 3 public keys\n"
-                    + HelpExampleCli("createinstantalertaddress", "\"03789ed0bb717d88f7d321a368d905e7430207ebbd82bd342cf11ae157a7ace5fd\",\"03dbc6764b8884a92e871274b87583e6d5c2a58819473e17e107ef3f6aa5a61626\",\"039d4b4d19413c726b359351273e9d5249b7c184561ff1e920384b04079ae74f36\"") +
+                    + HelpExampleCli("createinstantalertaddress", "\"\\\"03789ed0bb717d88f7d321a368d905e7430207ebbd82bd342cf11ae157a7ace5fd\\\"\" \"\\\"03dbc6764b8884a92e871274b87583e6d5c2a58819473e17e107ef3f6aa5a61626\\\"\" \"\\\"039d4b4d19413c726b359351273e9d5249b7c184561ff1e920384b04079ae74f36\\\"\"") +
                     "\nAs a JSON-RPC call\n"
-                    + HelpExampleRpc("createinstantalertaddress", "\"03789ed0bb717d88f7d321a368d905e7430207ebbd82bd342cf11ae157a7ace5fd\",\"03dbc6764b8884a92e871274b87583e6d5c2a58819473e17e107ef3f6aa5a61626\",\"039d4b4d19413c726b359351273e9d5249b7c184561ff1e920384b04079ae74f36\"")
+                    + HelpExampleRpc("createinstantalertaddress", "\"\\\"03789ed0bb717d88f7d321a368d905e7430207ebbd82bd342cf11ae157a7ace5fd\\\"\", \"\\\"03dbc6764b8884a92e871274b87583e6d5c2a58819473e17e107ef3f6aa5a61626\\\"\", \"\\\"039d4b4d19413c726b359351273e9d5249b7c184561ff1e920384b04079ae74f36\\\"\"")
                 },
             }.ToString();
         throw std::runtime_error(msg);
@@ -170,9 +170,9 @@ static UniValue createalertaddress(const JSONRPCRequest& request)
                 },
                 RPCExamples{
                     "\nCreate an alert address from 2 public keys\n"
-                    + HelpExampleCli("createalertaddress", "\"03789ed0bb717d88f7d321a368d905e7430207ebbd82bd342cf11ae157a7ace5fd\",\"03dbc6764b8884a92e871274b87583e6d5c2a58819473e17e107ef3f6aa5a61626\"") +
+                    + HelpExampleCli("createalertaddress", "\"\\\"03789ed0bb717d88f7d321a368d905e7430207ebbd82bd342cf11ae157a7ace5fd\\\"\" \"\\\"03dbc6764b8884a92e871274b87583e6d5c2a58819473e17e107ef3f6aa5a61626\\\"\"") +
                     "\nAs a JSON-RPC call\n"
-                    + HelpExampleRpc("createalertaddress", "\"03789ed0bb717d88f7d321a368d905e7430207ebbd82bd342cf11ae157a7ace5fd\",\"03dbc6764b8884a92e871274b87583e6d5c2a58819473e17e107ef3f6aa5a61626\"")
+                    + HelpExampleRpc("createalertaddress", "\"\\\"03789ed0bb717d88f7d321a368d905e7430207ebbd82bd342cf11ae157a7ace5fd\\\"\", \"\\\"03dbc6764b8884a92e871274b87583e6d5c2a58819473e17e107ef3f6aa5a61626\\\"\"")
                 },
             }.ToString();
         throw std::runtime_error(msg);

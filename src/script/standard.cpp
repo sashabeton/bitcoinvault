@@ -309,6 +309,24 @@ CScript GetScriptForMultisig(int nRequired, const std::vector<CPubKey>& keys)
     return script;
 }
 
+CScript GetScriptForAlertAddress(const std::vector<CPubKey>& keys, bool instant)
+{
+    CScript script;
+
+    script << OP_IF << OP_1 << OP_ELSE;
+    if (!instant) {
+        script << OP_2;
+    } else {
+        script << OP_IF << OP_2 << OP_ELSE << OP_3 << OP_ENDIF;
+    }
+    script << OP_ENDIF;
+
+    for (const CPubKey& key : keys)
+        script << ToByteVector(key);
+    script << CScript::EncodeOP_N(keys.size()) << OP_CHECKMULTISIG;
+    return script;
+}
+
 CScript GetScriptForWitness(const CScript& redeemscript)
 {
     std::vector<std::vector<unsigned char> > vSolutions;
