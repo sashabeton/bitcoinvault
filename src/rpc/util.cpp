@@ -46,6 +46,10 @@ CPubKey AddrToPubKey(CKeyStore* const keystore, const std::string& addr_in)
     return vchPubKey;
 }
 
+CScript CreateAlertAddressRedeemscript(const std::vector<CPubKey>& pubkeys, bool instant) {
+    return CScript();
+}
+
 // Creates a multisig redeemscript from a given list of public keys and number required.
 CScript CreateMultisigRedeemscript(const int required, const std::vector<CPubKey>& pubkeys)
 {

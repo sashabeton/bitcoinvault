@@ -103,6 +103,49 @@ static UniValue createinstantalertaddress(const JSONRPCRequest& request)
             }.ToString();
         throw std::runtime_error(msg);
     }
+
+    // Get the public keys
+    std::vector<CPubKey> pubkeys;
+
+    auto processPubKey = [&] (const UniValue pubKey) -> bool {
+        if (!IsHex(pubKey.get_str()) || !(pubKey.get_str().length() == 66 || pubKey.get_str().length() == 130)) {
+            return false;
+        }
+
+        pubkeys.push_back(HexToPubKey(pubKey.get_str()));
+        return true;
+    };
+
+    if (!processPubKey(request.params[0])) {
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, strprintf("Invalid alert public key: %s\n.", request.params[0].get_str()));
+    }
+
+    if (!processPubKey(request.params[1])) {
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, strprintf("Invalid instant public key: %s\n.", request.params[1].get_str()));
+    }
+
+    if (!processPubKey(request.params[2])) {
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, strprintf("Invalid recovery public key: %s\n.", request.params[2].get_str()));
+    }
+
+    // Get the output type
+    OutputType output_type = OutputType::LEGACY;
+    if (!request.params[3].isNull()) {
+        if (!ParseOutputType(request.params[3].get_str(), output_type)) {
+            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, strprintf("Unknown address type '%s'", request.params[3].get_str()));
+        }
+    }
+
+    // Construct using pay-to-script-hash:
+    const CScript inner = CreateAlertAddressRedeemscript(pubkeys, true);
+    CBasicKeyStore keystore;
+    const CTxDestination dest = AddAndGetDestinationForScript(keystore, inner, output_type);
+
+    UniValue result(UniValue::VOBJ);
+    result.pushKV("address", EncodeDestination(dest));
+    result.pushKV("redeemScript", HexStr(inner.begin(), inner.end()));
+
+    return result;
 }
 
 
@@ -134,6 +177,45 @@ static UniValue createalertaddress(const JSONRPCRequest& request)
             }.ToString();
         throw std::runtime_error(msg);
     }
+
+    // Get the public keys
+    std::vector<CPubKey> pubkeys;
+
+    auto processPubKey = [&] (const UniValue pubKey) -> bool {
+        if (!IsHex(pubKey.get_str()) || !(pubKey.get_str().length() == 66 || pubKey.get_str().length() == 130)) {
+            return false;
+        }
+
+        pubkeys.push_back(HexToPubKey(pubKey.get_str()));
+        return true;
+    };
+
+    if (!processPubKey(request.params[0])) {
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, strprintf("Invalid alert public key: %s\n.", request.params[0].get_str()));
+    }
+
+    if (!processPubKey(request.params[1])) {
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, strprintf("Invalid recovery public key: %s\n.", request.params[1].get_str()));
+    }
+
+    // Get the output type
+    OutputType output_type = OutputType::LEGACY;
+    if (!request.params[2].isNull()) {
+        if (!ParseOutputType(request.params[2].get_str(), output_type)) {
+            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, strprintf("Unknown address type '%s'", request.params[2].get_str()));
+        }
+    }
+
+    // Construct using pay-to-script-hash:
+    const CScript inner = CreateAlertAddressRedeemscript(pubkeys);
+    CBasicKeyStore keystore;
+    const CTxDestination dest = AddAndGetDestinationForScript(keystore, inner, output_type);
+
+    UniValue result(UniValue::VOBJ);
+    result.pushKV("address", EncodeDestination(dest));
+    result.pushKV("redeemScript", HexStr(inner.begin(), inner.end()));
+
+    return result;
 }
 
 static UniValue createmultisig(const JSONRPCRequest& request)
