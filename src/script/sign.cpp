@@ -141,7 +141,7 @@ static bool SignStep(const SigningProvider& provider, const BaseSignatureCreator
     case TX_ALERTADDRESS: {
         size_t maxSigCount = 2;
         ret.push_back(valtype()); // workaround CHECKMULTISIG bug
-        for (size_t i = 1; i < vSolutions.size() - 1; ++i) {
+        for (size_t i = 0; i < vSolutions.size(); i++) {
             CPubKey pubkey = CPubKey(vSolutions[i]);
             if (ret.size() - 1 < maxSigCount && CreateSig(creator, sigdata, provider, sig, pubkey, scriptPubKey, sigversion)) {
                 ret.push_back(std::move(sig));
@@ -149,7 +149,6 @@ static bool SignStep(const SigningProvider& provider, const BaseSignatureCreator
         }
         if (ret.size() == 1) return false;
         if (ret.size() - 1 == 1) { // one signature -> alert
-            ret.push_back(valtype());
             ret.push_back({static_cast<unsigned char>(OP_TRUE)});
         } else { // two signatures -> recovery
             ret.push_back({static_cast<unsigned char>(OP_FALSE)});
@@ -161,7 +160,7 @@ static bool SignStep(const SigningProvider& provider, const BaseSignatureCreator
     case TX_INSTANTALERTADDRESS: {
         size_t maxSigCount = 3;
         ret.push_back(valtype()); // workaround CHECKMULTISIG bug
-        for (size_t i = 1; i < vSolutions.size() - 1; ++i) {
+        for (size_t i = 0; i < vSolutions.size(); i++) {
             CPubKey pubkey = CPubKey(vSolutions[i]);
             if (ret.size() - 1 < maxSigCount && CreateSig(creator, sigdata, provider, sig, pubkey, scriptPubKey, sigversion)) {
                 ret.push_back(std::move(sig));
@@ -169,7 +168,6 @@ static bool SignStep(const SigningProvider& provider, const BaseSignatureCreator
         }
         if (ret.size() == 1) return false;
         if (ret.size() - 1 == 1) { // one signature -> alert
-            ret.push_back(valtype());
             ret.push_back({static_cast<unsigned char>(OP_TRUE)});
         } else if (ret.size() - 1 == 2) { // two signatures -> instant
             ret.push_back({static_cast<unsigned char>(OP_TRUE)});
