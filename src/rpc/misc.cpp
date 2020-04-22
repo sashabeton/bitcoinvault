@@ -148,7 +148,6 @@ static UniValue createinstantalertaddress(const JSONRPCRequest& request)
     return result;
 }
 
-
 static UniValue createalertaddress(const JSONRPCRequest& request)
 {
     if (request.fHelp || request.params.size() < 2 || request.params.size() > 3)
@@ -207,7 +206,7 @@ static UniValue createalertaddress(const JSONRPCRequest& request)
     }
 
     // Construct using pay-to-script-hash:
-    const CScript inner = CreateAlertAddressRedeemscript(pubkeys);
+    const CScript inner = CreateAlertAddressRedeemscript(pubkeys, false);
     CBasicKeyStore keystore;
     const CTxDestination dest = AddAndGetDestinationForScript(keystore, inner, output_type);
 
