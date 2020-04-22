@@ -69,6 +69,46 @@ static constexpr bool IsSmallInteger(opcodetype opcode)
     return opcode >= OP_1 && opcode <= OP_16;
 }
 
+static bool MatchAlertAddress(const CScript& script, std::vector<valtype>& pubkeys)
+{
+    opcodetype opcode;
+    valtype data;
+    CScript::const_iterator it = script.begin();
+    if (script.size() < 1 || script.back() != OP_CHECKMULTISIG) return false;
+
+    std::vector<opcodetype> expectedFrontOpcodes = {OP_IF, OP_1, OP_ELSE, OP_2, OP_ENDIF};
+    for (opcodetype expectedOpcode : expectedFrontOpcodes) {
+        if (!script.GetOp(it, opcode, data) || opcode != expectedOpcode) return false;
+    }
+    while (script.GetOp(it, opcode, data) && CPubKey::ValidSize(data)) {
+        pubkeys.emplace_back(std::move(data));
+    }
+    if (pubkeys.size() != 2) return false;
+    if (opcode != OP_2) return false;
+    return (it + 1 == script.end());
+}
+
+static bool MatchInstantAlertAddress(const CScript& script, std::vector<valtype>& pubkeys)
+{
+    opcodetype opcode;
+    valtype data;
+    CScript::const_iterator it = script.begin();
+    if (script.size() < 1 || script.back() != OP_CHECKMULTISIG) return false;
+
+    std::vector<opcodetype> expectedFrontOpcodes = {
+            OP_IF, OP_1, OP_ELSE, OP_IF, OP_2, OP_ELSE, OP_3, OP_ENDIF, OP_ENDIF
+    };
+    for (opcodetype expectedOpcode : expectedFrontOpcodes) {
+        if (!script.GetOp(it, opcode, data) || opcode != expectedOpcode) return false;
+    }
+    while (script.GetOp(it, opcode, data) && CPubKey::ValidSize(data)) {
+        pubkeys.emplace_back(std::move(data));
+    }
+    if (pubkeys.size() != 3) return false;
+    if (opcode != OP_3) return false;
+    return (it + 1 == script.end());
+}
+
 static bool MatchMultisig(const CScript& script, unsigned int& required, std::vector<valtype>& pubkeys)
 {
     opcodetype opcode;
@@ -139,8 +179,20 @@ txnouttype Solver(const CScript& scriptPubKey, std::vector<std::vector<unsigned 
         return TX_PUBKEYHASH;
     }
 
-    unsigned int required;
     std::vector<std::vector<unsigned char>> keys;
+    if (MatchAlertAddress(scriptPubKey, keys)) {
+        vSolutionsRet.insert(vSolutionsRet.end(), keys.begin(), keys.end());
+        return TX_ALERTADDRESS;
+    }
+
+    keys.clear();
+    if (MatchInstantAlertAddress(scriptPubKey, keys)) {
+        vSolutionsRet.insert(vSolutionsRet.end(), keys.begin(), keys.end());
+        return TX_INSTANTALERTADDRESS;
+    }
+
+    unsigned int required;
+    keys.clear();
     if (MatchMultisig(scriptPubKey, required, keys)) {
         vSolutionsRet.push_back({static_cast<unsigned char>(required)}); // safe as required is in range 1..16
         vSolutionsRet.insert(vSolutionsRet.end(), keys.begin(), keys.end());
