@@ -662,7 +662,8 @@ static UniValue decodescript(const JSONRPCRequest& request)
             txnouttype which_type = Solver(script, solutions_data);
             // Uncompressed pubkeys cannot be used with segwit checksigs.
             // If the script contains an uncompressed pubkey, skip encoding of a segwit program.
-            if ((which_type == TX_PUBKEY) || (which_type == TX_MULTISIG)) {
+            if ((which_type == TX_PUBKEY) || (which_type == TX_MULTISIG)
+                || (which_type == TX_VAULT_ALERTADDRESS) || (which_type == TX_VAULT_INSTANTADDRESS)) {
                 for (const auto& solution : solutions_data) {
                     if ((solution.size() != 1) && !CPubKey(solution).IsCompressed()) {
                         return r;

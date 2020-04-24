@@ -137,8 +137,6 @@ IsMineResult IsMineInner(const CKeyStore& keystore, const CScript& scriptPubKey,
         break;
     }
 
-    case TX_ALERTADDRESS:
-    case TX_INSTANTALERTADDRESS:
     case TX_MULTISIG:
     {
         // Never treat bare multisig outputs as ours (they can still be made watchonly-though)
@@ -152,6 +150,33 @@ IsMineResult IsMineInner(const CKeyStore& keystore, const CScript& scriptPubKey,
         // them) enable spend-out-from-under-you attacks, especially
         // in shared-wallet situations.
         std::vector<valtype> keys(vSolutions.begin()+1, vSolutions.begin()+vSolutions.size()-1);
+        if (!PermitsUncompressed(sigversion)) {
+            for (size_t i = 0; i < keys.size(); i++) {
+                if (keys[i].size() != 33) {
+                    return IsMineResult::INVALID;
+                }
+            }
+        }
+        if (HaveKeys(keys, keystore)) {
+            ret = std::max(ret, IsMineResult::SPENDABLE);
+        }
+        break;
+    }
+
+    case TX_VAULT_ALERTADDRESS:
+    case TX_VAULT_INSTANTADDRESS:
+    {
+        // Never treat bare multisig outputs as ours (they can still be made watchonly-though)
+        if (sigversion == IsMineSigVersion::TOP) {
+            break;
+        }
+
+        // Only consider transactions "mine" if we own ALL the
+        // keys involved. Multi-signature transactions that are
+        // partially owned (somebody else has a key that can spend
+        // them) enable spend-out-from-under-you attacks, especially
+        // in shared-wallet situations.
+        std::vector<valtype> keys(vSolutions.begin(), vSolutions.begin()+vSolutions.size());
         if (!PermitsUncompressed(sigversion)) {
             for (size_t i = 0; i < keys.size(); i++) {
                 if (keys[i].size() != 33) {

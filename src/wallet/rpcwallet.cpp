@@ -3717,6 +3717,14 @@ public:
                 pubkeys.push_back(HexStr(key.begin(), key.end()));
             }
             obj.pushKV("pubkeys", std::move(pubkeys));
+        } else if (which_type == TX_VAULT_ALERTADDRESS || which_type == TX_VAULT_INSTANTADDRESS) {
+            obj.pushKV("sigsrequired", 1);
+            UniValue pubkeys(UniValue::VARR);
+            for (size_t i = 0; i < solutions_data.size(); i++) {
+                CPubKey key(solutions_data[i].begin(), solutions_data[i].end());
+                pubkeys.push_back(HexStr(key.begin(), key.end()));
+            }
+            obj.pushKV("pubkeys", std::move(pubkeys));
         }
     }
 

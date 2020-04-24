@@ -33,6 +33,8 @@ const char* GetTxnOutputType(txnouttype t)
     case TX_PUBKEYHASH: return "pubkeyhash";
     case TX_SCRIPTHASH: return "scripthash";
     case TX_MULTISIG: return "multisig";
+    case TX_VAULT_ALERTADDRESS: return "vaultalert";
+    case TX_VAULT_INSTANTADDRESS: return "vaultinstant";
     case TX_NULL_DATA: return "nulldata";
     case TX_WITNESS_V0_KEYHASH: return "witness_v0_keyhash";
     case TX_WITNESS_V0_SCRIPTHASH: return "witness_v0_scripthash";
@@ -264,6 +266,22 @@ bool ExtractDestinations(const CScript& scriptPubKey, txnouttype& typeRet, std::
     {
         nRequiredRet = vSolutions.front()[0];
         for (unsigned int i = 1; i < vSolutions.size()-1; i++)
+        {
+            CPubKey pubKey(vSolutions[i]);
+            if (!pubKey.IsValid())
+                continue;
+
+            CTxDestination address = pubKey.GetID();
+            addressRet.push_back(address);
+        }
+
+        if (addressRet.empty())
+            return false;
+    }
+    else if (typeRet == TX_VAULT_ALERTADDRESS || typeRet == TX_VAULT_INSTANTADDRESS)
+    {
+        nRequiredRet = 1;
+        for (unsigned int i = 0; i < vSolutions.size(); i++)
         {
             CPubKey pubKey(vSolutions[i]);
             if (!pubKey.IsValid())
