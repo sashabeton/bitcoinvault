@@ -383,6 +383,22 @@ SignatureData DataFromTransaction(const CMutableTransaction& tx, unsigned int nI
             }
         }
     }
+    if ((script_type == TX_ALERTADDRESS || script_type == TX_INSTANTALERTADDRESS) && !stack.script.empty()) {
+        unsigned int num_pubkeys = solutions.size();
+        unsigned int expected_num_pubkeys = script_type == TX_ALERTADDRESS ? 2 : 3;
+        assert(num_pubkeys == expected_num_pubkeys);
+        unsigned int last_success_key = 0;
+        for (const valtype& sig : stack.script) {
+            for (unsigned int i = last_success_key; i < num_pubkeys; ++i) {
+                const valtype& pubkey = solutions[i];
+                // We either have a signature for this pubkey, or we have found a signature and it is valid
+                if (data.signatures.count(CPubKey(pubkey).GetID()) || extractor_checker.CheckSig(sig, pubkey, next_script, sigversion)) {
+                    last_success_key = i + 1;
+                    break;
+                }
+            }
+        }
+    }
 
     return data;
 }

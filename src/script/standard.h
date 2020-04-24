@@ -69,6 +69,16 @@ enum txnouttype
     TX_INSTANTALERTADDRESS,
 };
 
+enum vaulttxntype
+{
+    TX_INVALID, // invalid vault tx - alert inputs mixed with others
+    TX_NONVAULT, // tx from regular address
+    // valid vault tx types
+    TX_ALERT,
+    TX_INSTANT,
+    TX_RECOVERY,
+};
+
 class CNoDestination {
 public:
     friend bool operator==(const CNoDestination &a, const CNoDestination &b) { return true; }

@@ -17,6 +17,7 @@
 #include <policy/feerate.h>
 #include <protocol.h> // For CMessageHeader::MessageStartChars
 #include <script/script_error.h>
+#include <script/standard.h>
 #include <sync.h>
 #include <undo.h>
 #include <versionbits.h>
@@ -434,6 +435,9 @@ bool GetAncestorBlock(CBlockIndex* pindexPrev, const Consensus::Params& params, 
 
 /** Calculate tx fee. */
 CAmount GetTxFee(const CBaseTransaction& tx, const CCoinsViewCache& inputs);
+
+/** Check what VaultTxType tx has **/
+vaulttxntype GetVaultTxType(const CBaseTransaction& tx, const CCoinsViewCache& view);
 
 /** When there are blocks in the active chain with missing data, rewind the chainstate and remove them from the block index */
 bool RewindBlockIndex(const CChainParams& params);

@@ -46,6 +46,7 @@
 
 #include <boost/algorithm/string/replace.hpp>
 #include <boost/thread.hpp>
+#include <script/sign.h>
 
 #if defined(NDEBUG)
 # error "Bitcoin cannot be compiled without assertions."
@@ -3563,6 +3564,51 @@ CAmount GetTxFee(const CBaseTransaction &tx, const CCoinsViewCache &inputs)
     }
 
     return txfee_aux;
+}
+
+vaulttxntype GetVaultTxType(const CBaseTransaction& tx, const CCoinsViewCache& view)
+{
+    if (tx.IsCoinBase() || tx.vin.empty()) {
+        return TX_NONVAULT;
+    }
+
+    bool hasAlertTxCoin = false;
+    bool hasInstantTxCoin = false;
+    bool hasRecoveryTxCoin = false;
+    bool allAlertTxCoin = true;
+    CMutableTransaction mutableTx = CMutableTransaction(tx);
+    for (unsigned int i = 0; i < mutableTx.vin.size(); i++) {
+        const Coin &coin = view.AccessCoin(mutableTx.vin[i].prevout);
+        std::vector<std::vector<unsigned char>> solutions;
+        txnouttype scriptType = Solver(coin.out.scriptPubKey, solutions);
+        if (scriptType == TX_ALERTADDRESS || scriptType == TX_INSTANTALERTADDRESS) {
+            SignatureData data = DataFromTransaction(mutableTx, i, coin.out);
+            size_t signaturesCount = data.signatures.size();
+            if (signaturesCount == 1) { // is alert
+                hasAlertTxCoin = true;
+            } else if (signaturesCount == 3 || (scriptType == TX_ALERTADDRESS && signaturesCount == 2)) {
+                hasRecoveryTxCoin = true;
+                allAlertTxCoin = false;
+            } else if (scriptType == TX_INSTANTALERTADDRESS && signaturesCount == 2) {
+                hasInstantTxCoin = true;
+                allAlertTxCoin = false;
+            }
+        } else {
+            allAlertTxCoin = false;
+        }
+    }
+
+    if (allAlertTxCoin) {
+        return TX_ALERT;
+    } else if (hasRecoveryTxCoin && !hasAlertTxCoin) {
+        return TX_RECOVERY;
+    } else if (hasInstantTxCoin && !hasAlertTxCoin) {
+        return TX_INSTANT;
+    } else if (hasAlertTxCoin && !allAlertTxCoin) {
+        return TX_INVALID; // invalid vault tx - alert inputs mixed with others
+    }
+
+    return TX_NONVAULT;
 }
 
 // Compute at which vout of the block's coinbase transaction the witness

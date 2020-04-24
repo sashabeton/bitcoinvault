@@ -20,6 +20,7 @@
 #include <pow.h>
 #include <primitives/transaction.h>
 #include <script/standard.h>
+#include <script/sign.h>
 #include <timedata.h>
 #include <util/moneystr.h>
 #include <util/system.h>
@@ -368,6 +369,18 @@ void BlockAssembler::addTxsFromAlerts(const CBlock& ancestorBlock, const Consens
     }
 }
 
+// Method for decide if add transaction as alert or regular transaction
+void BlockAssembler::addTxToBlock(CTxMemPool::txiter& entry, const bool alertsEnabled) {
+    if (alertsEnabled) {
+        CCoinsViewCache view(pcoinsTip.get());
+        vaulttxntype vaultTxType = GetVaultTxType(entry->GetTx(), view);
+        if (vaultTxType == TX_ALERT)
+            return AddAlertTxToBlock(entry);
+    }
+
+    return AddTxToBlock(entry);
+}
+
 // This transaction selection algorithm orders the mempool based
 // on feerate of a transaction including all unconfirmed ancestors.
 // Since we don't remove transactions from the mempool as we select them
@@ -495,17 +508,8 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
         std::vector<CTxMemPool::txiter> sortedEntries;
         SortForBlock(ancestors, sortedEntries);
 
-        // Decide if add transaction to vtx or vatx
-        auto addToBlock = [&] (CTxMemPool::txiter entry) {
-            // TODO-fork: OR (alertsEnabled AND (tx.isRevert OR tx.isRegister)):
-            if (!alertsEnabled) {
-                return AddTxToBlock(entry);
-            }
-            return AddAlertTxToBlock(entry);
-        };
-
         for (size_t i=0; i<sortedEntries.size(); ++i) {
-            addToBlock(sortedEntries[i]);
+            addTxToBlock(sortedEntries[i], alertsEnabled);
             // Erase from the modified set, if present
             mapModifiedTx.erase(sortedEntries[i]);
         }

@@ -178,10 +178,13 @@ private:
     /** Add an alert tx to the block */
     void AddAlertTxToBlock(CTxMemPool::txiter iter);
 
-    // Methods for how to add transactions to a block.
+    // Methods for how to add alerted transactions to a block.
     void addTxsFromAlerts(const CBlock& ancestorBlock, const Consensus::Params& params);
 
-    // Methods for how to add alert transactions to a block.
+    // Method for decide if add transaction as alert or regular transaction
+    void addTxToBlock(CTxMemPool::txiter& entry, const bool alertsEnabled);
+
+    // Methods for how to add transactions to a block.
     /** Add transactions based on feerate including unconfirmed ancestors
       * Increments nPackagesSelected / nDescendantsUpdated with corresponding
       * statistics from the package selection (for logging statistics). */
