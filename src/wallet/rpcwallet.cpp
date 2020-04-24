@@ -208,7 +208,7 @@ static UniValue getnewaddress(const JSONRPCRequest& request)
     return EncodeDestination(dest);
 }
 
-static UniValue getnewalertaddress(const JSONRPCRequest& request)
+static UniValue getnewvaultaddress(const JSONRPCRequest& request)
 {
     std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request);
     CWallet* const pwallet = wallet.get();
@@ -220,7 +220,7 @@ static UniValue getnewalertaddress(const JSONRPCRequest& request)
     if (request.fHelp || request.params.size() < 1 || request.params.size() > 3)
     {
         std::string msg =
-                RPCHelpMan{"getnewalertaddress",
+                RPCHelpMan{"getnewvaultaddress",
                            "\nCreates an alert address which generates recoverable transaction alert when signed with 1 signature of 2 keys.\n"
                            "It returns a json object with the address and redeemScript.\n",
                            {
@@ -236,9 +236,9 @@ static UniValue getnewalertaddress(const JSONRPCRequest& request)
                            },
                            RPCExamples{
                                    "\nCreate an alert address with given recovery key public keys\n"
-                                   + HelpExampleCli("getnewalertaddress",  "\"03dbc6764b8884a92e871274b87583e6d5c2a58819473e17e107ef3f6aa5a61626\"") +
+                                   + HelpExampleCli("getnewvaultaddress",  "\"03dbc6764b8884a92e871274b87583e6d5c2a58819473e17e107ef3f6aa5a61626\"") +
                                    "\nAs a JSON-RPC call\n"
-                                   + HelpExampleRpc("getnewalertaddress", "\"03dbc6764b8884a92e871274b87583e6d5c2a58819473e17e107ef3f6aa5a61626\"")
+                                   + HelpExampleRpc("getnewvaultaddress", "\"03dbc6764b8884a92e871274b87583e6d5c2a58819473e17e107ef3f6aa5a61626\"")
                            },
                 }.ToString();
         throw std::runtime_error(msg);
@@ -4335,7 +4335,7 @@ static const CRPCCommand commands[] =
     { "wallet",             "abortrescan",                      &abortrescan,                   {} },
     { "wallet",             "addmultisigaddress",               &addmultisigaddress,            {"nrequired","keys","label","address_type"} },
     { "wallet",             "addalertaddress",                  &addalertaddress,            {"alert_key","recovery_key","label","address_type"}  },
-    { "wallet",             "getnewalertaddress",               &getnewalertaddress,            {"recovery_key","label","address_type"}  },
+    { "wallet",             "getnewvaultaddress",               &getnewvaultaddress,            {"recovery_key","label","address_type"}  },
     { "wallet",             "backupwallet",                     &backupwallet,                  {"destination"} },
     { "wallet",             "bumpfee",                          &bumpfee,                       {"txid", "options"} },
     { "wallet",             "createwallet",                     &createwallet,                  {"wallet_name", "disable_private_keys", "blank"} },
