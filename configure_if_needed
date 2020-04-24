@@ -4,7 +4,7 @@ readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "${SCRIPT_DIR}" || exit 1
 
 
-if [ ! -f Makefile ]; then
+if [[ ! -f Makefile ]]; then
     echo "Makefile does not exist, generating..."
     ./autogen.sh && \
     ./configure --disable-hardening --enable-debug --without-gui && \
@@ -13,17 +13,17 @@ else
     echo "Makefile exists"
 fi
 
-if [ ! -f compile_commands.json ]; then
+if [[ ! -f compile_commands.json ]]; then
     echo "compile_commands.json does not exist, generating..."
 
-    if [ -d "${HOME}/.pyenv" ]; then
+    if [[ -d "${HOME}/.pyenv" ]]; then
         export PATH="${HOME}/.pyenv/bin:${PATH}"
     fi
-    if [ -x "$(command -v pyenv)" ]; then
+    if [[ -x "$(command -v pyenv)" ]]; then
         eval "$(pyenv init -)"
         eval "$(pyenv virtualenv-init -)"
     fi
-    if [ -x "$(command -v compiledb)" ]; then
+    if [[ -x "$(command -v compiledb)" ]]; then
         compiledb -n make
     else
       python3 -m compiledb -n make || python2 -m compiledb -n make

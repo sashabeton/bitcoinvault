@@ -137,6 +137,8 @@ IsMineResult IsMineInner(const CKeyStore& keystore, const CScript& scriptPubKey,
         break;
     }
 
+    case TX_ALERTADDRESS:
+    case TX_INSTANTALERTADDRESS:
     case TX_MULTISIG:
     {
         // Never treat bare multisig outputs as ours (they can still be made watchonly-though)
