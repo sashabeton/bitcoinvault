@@ -289,7 +289,7 @@ static UniValue getnewalertaddress(const JSONRPCRequest& request)
     pwallet->LearnRelatedScripts(newKey, output_type);
 
     // Construct using pay-to-script-hash:
-    const CScript inner = CreateAlertAddressRedeemscript({newKey, recoveryKey}, false);
+    const CScript inner = CreateVaultAddressRedeemscript({newKey, recoveryKey}, false);
     CTxDestination dest = AddAndGetDestinationForScript(*pwallet, inner, output_type);
     pwallet->SetAddressBook(dest, label, "send");
 
@@ -371,7 +371,7 @@ static UniValue addalertaddress(const JSONRPCRequest& request)
     }
 
     // Construct using pay-to-script-hash:
-    const CScript inner = CreateAlertAddressRedeemscript(pubkeys, false);
+    const CScript inner = CreateVaultAddressRedeemscript(pubkeys, false);
     CTxDestination dest = AddAndGetDestinationForScript(*pwallet, inner, output_type);
     pwallet->SetAddressBook(dest, label, "send");
 

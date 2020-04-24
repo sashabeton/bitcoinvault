@@ -3581,15 +3581,15 @@ vaulttxntype GetVaultTxType(const CBaseTransaction& tx, const CCoinsViewCache& v
         const Coin &coin = view.AccessCoin(mutableTx.vin[i].prevout);
         std::vector<std::vector<unsigned char>> solutions;
         txnouttype scriptType = Solver(coin.out.scriptPubKey, solutions);
-        if (scriptType == TX_ALERTADDRESS || scriptType == TX_INSTANTALERTADDRESS) {
+        if (scriptType == TX_VAULT_ALERTADDRESS || scriptType == TX_VAULT_INSTANTADDRESS) {
             SignatureData data = DataFromTransaction(mutableTx, i, coin.out);
             size_t signaturesCount = data.signatures.size();
             if (signaturesCount == 1) { // is alert
                 hasAlertTxCoin = true;
-            } else if (signaturesCount == 3 || (scriptType == TX_ALERTADDRESS && signaturesCount == 2)) {
+            } else if (signaturesCount == 3 || (scriptType == TX_VAULT_ALERTADDRESS && signaturesCount == 2)) {
                 hasRecoveryTxCoin = true;
                 allAlertTxCoin = false;
-            } else if (scriptType == TX_INSTANTALERTADDRESS && signaturesCount == 2) {
+            } else if (scriptType == TX_VAULT_INSTANTADDRESS && signaturesCount == 2) {
                 hasInstantTxCoin = true;
                 allAlertTxCoin = false;
             }

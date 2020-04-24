@@ -182,13 +182,13 @@ txnouttype Solver(const CScript& scriptPubKey, std::vector<std::vector<unsigned 
     std::vector<std::vector<unsigned char>> keys;
     if (MatchAlertAddress(scriptPubKey, keys)) {
         vSolutionsRet.insert(vSolutionsRet.end(), keys.begin(), keys.end());
-        return TX_ALERTADDRESS;
+        return TX_VAULT_ALERTADDRESS;
     }
 
     keys.clear();
     if (MatchInstantAlertAddress(scriptPubKey, keys)) {
         vSolutionsRet.insert(vSolutionsRet.end(), keys.begin(), keys.end());
-        return TX_INSTANTALERTADDRESS;
+        return TX_VAULT_INSTANTADDRESS;
     }
 
     unsigned int required;
@@ -361,7 +361,7 @@ CScript GetScriptForMultisig(int nRequired, const std::vector<CPubKey>& keys)
     return script;
 }
 
-CScript GetScriptForAlertAddress(const std::vector<CPubKey>& keys, bool instant)
+CScript GetScriptForVaultAddress(const std::vector<CPubKey>& keys, bool instant)
 {
     CScript script;
 

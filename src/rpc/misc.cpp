@@ -74,12 +74,12 @@ static UniValue validateaddress(const JSONRPCRequest& request)
     return ret;
 }
 
-static UniValue createinstantalertaddress(const JSONRPCRequest& request)
+static UniValue createvaultinstantaddress(const JSONRPCRequest& request)
 {
     if (request.fHelp || request.params.size() < 3 || request.params.size() > 4)
     {
         std::string msg =
-            RPCHelpMan{"createinstantalertaddress",
+            RPCHelpMan{"createvaultinstantaddress",
                 "\nCreates an instant/alert address which generates: recoverable transaction alert when signed with 1 signature of 3 keys and instant transaction when signed with 2 signatures of 3 keys.\n"
                 "It returns a json object with the address and redeemScript.\n",
                 {
@@ -96,9 +96,9 @@ static UniValue createinstantalertaddress(const JSONRPCRequest& request)
                 },
             RPCExamples{
                     "\nCreate an instant alert address from 3 public keys\n"
-                    + HelpExampleCli("createinstantalertaddress", "\"\\\"03789ed0bb717d88f7d321a368d905e7430207ebbd82bd342cf11ae157a7ace5fd\\\"\" \"\\\"03dbc6764b8884a92e871274b87583e6d5c2a58819473e17e107ef3f6aa5a61626\\\"\" \"\\\"039d4b4d19413c726b359351273e9d5249b7c184561ff1e920384b04079ae74f36\\\"\"") +
+                    + HelpExampleCli("createvaultinstantaddress", "\"\\\"03789ed0bb717d88f7d321a368d905e7430207ebbd82bd342cf11ae157a7ace5fd\\\"\" \"\\\"03dbc6764b8884a92e871274b87583e6d5c2a58819473e17e107ef3f6aa5a61626\\\"\" \"\\\"039d4b4d19413c726b359351273e9d5249b7c184561ff1e920384b04079ae74f36\\\"\"") +
                     "\nAs a JSON-RPC call\n"
-                    + HelpExampleRpc("createinstantalertaddress", "\"\\\"03789ed0bb717d88f7d321a368d905e7430207ebbd82bd342cf11ae157a7ace5fd\\\"\", \"\\\"03dbc6764b8884a92e871274b87583e6d5c2a58819473e17e107ef3f6aa5a61626\\\"\", \"\\\"039d4b4d19413c726b359351273e9d5249b7c184561ff1e920384b04079ae74f36\\\"\"")
+                    + HelpExampleRpc("createvaultinstantaddress", "\"\\\"03789ed0bb717d88f7d321a368d905e7430207ebbd82bd342cf11ae157a7ace5fd\\\"\", \"\\\"03dbc6764b8884a92e871274b87583e6d5c2a58819473e17e107ef3f6aa5a61626\\\"\", \"\\\"039d4b4d19413c726b359351273e9d5249b7c184561ff1e920384b04079ae74f36\\\"\"")
                 },
             }.ToString();
         throw std::runtime_error(msg);
@@ -137,7 +137,7 @@ static UniValue createinstantalertaddress(const JSONRPCRequest& request)
     }
 
     // Construct using pay-to-script-hash:
-    const CScript inner = CreateAlertAddressRedeemscript(pubkeys, true);
+    const CScript inner = CreateVaultAddressRedeemscript(pubkeys, true);
     CBasicKeyStore keystore;
     const CTxDestination dest = AddAndGetDestinationForScript(keystore, inner, output_type);
 
@@ -148,13 +148,13 @@ static UniValue createinstantalertaddress(const JSONRPCRequest& request)
     return result;
 }
 
-static UniValue createalertaddress(const JSONRPCRequest& request)
+static UniValue createvaultalertaddress(const JSONRPCRequest& request)
 {
     if (request.fHelp || request.params.size() < 2 || request.params.size() > 3)
     {
         std::string msg =
-            RPCHelpMan{"createalertaddress",
-                "\nCreates an alert address which generates recoverable transaction alert when signed with 1 signature of 2 keys.\n"
+            RPCHelpMan{"createvaultalertaddress",
+                "\nCreates a vault address which generates recoverable transaction alert when signed with 1 signature of 2 keys.\n"
                 "It returns a json object with the address and redeemScript.\n",
                 {
                     {"alert_key", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The hex-encoded public key used to generates transaction alerts"},
@@ -169,9 +169,9 @@ static UniValue createalertaddress(const JSONRPCRequest& request)
                 },
                 RPCExamples{
                     "\nCreate an alert address from 2 public keys\n"
-                    + HelpExampleCli("createalertaddress", "\"\\\"03789ed0bb717d88f7d321a368d905e7430207ebbd82bd342cf11ae157a7ace5fd\\\"\" \"\\\"03dbc6764b8884a92e871274b87583e6d5c2a58819473e17e107ef3f6aa5a61626\\\"\"") +
+                    + HelpExampleCli("createvaultalertaddress", "\"\\\"03789ed0bb717d88f7d321a368d905e7430207ebbd82bd342cf11ae157a7ace5fd\\\"\" \"\\\"03dbc6764b8884a92e871274b87583e6d5c2a58819473e17e107ef3f6aa5a61626\\\"\"") +
                     "\nAs a JSON-RPC call\n"
-                    + HelpExampleRpc("createalertaddress", "\"\\\"03789ed0bb717d88f7d321a368d905e7430207ebbd82bd342cf11ae157a7ace5fd\\\"\", \"\\\"03dbc6764b8884a92e871274b87583e6d5c2a58819473e17e107ef3f6aa5a61626\\\"\"")
+                    + HelpExampleRpc("createvaultalertaddress", "\"\\\"03789ed0bb717d88f7d321a368d905e7430207ebbd82bd342cf11ae157a7ace5fd\\\"\", \"\\\"03dbc6764b8884a92e871274b87583e6d5c2a58819473e17e107ef3f6aa5a61626\\\"\"")
                 },
             }.ToString();
         throw std::runtime_error(msg);
@@ -206,7 +206,7 @@ static UniValue createalertaddress(const JSONRPCRequest& request)
     }
 
     // Construct using pay-to-script-hash:
-    const CScript inner = CreateAlertAddressRedeemscript(pubkeys, false);
+    const CScript inner = CreateVaultAddressRedeemscript(pubkeys, false);
     CBasicKeyStore keystore;
     const CTxDestination dest = AddAndGetDestinationForScript(keystore, inner, output_type);
 
@@ -742,8 +742,8 @@ static const CRPCCommand commands[] =
     { "control",            "logging",                   &logging,                   {"include", "exclude"}},
     { "util",               "validateaddress",           &validateaddress,           {"address"} },
     { "util",               "createmultisig",            &createmultisig,            {"nrequired","keys","address_type"} },
-    { "util",               "createalertaddress",        &createalertaddress,        {"alert_key","recovery_key","address_type"} },
-    { "util",               "createinstantalertaddress", &createinstantalertaddress, {"alert_key","instant_key","recovery_key","address_type"} },
+    { "util",               "createvaultalertaddress",   &createvaultalertaddress,   {"alert_key","recovery_key","address_type"} },
+    { "util",               "createvaultinstantaddress", &createvaultinstantaddress, {"alert_key","instant_key","recovery_key","address_type"} },
     { "util",               "deriveaddresses",           &deriveaddresses,           {"descriptor", "range"} },
     { "util",               "getdescriptorinfo",         &getdescriptorinfo,         {"descriptor"} },
     { "util",               "verifymessage",             &verifymessage,             {"address","signature","message"} },

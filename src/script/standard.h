@@ -65,8 +65,8 @@ enum txnouttype
     TX_WITNESS_V0_SCRIPTHASH,
     TX_WITNESS_V0_KEYHASH,
     TX_WITNESS_UNKNOWN, //!< Only for Witness versions not already defined above
-    TX_ALERTADDRESS,
-    TX_INSTANTALERTADDRESS,
+    TX_VAULT_ALERTADDRESS,
+    TX_VAULT_INSTANTADDRESS,
 };
 
 enum vaulttxntype
@@ -188,7 +188,7 @@ CScript GetScriptForRawPubKey(const CPubKey& pubkey);
 CScript GetScriptForMultisig(int nRequired, const std::vector<CPubKey>& keys);
 
 /** Generate an alert address script. */
-CScript GetScriptForAlertAddress(const std::vector<CPubKey>& keys, bool instant = false);
+CScript GetScriptForVaultAddress(const std::vector<CPubKey>& keys, bool instant = false);
 
 /**
  * Generate a pay-to-witness script for the given redeem script. If the redeem
