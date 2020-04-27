@@ -181,9 +181,6 @@ private:
     // Methods for how to add alerted transactions to a block.
     void addTxsFromAlerts(const CBlock& ancestorBlock, const Consensus::Params& params);
 
-    // Method for decide if add transaction as alert or regular transaction
-    void addTxToBlock(CTxMemPool::txiter& entry, const bool alertsEnabled);
-
     // Methods for how to add transactions to a block.
     /** Add transactions based on feerate including unconfirmed ancestors
       * Increments nPackagesSelected / nDescendantsUpdated with corresponding

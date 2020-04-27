@@ -124,6 +124,7 @@ void BaseIndex::ThreadSync()
             }
 
             CBlock block;
+            block.fAlertsSerialization = AreAlertsEnabled(pindex->nHeight, consensus_params.AlertsHeight);
             if (!ReadBlockFromDisk(block, pindex, consensus_params)) {
                 FatalError("%s: Failed to read block %s from disk",
                            __func__, pindex->GetBlockHash().ToString());

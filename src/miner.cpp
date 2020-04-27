@@ -144,27 +144,24 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     int nDescendantsUpdated = 0;
 
     bool fAlertsEnabled = AreAlertsEnabled(nHeight, chainparams.GetConsensus().AlertsHeight);
+    bool fAlertsInitialized = nHeight - chainparams.GetConsensus().AlertsHeight
+                              >= (int) chainparams.GetConsensus().nAlertsInitializationWindow;
 
     addPackageTxs(nPackagesSelected, nDescendantsUpdated, fAlertsEnabled);
 
     CScript ancestorScriptPubKey;
-    if (fAlertsEnabled) {
-        bool fAlertsInitialized = nHeight - chainparams.GetConsensus().AlertsHeight
-                                  >= (int) chainparams.GetConsensus().nAlertsInitializationWindow;
+    if (fAlertsEnabled && fAlertsInitialized) {
+        CBlock ancestorBlock;
+        if(!GetAncestorBlock(pindexPrev, chainparams.GetConsensus(), ancestorBlock)) {
+            assert(!"CreateNewBlock(): cannot get ancestor block");
+        }
+        addTxsFromAlerts(ancestorBlock, chainparams.GetConsensus());
 
-        if(fAlertsInitialized) {
-            CBlock ancestorBlock;
-            if(!GetAncestorBlock(pindexPrev, chainparams.GetConsensus(), ancestorBlock)) {
-                assert(!"CreateNewBlock(): cannot get ancestor block");
-            }
-            addTxsFromAlerts(ancestorBlock, chainparams.GetConsensus());
-
-            ancestorScriptPubKey = ancestorBlock.vtx[0]->vout[0].scriptPubKey;
-            // If the current miner is the same as original one then merge fee outputs
-            if (ancestorScriptPubKey == scriptPubKeyIn) {
-                nFees += nAncestorAlertsFees;
-                nAncestorAlertsFees = 0;
-            }
+        ancestorScriptPubKey = ancestorBlock.vtx[0]->vout[0].scriptPubKey;
+        // If the current miner is the same as original one then merge fee outputs
+        if (ancestorScriptPubKey == scriptPubKeyIn) {
+            nFees += nAncestorAlertsFees;
+            nAncestorAlertsFees = 0;
         }
     }
 
@@ -369,18 +366,6 @@ void BlockAssembler::addTxsFromAlerts(const CBlock& ancestorBlock, const Consens
     }
 }
 
-// Method for decide if add transaction as alert or regular transaction
-void BlockAssembler::addTxToBlock(CTxMemPool::txiter& entry, const bool alertsEnabled) {
-    if (alertsEnabled) {
-        CCoinsViewCache view(pcoinsTip.get());
-        vaulttxntype vaultTxType = GetVaultTxType(entry->GetTx(), view);
-        if (vaultTxType == TX_ALERT)
-            return AddAlertTxToBlock(entry);
-    }
-
-    return AddTxToBlock(entry);
-}
-
 // This transaction selection algorithm orders the mempool based
 // on feerate of a transaction including all unconfirmed ancestors.
 // Since we don't remove transactions from the mempool as we select them
@@ -508,8 +493,20 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
         std::vector<CTxMemPool::txiter> sortedEntries;
         SortForBlock(ancestors, sortedEntries);
 
+        CCoinsViewCache view(pcoinsTip.get());
+        // Decide if add transaction as alert or regular transaction
+        auto addToBlock = [&] (CTxMemPool::txiter entry) {
+            if (alertsEnabled) {
+                vaulttxntype vaultTxType = GetVaultTxType(entry->GetTx(), view);
+                if (vaultTxType == TX_ALERT)
+                    return AddAlertTxToBlock(entry);
+            }
+
+            return AddTxToBlock(entry);
+        };
+
         for (size_t i=0; i<sortedEntries.size(); ++i) {
-            addTxToBlock(sortedEntries[i], alertsEnabled);
+            addToBlock(sortedEntries[i]);
             // Erase from the modified set, if present
             mapModifiedTx.erase(sortedEntries[i]);
         }
