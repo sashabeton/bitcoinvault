@@ -55,6 +55,15 @@ bool HaveKeys(const std::vector<valtype>& pubkeys, const CKeyStore& keystore)
     return true;
 }
 
+bool HaveAtLeastOneKey(const std::vector<valtype>& pubkeys, const CKeyStore& keystore)
+{
+    for (const valtype& pubkey : pubkeys) {
+        CKeyID keyID = CPubKey(pubkey).GetID();
+        if (keystore.HaveKey(keyID)) return true;
+    }
+    return false;
+}
+
 IsMineResult IsMineInner(const CKeyStore& keystore, const CScript& scriptPubKey, IsMineSigVersion sigversion)
 {
     IsMineResult ret = IsMineResult::NO;
@@ -171,12 +180,7 @@ IsMineResult IsMineInner(const CKeyStore& keystore, const CScript& scriptPubKey,
             break;
         }
 
-        // Only consider transactions "mine" if we own ALL the
-        // keys involved. Multi-signature transactions that are
-        // partially owned (somebody else has a key that can spend
-        // them) enable spend-out-from-under-you attacks, especially
-        // in shared-wallet situations.
-        std::vector<valtype> keys(vSolutions.begin(), vSolutions.begin()+vSolutions.size());
+        std::vector<valtype> keys(vSolutions.begin(), vSolutions.end());
         if (!PermitsUncompressed(sigversion)) {
             for (size_t i = 0; i < keys.size(); i++) {
                 if (keys[i].size() != 33) {
@@ -184,7 +188,7 @@ IsMineResult IsMineInner(const CKeyStore& keystore, const CScript& scriptPubKey,
                 }
             }
         }
-        if (HaveKeys(keys, keystore)) {
+        if (HaveAtLeastOneKey(keys, keystore)) {
             ret = std::max(ret, IsMineResult::SPENDABLE);
         }
         break;
