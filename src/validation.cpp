@@ -2116,7 +2116,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         // * legacy (always)
         // * p2sh (when P2SH enabled in flags and excludes coinbase)
         // * witness (when witness enabled in flags and excludes coinbase)
-        nSigOpsCost += GetTransactionSigOpCost(tx, view, flags);
+        nSigOpsCost += GetTransactionSigOpCost(tx, view, flags, vaultTxType == TX_ALERT);
         if (nSigOpsCost > MAX_BLOCK_SIGOPS_COST)
             return state.DoS(100, error("ConnectBlock(): too many sigops"),
                              REJECT_INVALID, "bad-blk-sigops");
@@ -3359,7 +3359,7 @@ bool CheckBlock(const CBlock& block, CValidationState& state, const Consensus::P
 
     // Check transactions
     for (const auto &tx : block.vtx)
-        if (GetVaultTxType(*tx, view) != TX_ALERT) {
+        if (GetVaultTxType(*tx, pcoinsTip.get()) != TX_ALERT) {
             if (!CheckTransaction(*tx, state, true))
                 return state.Invalid(false, state.GetRejectCode(), state.GetRejectReason(),
                                      strprintf("Transaction check failed (tx hash %s) %s", tx->GetHash().ToString(),
@@ -3493,8 +3493,13 @@ vaulttxntype GetVaultTxType(const CBaseTransaction& tx, const CCoinsViewCache& v
     bool allAlertTxCoin = true;
     for (unsigned int i = 0; i < mutableTx.vin.size(); i++) {
         const Coin &coin = view.AccessCoin(mutableTx.vin[i].prevout);
-        std::vector<std::vector<unsigned char>> solutions;
-        txnouttype scriptType = Solver(coin.out.scriptPubKey, solutions);
+
+        SignatureData data;
+        data.scriptSig = mutableTx.vin[i].scriptSig;
+        data.scriptWitness = mutableTx.vin[i].scriptWitness;
+        Stacks stack(data);
+        txnouttype scriptType = ExtractDataFromIncompleteScript(data, stack, BaseSignatureChecker(), coin.out);
+
         if (scriptType == TX_VAULT_ALERTADDRESS || scriptType == TX_VAULT_INSTANTADDRESS) {
             SignatureData data = DataFromTransaction(mutableTx, i, coin.out);
             size_t signaturesCount = data.signatures.size();

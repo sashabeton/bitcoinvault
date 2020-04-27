@@ -493,10 +493,10 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
         std::vector<CTxMemPool::txiter> sortedEntries;
         SortForBlock(ancestors, sortedEntries);
 
-        CCoinsViewCache view(pcoinsTip.get());
         // Decide if add transaction as alert or regular transaction
         auto addToBlock = [&] (CTxMemPool::txiter entry) {
             if (alertsEnabled) {
+                CCoinsViewCache view(pcoinsTip.get());
                 vaulttxntype vaultTxType = GetVaultTxType(entry->GetTx(), view);
                 if (vaultTxType == TX_ALERT)
                     return AddAlertTxToBlock(entry);

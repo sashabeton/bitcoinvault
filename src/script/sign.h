@@ -10,6 +10,7 @@
 #include <hash.h>
 #include <pubkey.h>
 #include <script/interpreter.h>
+#include <script/standard.h>
 #include <streams.h>
 
 class CKey;
@@ -141,6 +142,21 @@ struct SignatureData {
     void MergeSignatureData(SignatureData sigdata);
 };
 
+typedef std::vector<unsigned char> valtype;
+
+struct Stacks
+{
+    std::vector<valtype> script;
+    std::vector<valtype> witness;
+
+    Stacks() = delete;
+    Stacks(const Stacks&) = delete;
+    explicit Stacks(const SignatureData& data) : witness(data.scriptWitness.stack) {
+        EvalScript(script, data.scriptSig, SCRIPT_VERIFY_STRICTENC, BaseSignatureChecker(), SigVersion::BASE);
+    }
+};
+
+
 // Takes a stream and multiple arguments and serializes them as if first serialized into a vector and then into the stream
 // The resulting output into the stream has the total serialized length of all of the objects followed by all objects concatenated with each other.
 template<typename Stream, typename... X>
@@ -223,6 +239,7 @@ bool SignSignature(const SigningProvider &provider, const CScript& fromPubKey, C
 bool SignSignature(const SigningProvider &provider, const CTransaction& txFrom, CMutableTransaction& txTo, unsigned int nIn, int nHashType);
 
 /** Extract signature data from a transaction input, and insert it. */
+txnouttype ExtractDataFromIncompleteScript(SignatureData& data, Stacks& stack, const BaseSignatureChecker& checker, const CTxOut& txout);
 SignatureData DataFromTransaction(const CMutableTransaction& tx, unsigned int nIn, const CTxOut& txout);
 void UpdateInput(CTxIn& input, const SignatureData& data);
 

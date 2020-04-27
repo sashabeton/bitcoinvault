@@ -306,38 +306,8 @@ bool SignatureExtractorChecker::CheckSig(const std::vector<unsigned char>& scrip
     return false;
 }
 
-namespace
-{
-struct Stacks
-{
-    std::vector<valtype> script;
-    std::vector<valtype> witness;
-
-    Stacks() = delete;
-    Stacks(const Stacks&) = delete;
-    explicit Stacks(const SignatureData& data) : witness(data.scriptWitness.stack) {
-        EvalScript(script, data.scriptSig, SCRIPT_VERIFY_STRICTENC, BaseSignatureChecker(), SigVersion::BASE);
-    }
-};
-}
-
 // Extracts signatures and scripts from incomplete scriptSigs. Please do not extend this, use PSBT instead
-SignatureData DataFromTransaction(const CMutableTransaction& tx, unsigned int nIn, const CTxOut& txout)
-{
-    SignatureData data;
-    assert(tx.vin.size() > nIn);
-    data.scriptSig = tx.vin[nIn].scriptSig;
-    data.scriptWitness = tx.vin[nIn].scriptWitness;
-    Stacks stack(data);
-
-    // Get signatures
-    MutableTransactionSignatureChecker tx_checker(&tx, nIn, txout.nValue);
-    SignatureExtractorChecker extractor_checker(data, tx_checker);
-    if (VerifyScript(data.scriptSig, txout.scriptPubKey, &data.scriptWitness, STANDARD_SCRIPT_VERIFY_FLAGS, extractor_checker)) {
-        data.complete = true;
-        return data;
-    }
-
+txnouttype ExtractDataFromIncompleteScript(SignatureData& data, Stacks& stack, const BaseSignatureChecker& checker, const CTxOut& txout) {
     // Get scripts
     std::vector<std::vector<unsigned char>> solutions;
     txnouttype script_type = Solver(txout.scriptPubKey, solutions);
@@ -376,7 +346,7 @@ SignatureData DataFromTransaction(const CMutableTransaction& tx, unsigned int nI
             for (unsigned int i = last_success_key; i < num_pubkeys; ++i) {
                 const valtype& pubkey = solutions[i+1];
                 // We either have a signature for this pubkey, or we have found a signature and it is valid
-                if (data.signatures.count(CPubKey(pubkey).GetID()) || extractor_checker.CheckSig(sig, pubkey, next_script, sigversion)) {
+                if (data.signatures.count(CPubKey(pubkey).GetID()) || checker.CheckSig(sig, pubkey, next_script, sigversion)) {
                     last_success_key = i + 1;
                     break;
                 }
@@ -392,13 +362,35 @@ SignatureData DataFromTransaction(const CMutableTransaction& tx, unsigned int nI
             for (unsigned int i = last_success_key; i < num_pubkeys; ++i) {
                 const valtype& pubkey = solutions[i];
                 // We either have a signature for this pubkey, or we have found a signature and it is valid
-                if (data.signatures.count(CPubKey(pubkey).GetID()) || extractor_checker.CheckSig(sig, pubkey, next_script, sigversion)) {
+                if (data.signatures.count(CPubKey(pubkey).GetID()) || checker.CheckSig(sig, pubkey, next_script, sigversion)) {
                     last_success_key = i + 1;
                     break;
                 }
             }
         }
     }
+
+    return script_type;
+}
+
+// Extracts signatures and scripts from incomplete scriptSigs. Please do not extend this, use PSBT instead
+SignatureData DataFromTransaction(const CMutableTransaction& tx, unsigned int nIn, const CTxOut& txout)
+{
+    SignatureData data;
+    assert(tx.vin.size() > nIn);
+    data.scriptSig = tx.vin[nIn].scriptSig;
+    data.scriptWitness = tx.vin[nIn].scriptWitness;
+    Stacks stack(data);
+
+    // Get signatures
+    MutableTransactionSignatureChecker tx_checker(&tx, nIn, txout.nValue);
+    SignatureExtractorChecker extractor_checker(data, tx_checker);
+    if (VerifyScript(data.scriptSig, txout.scriptPubKey, &data.scriptWitness, STANDARD_SCRIPT_VERIFY_FLAGS, extractor_checker)) {
+        data.complete = true;
+        return data;
+    }
+
+    ExtractDataFromIncompleteScript(data, stack, extractor_checker, txout);
 
     return data;
 }
