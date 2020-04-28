@@ -3493,22 +3493,20 @@ vaulttxntype GetVaultTxType(const CBaseTransaction& tx, const CCoinsViewCache& v
     bool allAlertTxCoin = true;
     for (unsigned int i = 0; i < mutableTx.vin.size(); i++) {
         const Coin &coin = view.AccessCoin(mutableTx.vin[i].prevout);
-
         SignatureData data;
         data.scriptSig = mutableTx.vin[i].scriptSig;
         data.scriptWitness = mutableTx.vin[i].scriptWitness;
         Stacks stack(data);
         txnouttype scriptType = ExtractDataFromIncompleteScript(data, stack, BaseSignatureChecker(), coin.out);
-
         if (scriptType == TX_VAULT_ALERTADDRESS || scriptType == TX_VAULT_INSTANTADDRESS) {
-            SignatureData data = DataFromTransaction(mutableTx, i, coin.out);
+            data = DataFromTransaction(mutableTx, i, coin.out);
             size_t signaturesCount = data.signatures.size();
             if (signaturesCount == 1) { // is alert
                 hasAlertTxCoin = true;
-            } else if (signaturesCount == 3 || (scriptType == TX_VAULT_ALERTADDRESS && signaturesCount == 2)) {
+            } else if (signaturesCount == 3 || (scriptType == TX_VAULT_ALERTADDRESS && signaturesCount == 2)) { // is recovery
                 hasRecoveryTxCoin = true;
                 allAlertTxCoin = false;
-            } else if (scriptType == TX_VAULT_INSTANTADDRESS && signaturesCount == 2) {
+            } else if (scriptType == TX_VAULT_INSTANTADDRESS && signaturesCount == 2) { // is instant
                 hasInstantTxCoin = true;
                 allAlertTxCoin = false;
             }
