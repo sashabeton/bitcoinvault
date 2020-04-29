@@ -202,8 +202,13 @@ EXTENDED_SCRIPTS = [
     'feature_dbcrash.py',
 ]
 
+# Tests concerning new Bitcoin Vault features
+VAULT_SCRIPTS = [
+    'feature_alerts.py'
+]
+
 # Place EXTENDED_SCRIPTS first since it has the 3 longest running tests
-ALL_SCRIPTS = EXTENDED_SCRIPTS + BASE_SCRIPTS
+ALL_SCRIPTS = EXTENDED_SCRIPTS + BASE_SCRIPTS + VAULT_SCRIPTS
 
 NON_SCRIPTS = [
     # These are python files that live in the functional tests directory, but are not test scripts.
