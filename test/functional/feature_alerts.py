@@ -89,6 +89,10 @@ class AlertsTest(BitcoinTestFramework):
         self.log.info("Test atx becomes tx after 144 blocks")
         self.test_atx_becomes_tx()
 
+        self.reset_blockchain()
+        self.log.info("Test atx fee is paid to original miner")
+        self.test_atx_fee_is_paid_to_original_miner()
+
     def test_tx_from_normal_addr_to_alert_addr(self):
         alert_addr1 = self.nodes[1].getnewvaultaddress(self.alert_recovery_pubkey)
 
@@ -228,6 +232,32 @@ class AlertsTest(BitcoinTestFramework):
         self.sync_all()
         assert self.nodes[0].get_best_block() == self.nodes[1].get_best_block()
         assert txsent['txid'] in self.nodes[0].get_best_block()['atx']
+
+    def test_atx_fee_is_paid_to_original_miner(self):
+        mine_addr = self.nodes[0].getnewaddress()
+        mine_addr2 = self.nodes[0].getnewaddress()
+        alert_addr1 = self.nodes[1].getnewvaultaddress(self.alert_recovery_pubkey)
+
+        # mine coins and send 10 to alert address
+        self.nodes[0].generatetoaddress(200, mine_addr)
+        amount = 10
+        self.nodes[0].sendtoaddress(alert_addr1['address'], amount)
+        self.nodes[0].generatetoaddress(1, mine_addr)
+
+        # send coins back as with tx alert and confirm it
+        self.sync_all()
+        assert self.nodes[1].getbalance() == amount
+        txid = self.nodes[1].sendtoaddress(mine_addr, amount - 1)
+        tx = self.nodes[1].getrawtransaction(txid, 1)
+        fee = amount - tx['vout'][0]['value'] - tx['vout'][1]['value']
+        self.nodes[1].generatetoaddress(1, mine_addr2)  # mine to separate address
+        self.nodes[1].generatetoaddress(144, mine_addr)
+
+        # assert
+        self.sync_all()
+        coinbase_id = self.nodes[1].get_best_block()['tx'][0]
+        coinbase = self.nodes[1].getrawtransaction(coinbase_id, 1)
+        assert coinbase['vout'][1]['value'] == fee
 
 
 if __name__ == '__main__':
