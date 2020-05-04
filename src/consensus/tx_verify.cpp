@@ -118,7 +118,7 @@ unsigned int GetLegacySigOpCount(const CBaseTransaction& tx)
     return nSigOps;
 }
 
-unsigned int GetP2SHSigOpCount(const CBaseTransaction& tx, const CCoinsViewCache& inputs, bool acceptSpent)
+unsigned int GetP2SHSigOpCount(const CBaseTransaction& tx, const CCoinsViewCache& inputs, bool expectSpent)
 {
     if (tx.IsCoinBase())
         return 0;
@@ -127,7 +127,9 @@ unsigned int GetP2SHSigOpCount(const CBaseTransaction& tx, const CCoinsViewCache
     for (unsigned int i = 0; i < tx.vin.size(); i++)
     {
         const Coin& coin = inputs.AccessCoin(tx.vin[i].prevout);
-        acceptSpent ? assert(!coin.IsConfirmed()) : assert(!coin.IsSpent());
+        if (expectSpent)
+            assert(coin.IsSpent());
+        assert(!coin.IsConfirmed());
         const CTxOut &prevout = coin.out;
         if (prevout.scriptPubKey.IsPayToScriptHash())
             nSigOps += prevout.scriptPubKey.GetSigOpCount(tx.vin[i].scriptSig);
@@ -135,7 +137,7 @@ unsigned int GetP2SHSigOpCount(const CBaseTransaction& tx, const CCoinsViewCache
     return nSigOps;
 }
 
-int64_t GetTransactionSigOpCost(const CBaseTransaction& tx, const CCoinsViewCache& inputs, int flags, bool acceptSpent)
+int64_t GetTransactionSigOpCost(const CBaseTransaction& tx, const CCoinsViewCache& inputs, int flags, bool expectSpent)
 {
     int64_t nSigOps = GetLegacySigOpCount(tx) * WITNESS_SCALE_FACTOR;
 
@@ -143,13 +145,15 @@ int64_t GetTransactionSigOpCost(const CBaseTransaction& tx, const CCoinsViewCach
         return nSigOps;
 
     if (flags & SCRIPT_VERIFY_P2SH) {
-        nSigOps += GetP2SHSigOpCount(tx, inputs, acceptSpent) * WITNESS_SCALE_FACTOR;
+        nSigOps += GetP2SHSigOpCount(tx, inputs, expectSpent) * WITNESS_SCALE_FACTOR;
     }
 
     for (unsigned int i = 0; i < tx.vin.size(); i++)
     {
         const Coin& coin = inputs.AccessCoin(tx.vin[i].prevout);
-        acceptSpent ? assert(!coin.IsConfirmed()) : assert(!coin.IsSpent());
+        if (expectSpent)
+            assert(coin.IsSpent());
+        assert(!coin.IsConfirmed());
         const CTxOut &prevout = coin.out;
         nSigOps += CountWitnessSigOps(tx.vin[i].scriptSig, prevout.scriptPubKey, &tx.vin[i].scriptWitness, flags);
     }
@@ -207,7 +211,7 @@ bool CheckTransaction(const CBaseTransaction& tx, CValidationState &state, bool 
     return true;
 }
 
-bool Consensus::CheckTxInputs(const CBaseTransaction& tx, CValidationState& state, const CCoinsViewCache& inputs, int nSpendHeight, CAmount& txfee, bool acceptSpent)
+bool Consensus::CheckTxInputs(const CBaseTransaction& tx, CValidationState& state, const CCoinsViewCache& inputs, int nSpendHeight, CAmount& txfee, bool expectSpent)
 {
     // are the actual inputs available?
     if (!inputs.HaveInputs(tx)) {
@@ -219,7 +223,9 @@ bool Consensus::CheckTxInputs(const CBaseTransaction& tx, CValidationState& stat
     for (unsigned int i = 0; i < tx.vin.size(); ++i) {
         const COutPoint &prevout = tx.vin[i].prevout;
         const Coin& coin = inputs.AccessCoin(prevout);
-        acceptSpent ? assert(!coin.IsConfirmed()) : assert(!coin.IsSpent());
+        if (expectSpent)
+            assert(coin.IsSpent());
+        assert(!coin.IsConfirmed());
 
         // If prev is coinbase, check that it's matured
         if (coin.IsCoinBase() && nSpendHeight - coin.nHeight < COINBASE_MATURITY) {
