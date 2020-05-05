@@ -1,4 +1,4 @@
-from bitcoinrpc.authproxy import AuthServiceProxy, HTTP_TIMEOUT, JSONRPCException
+from authproxy import AuthServiceProxy, HTTP_TIMEOUT, JSONRPCException
 
 
 class RPCProxyWrapper(AuthServiceProxy):
@@ -11,9 +11,6 @@ class RPCProxyWrapper(AuthServiceProxy):
         self.rpcuser = rpcuser
         self.rpcpass = rpcpass
 
-        self.init()
-
-    def init(self):
         super().__init__(f"http://{self.rpcuser}:{self.rpcpass}@127.0.0.1:{self.rpcport}", self.service_name, self.timeout, self.connection)
 
     @classmethod
@@ -35,28 +32,18 @@ class RPCProxyWrapper(AuthServiceProxy):
         os.mkdir(self.datadir)
 
     def listreceivedbyaddress(self):
-        return super().__getattr__('listreceivedbyaddress')(1, True)
+        return self.__getattr__('listreceivedbyaddress')(1, True)
 
     def getblockbyheight(self, height):
-        hash = super().__getattr__('getblockhash')(height)
-        return super().__getattr__('getblock')(hash)
+        hash = self.__getattr__('getblockhash')(height)
+        return self.__getattr__('getblock')(hash)
 
     def getbestblock(self):
-        hash = super().__getattr__('getbestblockhash')()
-        return super().__getattr__('getblock')(hash)
+        hash = self.__getattr__('getbestblockhash')()
+        return self.__getattr__('getblock')(hash)
 
     def getrawtransaction(self, txhash):
-        return super().__getattr__('getrawtransaction')(txhash, True)
-
-    def getnewvaultaddress(self, recovery_pubkey):
-        try:
-            return super().__getattr__('getnewvaultaddress')(recovery_pubkey)
-        except JSONRPCException as e:
-            if e.code == -32601:  # method not found
-                return super().__getattr__('getnewalertaddress')(recovery_pubkey)
-
-    def getnewalertaddress(self, recovery_pubkey):
-        return self.getnewvaultaddress(recovery_pubkey)
+        return self.__getattr__('getrawtransaction')(txhash, True)
 
 
 def print_json(*args, **kwargs):
@@ -78,9 +65,7 @@ def find_address(listreceivedbyaddress, address):
     raise RuntimeError('address not found')
 
 
-def wait_for_bvaultd_and_init(proxy_wrappers):
+def wait_for_bvaultd(num_instances):
     import psutil
-    num = len(proxy_wrappers)
-    input(f'Start {num} bvaultd daemons and input anything to continue...')
-    if [p.name() for p in psutil.process_iter()].count('bvaultd') != num: raise RuntimeError('looks like bvaultd is still running')
-    for pw in proxy_wrappers: pw.init()
+    input(f'Start {num_instances} bvaultd daemons and input anything to continue...')
+    if [p.name() for p in psutil.process_iter()].count('bvaultd') != num_instances: raise RuntimeError('looks like bvaultd is still running')

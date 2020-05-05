@@ -113,7 +113,7 @@ def test_synchronization_when_restart():
 
     # restart nodes
     RPCProxyWrapper.killall()
-    wait_for_bvaultd_and_init([rpc_connection1, rpc_connection2])
+    wait_for_bvaultd(2)
 
     # assert
     time.sleep(5)
@@ -133,7 +133,7 @@ def test_synchronization_when_reset():
     # reset 1st node
     RPCProxyWrapper.killall()
     rpc_connection1.reset()
-    wait_for_bvaultd_and_init([rpc_connection1, rpc_connection2])
+    wait_for_bvaultd(2)
 
     # assert
     time.sleep(5)
@@ -144,7 +144,7 @@ if __name__ == '__main__':
     RPCProxyWrapper.killall()
     rpc_connection1.reset()
     rpc_connection2.reset()
-    wait_for_bvaultd_and_init([rpc_connection1, rpc_connection2])
+    wait_for_bvaultd(2)
 
     # construct_atx_from_utxo()
     # atx_from_alert_addr_to_normal_addr()
