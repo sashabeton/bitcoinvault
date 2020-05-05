@@ -299,6 +299,103 @@ static UniValue getnewvaultaddress(const JSONRPCRequest& request)
     return result;
 }
 
+static UniValue getnewvaultinstantaddress(const JSONRPCRequest& request)
+{
+    std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request);
+    CWallet* const pwallet = wallet.get();
+
+    if (!EnsureWalletIsAvailable(pwallet, request.fHelp)) {
+        return NullUniValue;
+    }
+
+    if (request.fHelp || request.params.size() < 1 || request.params.size() > 3)
+    {
+        std::string msg =
+                RPCHelpMan{"getnewvaultinstantaddress",
+                           "\nCreates an instant/alert address which generates: recoverable transaction alert when signed with 1 signature of 3 keys and instant transaction when signed with 2 signatures of 3 keys.\n"
+                           "It returns a json object with the address and redeemScript.\n",
+                           {
+                                   {"instant_key", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The hex-encoded public key used to generates instant transaction"},
+                                   {"recovery_key", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The hex-encoded public key used to recover transaction alerts"},
+                                   {"label", RPCArg::Type::STR, RPCArg::Optional::OMITTED_NAMED_ARG, "A label to assign the addresses to."},
+                                   {"address_type", RPCArg::Type::STR, /* default */ "legacy", "The address type to use. Options are \"legacy\", \"p2sh-segwit\", and \"bech32\"."},
+                           },
+                           RPCResult{
+                                   "{\n"
+                                   "  \"address\":\"alertaddress\",  (string) The value of the new instant/alert address.\n"
+                                   "  \"redeemScript\":\"script\"    (string) The string value of the hex-encoded redemption script.\n"
+                                   "}\n"
+                           },
+                           RPCExamples{
+                                   "\nCreate an instant alert address from 3 public keys\n"
+                                   + HelpExampleCli("getnewvaultinstantaddress", "\"\\\"03789ed0bb717d88f7d321a368d905e7430207ebbd82bd342cf11ae157a7ace5fd\\\"\" \"\\\"039d4b4d19413c726b359351273e9d5249b7c184561ff1e920384b04079ae74f36\\\"\"") +
+                                   "\nAs a JSON-RPC call\n"
+                                   + HelpExampleRpc("getnewvaultinstantaddress", "\"\\\"03789ed0bb717d88f7d321a368d905e7430207ebbd82bd342cf11ae157a7ace5fd\\\"\", \"\\\"039d4b4d19413c726b359351273e9d5249b7c184561ff1e920384b04079ae74f36\\\"\"")
+                           },
+                }.ToString();
+        throw std::runtime_error(msg);
+    }
+
+    auto locked_chain = pwallet->chain().lock();
+    LOCK(pwallet->cs_wallet);
+
+    std::string label;
+    if (!request.params[2].isNull())
+        label = LabelFromValue(request.params[2]);
+
+    // Get the recovery key
+    auto processPubKey = [&] (const UniValue pubKey) -> bool {
+        if (!IsHex(pubKey.get_str()) || !(pubKey.get_str().length() == 66 || pubKey.get_str().length() == 130)) {
+            return false;
+        }
+
+        return true;
+    };
+
+    if (!processPubKey(request.params[0])) {
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, strprintf("Invalid instant public key: %s\n.", request.params[0].get_str()));
+    }
+
+    if (!processPubKey(request.params[1])) {
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, strprintf("Invalid recovery public key: %s\n.", request.params[1].get_str()));
+    }
+
+    CPubKey instantKey = HexToPubKey(request.params[0].get_str());
+    CPubKey recoveryKey = HexToPubKey(request.params[1].get_str());
+
+    OutputType output_type = pwallet->m_default_address_type;
+    if (!request.params[3].isNull()) {
+        if (!ParseOutputType(request.params[3].get_str(), output_type)) {
+            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, strprintf("Unknown address type '%s'", request.params[3].get_str()));
+        }
+    }
+
+    if (!pwallet->CanGetAddresses()) {
+        throw JSONRPCError(RPC_WALLET_ERROR, "Error: This wallet has no available keys");
+    }
+
+    if (!pwallet->IsLocked()) {
+        pwallet->TopUpKeyPool();
+    }
+
+    // Generate a new key that is added to wallet
+    CPubKey newKey;
+    if (!pwallet->GetKeyFromPool(newKey)) {
+        throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, "Error: Keypool ran out, please call keypoolrefill first");
+    }
+    pwallet->LearnRelatedScripts(newKey, output_type);
+
+    // Construct using pay-to-script-hash:
+    const CScript inner = CreateVaultAddressRedeemscript({newKey, instantKey, recoveryKey}, true);
+    CTxDestination dest = AddAndGetDestinationForScript(*pwallet, inner, output_type);
+    pwallet->SetAddressBook(dest, label, "send");
+
+    UniValue result(UniValue::VOBJ);
+    result.pushKV("address", EncodeDestination(dest));
+    result.pushKV("redeemScript", HexStr(inner.begin(), inner.end()));
+    return result;
+}
+
 static UniValue addalertaddress(const JSONRPCRequest& request)
 {
     std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request);
@@ -4336,6 +4433,7 @@ static const CRPCCommand commands[] =
     { "wallet",             "addmultisigaddress",               &addmultisigaddress,            {"nrequired","keys","label","address_type"} },
     { "wallet",             "addalertaddress",                  &addalertaddress,            {"alert_key","recovery_key","label","address_type"}  },
     { "wallet",             "getnewvaultaddress",               &getnewvaultaddress,            {"recovery_key","label","address_type"}  },
+    { "wallet",             "getnewvaultinstantaddress",               &getnewvaultinstantaddress,            {"instant_key","recovery_key","label","address_type"}  },
     { "wallet",             "backupwallet",                     &backupwallet,                  {"destination"} },
     { "wallet",             "bumpfee",                          &bumpfee,                       {"txid", "options"} },
     { "wallet",             "createwallet",                     &createwallet,                  {"wallet_name", "disable_private_keys", "blank"} },
