@@ -4410,6 +4410,103 @@ UniValue walletcreatefundedpsbt(const JSONRPCRequest& request)
     return result;
 }
 
+static UniValue createrecoverytransaction(const JSONRPCRequest& request)
+{
+    std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request);
+    CWallet* const pwallet = wallet.get();
+
+    if (!EnsureWalletIsAvailable(pwallet, request.fHelp)) {
+        return NullUniValue;
+    }
+
+    if (request.fHelp || request.params.size() < 2 || request.params.size() > 4) {
+        throw std::runtime_error(
+                RPCHelpMan{"createrecoverytransaction",
+                           "\nCreate a transaction recovering given alert id and creating new outputs.\n"
+                           "Outputs can be addresses or data.\n"
+                           "Returns hex-encoded raw transaction.\n"
+                           "Note that the transaction's inputs are not signed, and\n"
+                           "it is not stored in the wallet or transmitted to the network.\n",
+                           {
+                                   {"atxid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The transaction id"},
+                                   {"outputs", RPCArg::Type::ARR, RPCArg::Optional::NO, "a json array with outputs (key-value pairs), where none of the keys are duplicated.\n"
+                                                                                        "That is, each address can only appear once and there can only be one 'data' object.\n"
+                                                                                        "For compatibility reasons, a dictionary, which holds the key-value pairs directly, is also\n"
+                                                                                        "                             accepted as second parameter.",
+                                    {
+                                            {"", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
+                                             {
+                                                     {"address", RPCArg::Type::AMOUNT, RPCArg::Optional::NO, "A key-value pair. The key (string) is the bitcoin address, the value (float or string) is the amount in " + CURRENCY_UNIT},
+                                             },
+                                            },
+                                            {"", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
+                                             {
+                                                     {"data", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "A key-value pair. The key must be \"data\", the value is hex-encoded data"},
+                                             },
+                                            },
+                                    },
+                                   },
+                                   {"locktime", RPCArg::Type::NUM, /* default */ "0", "Raw locktime. Non-0 value also locktime-activates inputs"},
+                                   {"replaceable", RPCArg::Type::BOOL, /* default */ "false", "Marks this transaction as BIP125-replaceable.\n"
+                                                                                              "                             Allows this transaction to be replaced by a transaction with higher fees. If provided, it is an error if explicit sequence numbers are incompatible."},
+                           },
+                           RPCResult{
+                                   "\"transaction\"              (string) hex string of the transaction\n"
+                           },
+                           RPCExamples{
+                                   HelpExampleCli("createrecoverytransaction", "\"\\\"myid\\\"\" \"[{\\\"address\\\":0.01}]\"")
+                                   + HelpExampleCli("createrecoverytransaction", "\"\\\"myid\\\"\" \"[{\\\"data\\\":\\\"00010203\\\"}]\"")
+                                   + HelpExampleRpc("createrecoverytransaction", "\"\\\"myid\\\"\", \"[{\\\"address\\\":0.01}]\"")
+                                   + HelpExampleRpc("createrecoverytransaction", "\"\\\"myid\\\"\", \"[{\\\"data\\\":\\\"00010203\\\"}]\"")
+                           },
+                }.ToString());
+    }
+
+    RPCTypeCheck(request.params, {
+                         UniValue::VSTR,
+                         UniValueType(), // ARR or OBJ, checked later
+                         UniValue::VNUM,
+                         UniValue::VBOOL
+                 }, true
+    );
+
+    // Make sure the results are valid at least up to the most recent block
+    // the user could have gotten from another RPC command prior to now
+    pwallet->BlockUntilSyncedToCurrentChain();
+
+    auto locked_chain = pwallet->chain().lock();
+    LOCK(pwallet->cs_wallet);
+
+    uint256 hash(ParseHashV(request.params[0], "atxid"));
+    isminefilter filter = ISMINE_SPENDABLE;
+    auto it = pwallet->mapWallet.find(hash);
+    if (it == pwallet->mapWallet.end()) {
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid or non-wallet transaction id");
+    }
+    const CWalletTx& wtx = it->second;
+    std::string wtxHex = EncodeHexTx(*wtx.tx, RPCSerializationFlags());
+
+    CMutableTransaction mtx;
+    bool try_witness = true;
+    bool try_no_witness = true;
+    if (!DecodeHexTx(mtx, wtxHex, try_no_witness, try_witness)) {
+        throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "TX decode failed");
+    }
+
+    UniValue inputsToRecover(UniValue::VARR);
+    for (unsigned int i = 0; i < mtx.vin.size(); i++) {
+        const CTxIn &txin = mtx.vin[i];
+        UniValue in(UniValue::VOBJ);
+        in.pushKV("txid", txin.prevout.hash.GetHex());
+        in.pushKV("vout", (int64_t)txin.prevout.n);
+        inputsToRecover.push_back(in);
+    }
+
+    volatile auto a = 42;
+    CMutableTransaction recoveryTx = ConstructTransaction(inputsToRecover, request.params[1], request.params[2], request.params[3]);
+    return EncodeHexTx(CTransaction(recoveryTx));
+}
+
 UniValue abortrescan(const JSONRPCRequest& request); // in rpcdump.cpp
 UniValue dumpprivkey(const JSONRPCRequest& request); // in rpcdump.cpp
 UniValue importprivkey(const JSONRPCRequest& request);
@@ -4448,6 +4545,7 @@ static const CRPCCommand commands[] =
     { "wallet",             "getreceivedbyaddress",             &getreceivedbyaddress,          {"address","minconf"} },
     { "wallet",             "getreceivedbylabel",               &getreceivedbylabel,            {"label","minconf"} },
     { "wallet",             "gettransaction",                   &gettransaction,                {"txid","include_watchonly"} },
+    { "wallet",    "createrecoverytransaction",         &createrecoverytransaction,      {"atxid","outputs","locktime","replaceable"} },
     { "wallet",             "getunconfirmedbalance",            &getunconfirmedbalance,         {} },
     { "wallet",             "getwalletinfo",                    &getwalletinfo,                 {} },
     { "wallet",             "importaddress",                    &importaddress,                 {"address","label","rescan","p2sh"} },
