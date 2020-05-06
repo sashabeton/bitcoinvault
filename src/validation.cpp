@@ -1336,11 +1336,11 @@ void CChainState::InvalidBlockFound(CBlockIndex *pindex, const CValidationState 
     }
 }
 
-void SpendInputsCoins(const CBaseTransaction& tx, CCoinsViewCache& inputs) {
+void SpendInputsCoins(const CBaseTransaction& tx, CCoinsViewCache& inputs, int nHeight) {
     // TODO-fork: Check if txUndo can be created
     if (!tx.IsCoinBase()) {
         for (const CTxIn &txin : tx.vin) {
-            bool is_spent = inputs.SpendCoin(txin.prevout);
+            bool is_spent = inputs.SpendCoin(txin.prevout, nHeight);
             assert(is_spent);
         }
     }
@@ -2199,7 +2199,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                              atx.GetHash().ToString(), FormatStateMessage(state));
             control.Add(vChecks);
 
-            SpendInputsCoins(atx, view);
+            SpendInputsCoins(atx, view, pindex->nHeight);
             return true;
         };
 
@@ -4551,7 +4551,7 @@ bool CChainState::RollforwardBlock(const CBlockIndex* pindex, CCoinsViewCache& i
 
     for (const CAlertTransactionRef& atx : block.vatx) {
         for (const CTxIn &txin : atx->vin) {
-            inputs.SpendCoin(txin.prevout);
+            inputs.SpendCoin(txin.prevout, pindex->nHeight);
         }
     }
     for (const CTransactionRef& tx : block.vtx) {
