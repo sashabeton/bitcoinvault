@@ -3356,30 +3356,76 @@ bool CheckBlock(const CBlock& block, CValidationState& state, const Consensus::P
 
     // Check transactions
     for (const auto &tx : block.vtx)
-        if (GetVaultTxType(*tx, pcoinsTip.get()) != TX_ALERT) {
-            if (!CheckTransaction(*tx, state, true))
-                return state.Invalid(false, state.GetRejectCode(), state.GetRejectReason(),
-                                     strprintf("Transaction check failed (tx hash %s) %s", tx->GetHash().ToString(),
-                                               state.GetDebugMessage()));
+        if (!CheckTransaction(*tx, state, true))
+            return state.Invalid(false, state.GetRejectCode(), state.GetRejectReason(),
+                                 strprintf("Transaction check failed (tx hash %s) %s", tx->GetHash().ToString(),
+                                           state.GetDebugMessage()));
+
+    if (fAlertsEnabled && fAlertsInitialized) {
+        if (pindexPrev != nullptr) {
+            CBlock ancestorBlock;
+            CBlockIndex *ancestorIndex = pindexPrev->GetAncestor(nHeight - consensusParams.nAlertsInitializationWindow);
+            if (!ReadBlockFromDisk(ancestorBlock, ancestorIndex, consensusParams)) {
+                assert(!"CheckBlock(): cannot load block from disk");
+            }
+
+            for (const auto &tx : block.vtx)
+                if (fCheckVaultTxType && GetVaultTxType(*tx, view) == TX_ALERT) {
+                    auto compareHashes = [&](const CAlertTransactionRef &atx) -> bool {
+                        return atx->GetHash() == tx->GetHash();
+                    };
+                    if (std::find_if(ancestorBlock.vatx.begin(), ancestorBlock.vatx.end(), compareHashes) ==
+                        ancestorBlock.vatx.end())
+                        return state.Invalid(false, state.GetRejectCode(), state.GetRejectReason(),
+                                             strprintf("Transaction check failed (tx hash %s) %s",
+                                                       tx->GetHash().ToString(),
+                                                       state.GetDebugMessage()));
+                }
         }
 
-    if (fAlertsEnabled && fAlertsInitialized && pindexPrev != nullptr) {
-        CBlock ancestorBlock;
-        CBlockIndex* ancestorIndex = pindexPrev->GetAncestor(nHeight - consensusParams.nAlertsInitializationWindow);
-        if (!ReadBlockFromDisk(ancestorBlock, ancestorIndex, consensusParams)) {
-            assert(!"CheckBlock(): cannot load block from disk");
-        }
+        for (const auto &tx : block.vtx)
+            if (fCheckVaultTxType) {
+                vaulttxntype vaultTxType = GetVaultTxType(*tx, view);
+                if (vaultTxType == TX_RECOVERY) {
+                    // check if all inputs are spent on same height
+                    auto spentHeightNotEqual = [&](const CTxIn &lhVin, const CTxIn &rhVin) -> bool {
+                        const Coin &lhCoin = view.AccessCoin(lhVin.prevout);
+                        const Coin &rhCoin = view.AccessCoin(rhVin.prevout);
+                        return lhCoin.nSpentHeight != rhCoin.nSpentHeight;
+                    };
+                    if (std::adjacent_find(tx->vin.begin(), tx->vin.end(), spentHeightNotEqual) != tx->vin.end())
+                        return state.Invalid(false, state.GetRejectCode(), state.GetRejectReason(),
+                                             strprintf("Revert transaction check failed (tx hash %s) %s",
+                                                       tx->GetHash().ToString(),
+                                                       state.GetDebugMessage()));
 
-        for (const auto& tx : block.vtx)
-            if (fCheckVaultTxType && GetVaultTxType(*tx, view) == TX_ALERT) {
-                auto compareHashes = [&](const CAlertTransactionRef &atx) -> bool {
-                    return atx->GetHash() == tx->GetHash();
-                };
-                if (std::find_if(ancestorBlock.vatx.begin(), ancestorBlock.vatx.end(), compareHashes) ==
-                    ancestorBlock.vatx.end())
-                    return state.Invalid(false, state.GetRejectCode(), state.GetRejectReason(),
-                                         strprintf("Transaction check failed (tx hash %s) %s", tx->GetHash().ToString(),
-                                                   state.GetDebugMessage()));
+                    // find related atx and check if revert tx has exaclty the same inputs
+                    const Coin &coin = view.AccessCoin(tx->vin[0].prevout);
+                    CBlock ancestorBlock;
+                    CBlockIndex *ancestorIndex = pindexPrev->GetAncestor(coin.nSpentHeight);
+                    if (!ReadBlockFromDisk(ancestorBlock, ancestorIndex, consensusParams)) {
+                        assert(!"CheckBlock(): cannot load block from disk");
+                    }
+                    auto hasExactlySameInputs = [&](const CAlertTransactionRef &atx) -> bool {
+                        if (atx->vin.size() != tx->vin.size())
+                            return false;
+                        for (size_t i = 0; i < atx->vin.size(); i++) {
+                            auto compareInputs = [&](const CTxIn &vin) -> bool {
+                                return atx->vin[i].prevout.hash == vin.prevout.hash
+                                       && atx->vin[i].prevout.n == vin.prevout.n;
+                            };
+                            if (std::find_if(tx->vin.begin(), tx->vin.end(), compareInputs) == tx->vin.end())
+                                return false;
+                        }
+                        return true;
+                    };
+                    if (std::find_if(ancestorBlock.vatx.begin(), ancestorBlock.vatx.end(), hasExactlySameInputs) ==
+                        ancestorBlock.vatx.end())
+                        return state.Invalid(false, state.GetRejectCode(), state.GetRejectReason(),
+                                             strprintf("Revert transaction check failed (tx hash %s) %s",
+                                                       tx->GetHash().ToString(),
+                                                       state.GetDebugMessage()));
+                }
             }
     }
 
