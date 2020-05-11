@@ -1,4 +1,5 @@
 from authproxy import AuthServiceProxy, HTTP_TIMEOUT, JSONRPCException
+from pathlib import Path
 
 
 class RPCProxyWrapper(AuthServiceProxy):
@@ -28,6 +29,7 @@ class RPCProxyWrapper(AuthServiceProxy):
         import os
         import shutil
 
+        if not self.datadir: raise RuntimeError('datadir not set')
         if os.path.exists(self.datadir): shutil.rmtree(self.datadir)
         os.mkdir(self.datadir)
 
@@ -44,6 +46,26 @@ class RPCProxyWrapper(AuthServiceProxy):
 
     def getrawtransaction(self, txhash):
         return self.__getattr__('getrawtransaction')(txhash, True)
+
+    def send(self, addr, amount):
+        return self.__getattr__('sendtoaddress')(addr, amount)
+
+    def gen(self, amount, addr):
+        return self.__getattr__('generatetoaddress')(amount, addr)
+
+    def get_script_pubkey(self, txid, vout_n):
+        txhex = self.gettransaction(txid)['hex']
+        tx = self.decoderawtransaction(txhex)
+        return tx['vout'][vout_n]['scriptPubKey']
+
+
+class __test_key:
+    def __init__(self, pub, priv):
+        self.pub = pub
+        self.priv = priv
+
+
+TEST_KEYS = [__test_key("02ecec100acb89f3049285ae01e7f03fb469e6b54d44b0f3c8240b1958e893cb8c", "cRfYLWua6WcpGbxuv5rJgA2eDESWxqgzmQjKQuqDFMfgbnEpqhrP")]
 
 
 def print_json(*args, **kwargs):
