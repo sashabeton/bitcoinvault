@@ -3387,7 +3387,7 @@ bool CheckBlock(const CBlock& block, CValidationState& state, const Consensus::P
             if (fCheckVaultTxType) {
                 vaulttxntype vaultTxType = GetVaultTxType(*tx, view);
                 if (vaultTxType == TX_RECOVERY) {
-                    // check if all inputs are spent on same height
+                    // check if all inputs are spent at the same height
                     auto spentHeightNotEqual = [&](const CTxIn &lhVin, const CTxIn &rhVin) -> bool {
                         const Coin &lhCoin = view.AccessCoin(lhVin.prevout);
                         const Coin &rhCoin = view.AccessCoin(rhVin.prevout);
@@ -3534,6 +3534,7 @@ vaulttxntype GetVaultTxType(const CBaseTransaction& tx, const CCoinsViewCache& v
     bool hasInstantTxCoin = false;
     bool hasRecoveryTxCoin = false;
     bool allAlertTxCoin = true;
+    CScript alertsScriptSig;
     for (unsigned int i = 0; i < mutableTx.vin.size(); i++) {
         const Coin &coin = view.AccessCoin(mutableTx.vin[i].prevout);
         SignatureData data;
@@ -3546,6 +3547,10 @@ vaulttxntype GetVaultTxType(const CBaseTransaction& tx, const CCoinsViewCache& v
             size_t signaturesCount = data.signatures.size();
             if (signaturesCount == 1) { // is alert
                 hasAlertTxCoin = true;
+                // check if all inputs have the same source
+                if (i == 0) alertsScriptSig = data.scriptSig;
+                else if (alertsScriptSig != data.scriptSig)
+                    return TX_INVALID;
             } else if (signaturesCount == 3 || (scriptType == TX_VAULT_ALERTADDRESS && signaturesCount == 2)) { // is recovery
                 hasRecoveryTxCoin = true;
                 allAlertTxCoin = false;
