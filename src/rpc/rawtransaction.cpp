@@ -791,7 +791,7 @@ static UniValue combinerawtransaction(const JSONRPCRequest& request)
     return EncodeHexTx(CTransaction(mergedTx));
 }
 
-UniValue SignTransaction(interfaces::Chain& chain, CMutableTransaction& mtx, const UniValue& prevTxsUnival, CBasicKeyStore *keystore, bool is_temp_keystore, const UniValue& hashType)
+UniValue SignTransaction(interfaces::Chain& chain, CMutableTransaction& mtx, const UniValue& prevTxsUnival, CBasicKeyStore *keystore, bool is_temp_keystore, const UniValue& hashType, bool expectSpent)
 {
     // Fetch previous transactions (inputs):
     CCoinsView viewDummy;
@@ -898,10 +898,15 @@ UniValue SignTransaction(interfaces::Chain& chain, CMutableTransaction& mtx, con
     for (unsigned int i = 0; i < mtx.vin.size(); i++) {
         CTxIn& txin = mtx.vin[i];
         const Coin& coin = view.AccessCoin(txin.prevout);
-        if (coin.IsSpent()) {
+        if (!expectSpent && coin.IsSpent()) {
             TxInErrorToJSON(txin, vErrors, "Input not found or already spent");
             continue;
         }
+        if (coin.IsConfirmed()) {
+            TxInErrorToJSON(txin, vErrors, "Input not found or already spent and confirmed");
+            continue;
+        }
+
         const CScript& prevPubKey = coin.out.scriptPubKey;
         const CAmount& amount = coin.out.nValue;
 
