@@ -69,6 +69,8 @@ TEST_KEYS = [__test_key("02ecec100acb89f3049285ae01e7f03fb469e6b54d44b0f3c8240b1
 
 COINBASE_MATURITY = 100
 COINBASE_AMOUNT = 175
+conn = conn1 = RPCProxyWrapper(rpcport=18887, rpcuser='user', rpcpass='pass', datadir=Path.home() / '.bvault1')
+conn2 = RPCProxyWrapper(rpcport=18888, rpcuser='user', rpcpass='pass', datadir=Path.home() / '.bvault2')
 
 
 def print_json(*args, **kwargs):
