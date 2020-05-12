@@ -188,14 +188,9 @@ def test_recover_transaction():
     assert atx_to_recover['hash'] in rpc_connection1.getbestblock()['atx']
 
     # recover tx
-    recovery_data = [{'txid': vin['txid'],
-                      'vout': vin['vout'],
-                      'scriptPubKey': rpc_connection1.get_script_pubkey(vin['txid'], vin['vout'])['hex'],
-                      'redeemScript': alert_addr['redeemScript']} for vin in atx_to_recover['vin']]
     amount_to_recover = sum([vout['value'] for vout in atx_to_recover['vout']])
-
     recovery_tx = rpc_connection1.createrecoverytransaction(atx_to_recover['hash'], {other_addr: amount_to_recover})
-    recovery_tx = rpc_connection1.signrecoverytransaction(recovery_tx, [TEST_KEYS[0].priv], recovery_data)
+    recovery_tx = rpc_connection1.signrecoverytransaction(recovery_tx, [TEST_KEYS[0].priv], alert_addr['redeemScript'])
     recovery_txid = rpc_connection1.sendrawtransaction(recovery_tx['hex'])
     rpc_connection1.generatetoaddress(1, alert_addr['address'])
 
@@ -240,15 +235,11 @@ def test_recovery_balance():
     assert atx_to_recover['hash'] in rpc_connection1.getbestblock()['atx']
 
     # recover atx
-    recovery_data = [{'txid': vin['txid'],
-                      'vout': vin['vout'],
-                      'scriptPubKey': rpc_connection1.get_script_pubkey(vin['txid'], vin['vout'])['hex'],
-                      'redeemScript': alert_addr['redeemScript']} for vin in atx_to_recover['vin']]
     amount_to_recover = sum([vout['value'] for vout in atx_to_recover['vout']])
     atx_fee2 = COINBASE_AMOUNT - amount_to_recover
     assert atx_fee == atx_fee2
     recovery_tx = rpc_connection1.createrecoverytransaction(atx_to_recover['hash'], {other_addr: amount_to_recover})
-    recovery_tx = rpc_connection1.signrecoverytransaction(recovery_tx, [TEST_KEYS[0].priv], recovery_data)
+    recovery_tx = rpc_connection1.signrecoverytransaction(recovery_tx, [TEST_KEYS[0].priv], alert_addr['redeemScript'])
     recovery_txid = rpc_connection1.sendrawtransaction(recovery_tx['hex'])
     rpc_connection1.generatetoaddress(1, addr_to_mine)  # 202
 

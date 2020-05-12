@@ -369,15 +369,11 @@ class AlertsTest(BitcoinTestFramework):
         assert atx_to_recover['hash'] in self.nodes[0].getbestblock()['atx']
 
         # recover atx
-        recovery_data = [{'txid': vin['txid'],
-                          'vout': vin['vout'],
-                          'scriptPubKey': self.nodes[0].get_script_pubkey(vin['txid'], vin['vout'])['hex'],
-                          'redeemScript': alert_addr0['redeemScript']} for vin in atx_to_recover['vin']]
         amount_to_recover = sum([vout['value'] for vout in atx_to_recover['vout']])
         assert atx_fee == self.COINBASE_AMOUNT - amount_to_recover
 
         recovery_tx = self.nodes[0].createrecoverytransaction(atx_to_recover['hash'], {other_addr0: amount_to_recover})
-        recovery_tx = self.nodes[0].signrecoverytransaction(recovery_tx, [self.alert_recovery_privkey], recovery_data)
+        recovery_tx = self.nodes[0].signrecoverytransaction(recovery_tx, [self.alert_recovery_privkey], alert_addr0['redeemScript'])
         recovery_txid = self.nodes[0].sendrawtransaction(recovery_tx['hex'])
         self.nodes[0].generatetoaddress(1, alert_addr0['address'])  # 202
 
