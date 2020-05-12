@@ -239,7 +239,7 @@ def test_recovery_balance():
     assert rpc_connection2.getbalance() == 0
     assert atx_to_recover['hash'] in rpc_connection1.getbestblock()['atx']
 
-    # recover tx
+    # recover atx
     recovery_data = [{'txid': vin['txid'],
                       'vout': vin['vout'],
                       'scriptPubKey': rpc_connection1.get_script_pubkey(vin['txid'], vin['vout'])['hex'],

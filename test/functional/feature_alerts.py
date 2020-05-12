@@ -64,6 +64,8 @@ class AlertsTest(BitcoinTestFramework):
     def run_test(self):
         self.alert_recovery_pubkey = "02ecec100acb89f3049285ae01e7f03fb469e6b54d44b0f3c8240b1958e893cb8c"
         self.alert_recovery_privkey = "cRfYLWua6WcpGbxuv5rJgA2eDESWxqgzmQjKQuqDFMfgbnEpqhrP"
+        self.COINBASE_MATURITY = 100
+        self.COINBASE_AMOUNT = Decimal(175)
 
         self.reset_blockchain()
         self.log.info("Test sign atx with wallet")
@@ -101,6 +103,10 @@ class AlertsTest(BitcoinTestFramework):
         self.log.info("Test atx is rejected when contains non-alert type inputs")
         self.test_atx_is_rejected_when_contains_non_alert_inputs()
 
+        self.reset_blockchain()
+        self.log.info("Test standard recovery transaction flow")
+        self.test_recovery_tx_flow()
+
     def test_tx_from_normal_addr_to_alert_addr(self):
         alert_addr1 = self.nodes[1].getnewvaultaddress(self.alert_recovery_pubkey)
 
@@ -114,10 +120,10 @@ class AlertsTest(BitcoinTestFramework):
         # assert
         self.sync_all()
         assert self.nodes[1].getbalance() == 10
-        assert self.nodes[0].get_best_block() == self.nodes[1].get_best_block()
-        assert txid in self.nodes[0].get_best_block()['tx']
-        assert txid not in self.nodes[0].get_best_block()['atx']
-        assert txid in self.find_address(self.nodes[1].listreceivedbyaddress(1, True), alert_addr1['address'])['txids']
+        assert self.nodes[0].getbestblock() == self.nodes[1].getbestblock()
+        assert txid in self.nodes[0].getbestblock()['tx']
+        assert txid not in self.nodes[0].getbestblock()['atx']
+        assert txid in self.find_address(self.nodes[1].listreceivedbyaddress(), alert_addr1['address'])['txids']
 
     def test_atx_from_alert_addr_to_normal_addr(self):
         addr0 = self.nodes[0].getnewaddress()
@@ -133,8 +139,8 @@ class AlertsTest(BitcoinTestFramework):
         # assert
         self.sync_all()
         assert self.nodes[0].getbalance() == 0
-        assert self.nodes[0].get_best_block() == self.nodes[1].get_best_block()
-        assert txid in self.nodes[0].get_best_block()['atx']
+        assert self.nodes[0].getbestblock() == self.nodes[1].getbestblock()
+        assert txid in self.nodes[0].getbestblock()['atx']
 
         # generate more blocks so atx becomes tx
         self.nodes[1].generatetoaddress(200, alert_addr1['address'])
@@ -142,8 +148,8 @@ class AlertsTest(BitcoinTestFramework):
         # assert
         self.sync_all()
         assert self.nodes[0].getbalance() == 10
-        assert self.nodes[0].get_best_block() == self.nodes[1].get_best_block()
-        assert txid in self.find_address(self.nodes[0].listreceivedbyaddress(1, True), addr0)['txids']
+        assert self.nodes[0].getbestblock() == self.nodes[1].getbestblock()
+        assert txid in self.find_address(self.nodes[0].listreceivedbyaddress(), addr0)['txids']
 
     def test_tx_from_normal_addr_to_normal_addr(self):
         addr1 = self.nodes[1].getnewaddress()
@@ -158,9 +164,9 @@ class AlertsTest(BitcoinTestFramework):
         # assert
         self.sync_all()
         assert self.nodes[1].getbalance() == 10
-        assert self.nodes[0].get_best_block() == self.nodes[1].get_best_block()
-        assert txid in self.nodes[0].get_best_block()['tx']
-        assert txid in self.find_address(self.nodes[1].listreceivedbyaddress(1, True), addr1)['txids']
+        assert self.nodes[0].getbestblock() == self.nodes[1].getbestblock()
+        assert txid in self.nodes[0].getbestblock()['tx']
+        assert txid in self.find_address(self.nodes[1].listreceivedbyaddress(), addr1)['txids']
 
     def test_atx_becomes_tx(self):
         addr0 = self.nodes[0].getnewaddress()
@@ -176,8 +182,8 @@ class AlertsTest(BitcoinTestFramework):
         # assert
         self.sync_all()
         assert self.nodes[0].getbalance() == 0
-        assert self.nodes[0].get_best_block() == self.nodes[1].get_best_block()
-        assert txid in self.nodes[0].get_best_block()['atx']
+        assert self.nodes[0].getbestblock() == self.nodes[1].getbestblock()
+        assert txid in self.nodes[0].getbestblock()['atx']
 
         # generate 144 more blocks
         self.nodes[1].generatetoaddress(144, alert_addr1['address'])
@@ -185,9 +191,9 @@ class AlertsTest(BitcoinTestFramework):
         # assert
         self.sync_all()
         assert self.nodes[0].getbalance() == 10
-        assert self.nodes[0].get_best_block() == self.nodes[1].get_best_block()
-        assert txid in self.nodes[0].get_best_block()['tx']
-        assert txid in self.find_address(self.nodes[0].listreceivedbyaddress(1, True), addr0)['txids']
+        assert self.nodes[0].getbestblock() == self.nodes[1].getbestblock()
+        assert txid in self.nodes[0].getbestblock()['tx']
+        assert txid in self.find_address(self.nodes[0].listreceivedbyaddress(), addr0)['txids']
 
     def test_sign_atx_with_wallet(self):
         addr0 = self.nodes[0].getnewaddress()
@@ -212,8 +218,8 @@ class AlertsTest(BitcoinTestFramework):
 
         # assert
         self.sync_all()
-        assert self.nodes[0].get_best_block() == self.nodes[1].get_best_block()
-        assert txsent['txid'] in self.nodes[0].get_best_block()['atx']
+        assert self.nodes[0].getbestblock() == self.nodes[1].getbestblock()
+        assert txsent['txid'] in self.nodes[0].getbestblock()['atx']
 
     def test_sign_atx_with_recovery_key(self):
         addr0 = self.nodes[0].getnewaddress()
@@ -238,8 +244,8 @@ class AlertsTest(BitcoinTestFramework):
 
         # assert
         self.sync_all()
-        assert self.nodes[0].get_best_block() == self.nodes[1].get_best_block()
-        assert txsent['txid'] in self.nodes[0].get_best_block()['atx']
+        assert self.nodes[0].getbestblock() == self.nodes[1].getbestblock()
+        assert txsent['txid'] in self.nodes[0].getbestblock()['atx']
 
     def test_atx_fee_is_paid_to_original_miner(self):
         mine_addr = self.nodes[0].getnewaddress()
@@ -263,7 +269,7 @@ class AlertsTest(BitcoinTestFramework):
 
         # assert
         self.sync_all()
-        coinbase_id = self.nodes[1].get_best_block()['tx'][0]
+        coinbase_id = self.nodes[1].getbestblock()['tx'][0]
         coinbase = self.nodes[1].getrawtransaction(coinbase_id, 1)
         assert coinbase['vout'][1]['value'] == fee
 
@@ -337,6 +343,61 @@ class AlertsTest(BitcoinTestFramework):
 
         # assert
         assert 'bad-tx-alert-type' in exception_message
+
+    def test_recovery_tx_flow(self):
+        alert_addr0 = self.nodes[0].getnewvaultaddress(self.alert_recovery_pubkey)
+        other_addr0 = self.nodes[0].getnewaddress()
+        attacker_addr1 = self.nodes[1].getnewaddress()
+
+        # mine some coins to node0
+        self.nodes[0].generatetoaddress(200, alert_addr0['address'])  # 200
+        assert self.nodes[0].getbalance() == (200 - self.COINBASE_MATURITY) * self.COINBASE_AMOUNT
+
+        # send atx to node1
+        atx_to_recover = self.nodes[0].sendtoaddress(attacker_addr1, 10)
+        atx_to_recover = self.nodes[0].gettransaction(atx_to_recover)['hex']
+        atx_to_recover = self.nodes[0].decoderawtransaction(atx_to_recover)
+        atx_fee = (200 - self.COINBASE_MATURITY) * self.COINBASE_AMOUNT - 10 - self.nodes[0].getbalance()
+
+        # generate block with atx above
+        self.nodes[0].generatetoaddress(1, alert_addr0['address'])  # 201
+
+        # assert
+        self.sync_all()
+        assert self.nodes[0].getbalance() + 10 < (201 - self.COINBASE_MATURITY) * self.COINBASE_AMOUNT
+        assert self.nodes[1].getbalance() == 0
+        assert atx_to_recover['hash'] in self.nodes[0].getbestblock()['atx']
+
+        # recover atx
+        recovery_data = [{'txid': vin['txid'],
+                          'vout': vin['vout'],
+                          'scriptPubKey': self.nodes[0].get_script_pubkey(vin['txid'], vin['vout'])['hex'],
+                          'redeemScript': alert_addr0['redeemScript']} for vin in atx_to_recover['vin']]
+        amount_to_recover = sum([vout['value'] for vout in atx_to_recover['vout']])
+        assert atx_fee == self.COINBASE_AMOUNT - amount_to_recover
+
+        recovery_tx = self.nodes[0].createrecoverytransaction(atx_to_recover['hash'], {other_addr0: amount_to_recover})
+        recovery_tx = self.nodes[0].signrecoverytransaction(recovery_tx, [self.alert_recovery_privkey], recovery_data)
+        recovery_txid = self.nodes[0].sendrawtransaction(recovery_tx['hex'])
+        self.nodes[0].generatetoaddress(1, alert_addr0['address'])  # 202
+
+        # assert
+        self.sync_all()
+        assert recovery_txid in self.nodes[0].getbestblock()['tx']
+        assert recovery_txid in self.find_address(self.nodes[0].listreceivedbyaddress(), other_addr0)['txids']
+        assert self.nodes[0].getbalance() == (202 - self.COINBASE_MATURITY) * self.COINBASE_AMOUNT - atx_fee
+
+        # generate blocks so atx might become tx
+        self.nodes[0].generatetoaddress(143, alert_addr0['address'])  # 345
+
+        # assert
+        self.sync_all()
+        assert self.nodes[0].getbalance() == (345 - self.COINBASE_MATURITY) * self.COINBASE_AMOUNT  # dont subtract atx_fee because node0 takes it as a block miner
+        assert atx_to_recover['hash'] not in self.nodes[0].getbestblock()['tx']
+        assert self.find_address(self.nodes[1].listreceivedbyaddress(), attacker_addr1)['amount'] == 0
+        assert self.find_address(self.nodes[1].listreceivedbyaddress(), attacker_addr1)['txids'] == []
+        assert self.find_address(self.nodes[0].listreceivedbyaddress(), other_addr0)['amount'] == self.COINBASE_AMOUNT - atx_fee
+        assert self.find_address(self.nodes[0].listreceivedbyaddress(), other_addr0)['txids'] == [recovery_txid]
 
 
 if __name__ == '__main__':
