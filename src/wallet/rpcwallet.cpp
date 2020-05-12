@@ -4523,25 +4523,14 @@ static UniValue signrecoverytransaction(const JSONRPCRequest& request)
                            "The third optional argument (may be null) is an array of previous transaction outputs that\n"
                            "this transaction depends on but may not yet be in the block chain.\n",
                            {
-                                   {"hexstring", RPCArg::Type::STR, RPCArg::Optional::NO, "The transaction hex string"},
+                                   {"hexstring", RPCArg::Type::STR, RPCArg::Optional::NO, "The transaction alert hex string"},
                                    {"privkeys", RPCArg::Type::ARR, RPCArg::Optional::NO, "A json array of base58-encoded private keys for signing",
                                     {
                                             {"privatekey", RPCArg::Type::STR_HEX, RPCArg::Optional::OMITTED, "private key in base58-encoding"},
                                     },
                                    },
-                                   {"prevtxs", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG, "A json array of previous dependent transaction outputs",
-                                    {
-                                            {"", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
-                                             {
-                                                     {"txid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The transaction id"},
-                                                     {"vout", RPCArg::Type::NUM, RPCArg::Optional::NO, "The output number"},
-                                                     {"scriptPubKey", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "script key"},
-                                                     {"redeemScript", RPCArg::Type::STR_HEX, RPCArg::Optional::OMITTED, "(required for P2SH) redeem script"},
-                                                     {"witnessScript", RPCArg::Type::STR_HEX, RPCArg::Optional::OMITTED, "(required for P2WSH or P2SH-P2WSH) witness script"},
-                                             },
-                                            },
-                                    },
-                                   },
+                                   {"redeemScript", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "(required for P2SH) redeem script"},
+                                   {"witnessScript", RPCArg::Type::STR_HEX, RPCArg::Optional::OMITTED, "(required for P2WSH or P2SH-P2WSH) witness script"},
                                    {"sighashtype", RPCArg::Type::STR, /* default */ "ALL", "The signature hash type. Must be one of:\n"
                                                                                            "       \"ALL\"\n"
                                                                                            "       \"NONE\"\n"
@@ -4573,7 +4562,7 @@ static UniValue signrecoverytransaction(const JSONRPCRequest& request)
                            },
                 }.ToString());
 
-    RPCTypeCheck(request.params, {UniValue::VSTR, UniValue::VARR, UniValue::VARR, UniValue::VSTR}, true);
+    RPCTypeCheck(request.params, {UniValue::VSTR, UniValue::VARR, UniValue::VSTR, UniValue::VSTR, UniValue::VSTR}, true);
 
     CMutableTransaction mtx;
     if (!DecodeHexTx(mtx, request.params[0].get_str(), true)) {
@@ -4603,7 +4592,34 @@ static UniValue signrecoverytransaction(const JSONRPCRequest& request)
         keystore.AddKey(key);
     }
 
-    return SignTransaction(pwallet->chain(), mtx, request.params[2], &keystore, true, request.params[3], /*expectSpent = */true);
+    UniValue recovery_data(UniValue::VARR);
+    for (unsigned int i = 0; i < mtx.vin.size(); ++i) {
+        const CTxIn& vin = mtx.vin[i];
+        UniValue prevTx(UniValue::VOBJ);
+
+        // get scriptPubKey
+        auto it = pwallet->mapWallet.find(vin.prevout.hash);
+        if (it == pwallet->mapWallet.end()) {
+            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid or non-wallet transaction id");
+        }
+        const CWalletTx& wtx = it->second;
+        std::string strHex = EncodeHexTx(*wtx.tx, RPCSerializationFlags());
+        CMutableTransaction ptx;
+        if (!DecodeHexTx(ptx, strHex, true)) {
+            throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "TX decode failed");
+        }
+        const CScript& scriptPubKey = ptx.vout[vin.prevout.n].scriptPubKey;
+
+        prevTx.pushKV("txid", vin.prevout.hash.GetHex());
+        prevTx.pushKV("vout", uint64_t(vin.prevout.n));
+        prevTx.pushKV("scriptPubKey", HexStr(scriptPubKey.begin(), scriptPubKey.end()));
+        prevTx.pushKV("redeemScript", request.params[2]);
+        prevTx.pushKV("witnessScript", request.params[3]);
+
+        recovery_data.push_back(prevTx);
+    }
+
+    return SignTransaction(pwallet->chain(), mtx, recovery_data, &keystore, true, request.params[4], /*expectSpent = */true);
 }
 
 UniValue abortrescan(const JSONRPCRequest& request); // in rpcdump.cpp
@@ -4645,7 +4661,7 @@ static const CRPCCommand commands[] =
     { "wallet",             "getreceivedbylabel",               &getreceivedbylabel,            {"label","minconf"} },
     { "wallet",             "gettransaction",                   &gettransaction,                {"txid","include_watchonly"} },
     { "wallet",             "createrecoverytransaction",        &createrecoverytransaction,     {"atxid","outputs","locktime","replaceable"} },
-    { "wallet",             "signrecoverytransaction",          &signrecoverytransaction,       {"hexstring","privkeys","prevtxs","sighashtype"} },
+    { "wallet",             "signrecoverytransaction",          &signrecoverytransaction,       {"hexstring","privkeys","redeemScript","witnessScript","sighashtype"} },
     { "wallet",             "getunconfirmedbalance",            &getunconfirmedbalance,         {} },
     { "wallet",             "getwalletinfo",                    &getwalletinfo,                 {} },
     { "wallet",             "importaddress",                    &importaddress,                 {"address","label","rescan","p2sh"} },
