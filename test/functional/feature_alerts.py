@@ -107,6 +107,10 @@ class AlertsTest(BitcoinTestFramework):
         self.log.info("Test standard recovery transaction flow")
         self.test_recovery_tx_flow()
 
+        self.reset_blockchain()
+        self.log.info("Test recovery tx is rejected when iputs does not match alert")
+        self.test_recovery_tx_is_rejected_when_inputs_does_not_match_alert()
+
     def test_tx_from_normal_addr_to_alert_addr(self):
         alert_addr1 = self.nodes[1].getnewvaultaddress(self.alert_recovery_pubkey)
 
@@ -281,7 +285,6 @@ class AlertsTest(BitcoinTestFramework):
         self.nodes[1].generatetoaddress(50, alert_addr1['address'])
         alert_addr2 = self.nodes[1].getnewvaultaddress(self.alert_recovery_pubkey)
         self.nodes[1].generatetoaddress(50, alert_addr2['address'])
-        alert_addr1 = self.nodes[1].getnewvaultaddress(self.alert_recovery_pubkey)
         self.nodes[1].generatetoaddress(200, alert_addr1['address'])
 
         # find vout to spend
@@ -318,7 +321,6 @@ class AlertsTest(BitcoinTestFramework):
         self.nodes[1].generatetoaddress(50, alert_addr1['address'])
         addr1 = self.nodes[1].getnewaddress()
         self.nodes[1].generatetoaddress(50, addr1)
-        alert_addr1 = self.nodes[1].getnewvaultaddress(self.alert_recovery_pubkey)
         self.nodes[1].generatetoaddress(200, alert_addr1['address'])
 
         # find vout to spend
@@ -394,6 +396,50 @@ class AlertsTest(BitcoinTestFramework):
         assert self.find_address(self.nodes[1].listreceivedbyaddress(), attacker_addr1)['txids'] == []
         assert self.find_address(self.nodes[0].listreceivedbyaddress(), other_addr0)['amount'] == self.COINBASE_AMOUNT - atx_fee
         assert self.find_address(self.nodes[0].listreceivedbyaddress(), other_addr0)['txids'] == [recovery_txid]
+
+    def test_recovery_tx_is_rejected_when_inputs_does_not_match_alert(self):
+        addr0 = self.nodes[0].getnewaddress()
+
+        # mine some coins to alert_addr1
+        alert_addr1 = self.nodes[1].getnewvaultaddress(self.alert_recovery_pubkey)
+        self.nodes[1].generatetoaddress(200, alert_addr1['address'])
+
+        # create, sign and mine 1st atx from alert_addr1 to addr0
+        txtospendhash = self.nodes[1].getblockbyheight(10)['tx'][0]
+        txtospend = self.nodes[1].getrawtransaction(txtospendhash, True)
+        vouttospend = self.find_vout_n(txtospend, 175)
+        tx_alert1 = self.nodes[1].createrawtransaction([{'txid': txtospendhash, 'vout': vouttospend}], {addr0: 174.99})
+        tx_alert1 = self.nodes[1].signrawtransactionwithwallet(tx_alert1, [{'txid': txtospendhash, 'vout': vouttospend, 'scriptPubKey': txtospend['vout'][vouttospend]['scriptPubKey']['hex'], 'redeemScript': alert_addr1['redeemScript']}])
+        self.nodes[1].sendrawtransaction(tx_alert1['hex'])
+        self.nodes[1].generatetoaddress(1, alert_addr1['address'])
+
+        # create, sign and mine 2nd atx from alert_addr1 to addr0
+        self.sync_all()
+        txtospendhash2 = self.nodes[1].getblockbyheight(20)['tx'][0]
+        txtospend2 = self.nodes[1].getrawtransaction(txtospendhash2, True)
+        vouttospend2 = self.find_vout_n(txtospend2, 175)
+        tx_alert2 = self.nodes[1].createrawtransaction([{'txid': txtospendhash2, 'vout': vouttospend2}], {addr0: 174.99})
+        tx_alert2 = self.nodes[1].signrawtransactionwithwallet(tx_alert2, [{'txid': txtospendhash2, 'vout': vouttospend2, 'scriptPubKey': txtospend2['vout'][vouttospend2]['scriptPubKey']['hex'], 'redeemScript': alert_addr1['redeemScript']}])
+        self.nodes[1].sendrawtransaction(tx_alert2['hex'])
+        self.nodes[1].generatetoaddress(10, alert_addr1['address'])
+        self.sync_all()
+
+        # create and sign (invalid) recovery tx spending both alerts inputs
+        recovery_tx = self.nodes[1].createrawtransaction([{'txid': txtospendhash, 'vout': vouttospend}, {'txid': txtospendhash2, 'vout': vouttospend2}], {addr0: 349.99})
+        recovery_tx = self.nodes[1].signrecoverytransaction(recovery_tx, [self.alert_recovery_privkey], alert_addr1['redeemScript'])
+
+        # broadcast recovery tx and mine block
+        tx_id = self.nodes[1].sendrawtransaction(recovery_tx['hex'])
+        error = None
+        try:
+            self.nodes[1].generatetoaddress(1, alert_addr1['address'])
+        except Exception as e:
+            error = e.error
+
+        # assert
+        assert error['code'] == -1
+        assert 'Revert transaction check failed' in error['message']
+        assert tx_id in error['message']
 
 
 if __name__ == '__main__':
