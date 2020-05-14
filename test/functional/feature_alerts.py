@@ -138,7 +138,7 @@ class AlertsTest(BitcoinTestFramework):
     def test_add_watchonly_alert_address(self):
         alert_addr1 = self.nodes[1].getnewvaultaddress(self.alert_recovery_pubkey)
 
-        # add alert_addr1 to node0 as watch-only
+        # import alert_addr1 to node0 as watch-only
         self.nodes[0].importaddress(alert_addr1['redeemScript'], '', True, True)
 
         # mine some coins to node2 and send tx to alert_address1
@@ -269,17 +269,18 @@ class AlertsTest(BitcoinTestFramework):
         self.nodes[1].generatetoaddress(200, alert_addr1['address'])
 
         # send atx from alert_addr1 to addr0 and generate block with this atx
-        txid = self.nodes[1].sendtoaddress(addr0, 10)
+        atxid = self.nodes[1].sendtoaddress(addr0, 10)
         self.nodes[1].generatetoaddress(1, alert_addr1['address'])
 
         # assert
         self.sync_all()
         assert self.nodes[0].getbalance() == 0
         assert self.nodes[0].getbestblock() == self.nodes[1].getbestblock()
-        assert txid in self.nodes[0].getbestblock()['atx']
+        assert atxid in self.nodes[0].getbestblock()['atx']
 
         # generate more blocks so atx becomes tx
         self.nodes[1].generatetoaddress(200, alert_addr1['address'])
+        txid = atxid
 
         # assert
         self.sync_all()
@@ -312,17 +313,18 @@ class AlertsTest(BitcoinTestFramework):
         self.nodes[1].generatetoaddress(200, alert_addr1['address'])
 
         # send atx from alert_addr1 to addr0 and generate block with this atx
-        txid = self.nodes[1].sendtoaddress(addr0, 10)
+        atxid = self.nodes[1].sendtoaddress(addr0, 10)
         self.nodes[1].generatetoaddress(1, alert_addr1['address'])
 
         # assert
         self.sync_all()
         assert self.nodes[0].getbalance() == 0
         assert self.nodes[0].getbestblock() == self.nodes[1].getbestblock()
-        assert txid in self.nodes[0].getbestblock()['atx']
+        assert atxid in self.nodes[0].getbestblock()['atx']
 
         # generate 144 more blocks
         self.nodes[1].generatetoaddress(144, alert_addr1['address'])
+        txid = atxid
 
         # assert
         self.sync_all()
@@ -344,18 +346,18 @@ class AlertsTest(BitcoinTestFramework):
         vouttospend = self.find_vout_n(txtospend, 175)
 
         # create and sign atx from alert_addr1 to addr0
-        txtosend = self.nodes[1].createrawtransaction([{'txid': txtospendhash, 'vout': vouttospend}], {addr0: 174.99})
-        txtosend = self.nodes[1].signrawtransactionwithwallet(txtosend, [{'txid': txtospendhash, 'vout': vouttospend, 'scriptPubKey': txtospend['vout'][vouttospend]['scriptPubKey']['hex'], 'redeemScript': alert_addr1['redeemScript'], 'amount': 174.99}])
-        txsent = self.nodes[1].decoderawtransaction(txtosend['hex'])
+        atxtosend = self.nodes[1].createrawtransaction([{'txid': txtospendhash, 'vout': vouttospend}], {addr0: 174.99})
+        atxtosend = self.nodes[1].signrawtransactionwithwallet(atxtosend, [{'txid': txtospendhash, 'vout': vouttospend, 'scriptPubKey': txtospend['vout'][vouttospend]['scriptPubKey']['hex'], 'redeemScript': alert_addr1['redeemScript'], 'amount': 174.99}])
+        atxsent = self.nodes[1].decoderawtransaction(atxtosend['hex'])
 
         # broadcast atx and mine block with this atx
-        self.nodes[1].sendrawtransaction(txtosend['hex'])
+        self.nodes[1].sendrawtransaction(atxtosend['hex'])
         self.nodes[1].generatetoaddress(1, alert_addr1['address'])
 
         # assert
         self.sync_all()
         assert self.nodes[0].getbestblock() == self.nodes[1].getbestblock()
-        assert txsent['txid'] in self.nodes[0].getbestblock()['atx']
+        assert atxsent['txid'] in self.nodes[0].getbestblock()['atx']
 
     def test_sign_atx_with_recovery_key(self):
         addr0 = self.nodes[0].getnewaddress()
@@ -370,18 +372,18 @@ class AlertsTest(BitcoinTestFramework):
         vouttospend = self.find_vout_n(txtospend, 175)
 
         # create and sign atx from alert_addr1 to addr0
-        txtosend = self.nodes[1].createrawtransaction([{'txid': txtospendhash, 'vout': vouttospend}], {addr0: 174.99})
-        txtosend = self.nodes[1].signrawtransactionwithkey(txtosend, [self.alert_recovery_privkey], [{'txid': txtospendhash, 'vout': vouttospend, 'scriptPubKey': txtospend['vout'][vouttospend]['scriptPubKey']['hex'], 'redeemScript': alert_addr1['redeemScript'], 'amount': 174.99}])
-        txsent = self.nodes[1].decoderawtransaction(txtosend['hex'])
+        atxtosend = self.nodes[1].createrawtransaction([{'txid': txtospendhash, 'vout': vouttospend}], {addr0: 174.99})
+        atxtosend = self.nodes[1].signrawtransactionwithkey(atxtosend, [self.alert_recovery_privkey], [{'txid': txtospendhash, 'vout': vouttospend, 'scriptPubKey': txtospend['vout'][vouttospend]['scriptPubKey']['hex'], 'redeemScript': alert_addr1['redeemScript'], 'amount': 174.99}])
+        atxsent = self.nodes[1].decoderawtransaction(atxtosend['hex'])
 
         # broadcast atx and mine block with this atx
-        self.nodes[1].sendrawtransaction(txtosend['hex'])
+        self.nodes[1].sendrawtransaction(atxtosend['hex'])
         self.nodes[1].generatetoaddress(1, alert_addr1['address'])
 
         # assert
         self.sync_all()
         assert self.nodes[0].getbestblock() == self.nodes[1].getbestblock()
-        assert txsent['txid'] in self.nodes[0].getbestblock()['atx']
+        assert atxsent['txid'] in self.nodes[0].getbestblock()['atx']
 
     def test_atx_fee_is_paid_to_original_miner(self):
         mine_addr = self.nodes[0].getnewaddress()
