@@ -7,9 +7,9 @@ import os
 import shutil
 
 from decimal import Decimal
-from io import BytesIO
 from test_framework.test_framework import BitcoinTestFramework
-from test_framework.util import get_datadir_path
+from test_framework.util import get_datadir_path, hex_str_to_bytes
+from test_framework.address import key_to_p2pkh
 
 
 class AlertsTest(BitcoinTestFramework):
@@ -72,8 +72,24 @@ class AlertsTest(BitcoinTestFramework):
         self.COINBASE_AMOUNT = Decimal(175)
 
         self.reset_blockchain()
+        self.log.info("Test atx from imported alert address")
+        self.test_atx_from_imported_alert_address()
+
+        self.reset_blockchain()
+        self.log.info("Test getaddressinfo on alert address")
+        self.test_getaddressinfo_on_alert_address()
+
+        self.reset_blockchain()
+        self.log.info("Test getaddressinfo on imported alert address")
+        self.test_getaddressinfo_on_imported_alert_address()
+
+        self.reset_blockchain()
         self.log.info("Test add watch-only alert address")
         self.test_add_watchonly_alert_address()
+
+        self.reset_blockchain()
+        self.log.info("Test import alert address privkey")
+        self.test_import_alert_address_privkey()
 
         self.reset_blockchain()
         self.log.info("Test sign atx with wallet")
@@ -138,8 +154,94 @@ class AlertsTest(BitcoinTestFramework):
         assert receivedbyaddress['involvesWatchonly'] is True
         assert receivedbyaddress['amount'] == 10
         assert txid in receivedbyaddress['txids']
-        # TODO importpubkey
-        # TODO import priv key
+
+    def test_getaddressinfo_on_alert_address(self):
+        alert_addr0 = self.nodes[0].getnewvaultaddress(self.alert_recovery_pubkey)
+        info = self.nodes[0].getaddressinfo(alert_addr0['address'])
+
+        # assert
+        self.sync_all()
+        assert info['ismine'] is True
+        assert info['solvable'] is True
+        assert info['iswatchonly'] is False
+        assert info['isscript'] is True
+        assert info['script'] == 'vaultalert'
+        assert info['sigsrequired'] == 1
+        assert len(info['pubkeys']) == 2
+        assert self.alert_recovery_pubkey in info['pubkeys']
+
+    def test_getaddressinfo_on_imported_alert_address(self):
+        alert_addr0 = self.nodes[0].getnewvaultaddress(self.alert_recovery_pubkey)
+
+        # import alert_addr1 to node0 as watch-only
+        self.nodes[1].importaddress(alert_addr0['redeemScript'], '', True, True)
+
+        info = self.nodes[1].getaddressinfo(alert_addr0['address'])
+
+        # assert
+        self.sync_all()
+        assert info['ismine'] is False
+        assert info['solvable'] is True  # Whether we know how to spend coins sent to this address, ignoring the possible lack of private keys
+        assert info['iswatchonly'] is True
+        assert info['isscript'] is True
+        assert info['script'] == 'vaultalert'
+        assert info['sigsrequired'] == 1
+        assert len(info['pubkeys']) == 2
+        assert self.alert_recovery_pubkey in info['pubkeys']
+
+    def test_import_alert_address_privkey(self):
+        alert_addr0 = self.nodes[0].getnewvaultaddress(self.alert_recovery_pubkey)
+
+        # get pubkey
+        pubkey = self.nodes[0].getaddressinfo(alert_addr0['address'])['pubkeys']
+        pubkey.remove(self.alert_recovery_pubkey)
+        pubkey = pubkey[0]
+
+        # dump privkey
+        p2pkh = key_to_p2pkh(pubkey)
+        privkey = self.nodes[0].dumpprivkey(p2pkh)
+
+        # import address and privkey on node1
+        self.nodes[1].importaddress(alert_addr0['redeemScript'], '', True, True)
+        self.nodes[1].importprivkey(privkey)
+
+        info = self.nodes[1].getaddressinfo(alert_addr0['address'])
+
+        # assert
+        self.sync_all()
+        assert info['ismine'] is True
+        assert info['iswatchonly'] is False
+        assert sorted(info['pubkeys']) == sorted([pubkey, self.alert_recovery_pubkey])
+
+    def test_atx_from_imported_alert_address(self):
+        alert_addr0 = self.nodes[0].getnewvaultaddress(self.alert_recovery_pubkey)
+        other_addr = '2N34KyQQj97pAivV59wfTkzksYuPdR2jLfi'  # not owned by test nodes
+
+        # mine some coins to alert_addr0
+        self.nodes[0].generatetoaddress(200, alert_addr0['address'])
+
+        # get pubkey
+        pubkey = self.nodes[0].getaddressinfo(alert_addr0['address'])['pubkeys']
+        pubkey.remove(self.alert_recovery_pubkey)
+        pubkey = pubkey[0]
+
+        # dump privkey
+        p2pkh = key_to_p2pkh(pubkey)
+        privkey = self.nodes[0].dumpprivkey(p2pkh)
+
+        # import address and privkey on node1
+        self.nodes[1].importaddress(alert_addr0['redeemScript'], '', True, True)
+        self.nodes[1].importprivkey(privkey)
+
+        # send atx from node1 and mine block with this atx
+        atxid = self.nodes[1].sendtoaddress(other_addr, 10)
+        self.nodes[1].generatetoaddress(1, alert_addr0['address'])
+
+        # assert
+        self.sync_all()
+        assert atxid is not None
+        assert atxid != ''
+        assert atxid in self.nodes[0].getbestblock()['atx']
 
     def test_tx_from_normal_addr_to_alert_addr(self):
         alert_addr1 = self.nodes[1].getnewvaultaddress(self.alert_recovery_pubkey)
