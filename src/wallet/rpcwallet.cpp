@@ -396,87 +396,6 @@ static UniValue getnewvaultinstantaddress(const JSONRPCRequest& request)
     return result;
 }
 
-static UniValue addalertaddress(const JSONRPCRequest& request)
-{
-    std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request);
-    CWallet* const pwallet = wallet.get();
-
-    if (!EnsureWalletIsAvailable(pwallet, request.fHelp)) {
-        return NullUniValue;
-    }
-
-    if (request.fHelp || request.params.size() < 2 || request.params.size() > 4)
-    {
-        std::string msg =
-                RPCHelpMan{"addalertaddress",
-                           "\nCreates an alert address which generates recoverable transaction alert when signed with 1 signature of 2 keys.\n"
-                           "It returns a json object with the address and redeemScript.\n",
-                           {
-                                   {"alert_key", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The hex-encoded public key used to generates transaction alerts"},
-                                   {"recovery_key", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The hex-encoded public key used to recover transaction alerts"},
-                                   {"label", RPCArg::Type::STR, RPCArg::Optional::OMITTED_NAMED_ARG, "A label to assign the addresses to."},
-                                   {"address_type", RPCArg::Type::STR, /* default */ "set by -addresstype", "The address type to use. Options are \"legacy\", \"p2sh-segwit\", and \"bech32\"."},
-                           },
-                           RPCResult{
-                                   "{\n"
-                                   "  \"address\":\"alertaddress\",  (string) The value of the new alert address.\n"
-                                   "  \"redeemScript\":\"script\"    (string) The string value of the hex-encoded redemption script.\n"
-                                   "}\n"
-                           },
-                           RPCExamples{
-                                   "\nCreate an alert address from 2 public keys\n"
-                                   + HelpExampleCli("addalertaddress", "\"03789ed0bb717d88f7d321a368d905e7430207ebbd82bd342cf11ae157a7ace5fd\" \"03dbc6764b8884a92e871274b87583e6d5c2a58819473e17e107ef3f6aa5a61626\"") +
-                                   "\nAs a JSON-RPC call\n"
-                                   + HelpExampleRpc("addalertaddress", "\"03789ed0bb717d88f7d321a368d905e7430207ebbd82bd342cf11ae157a7ace5fd\" \"03dbc6764b8884a92e871274b87583e6d5c2a58819473e17e107ef3f6aa5a61626\"")
-                           },
-                }.ToString();
-        throw std::runtime_error(msg);
-    }
-
-    auto locked_chain = pwallet->chain().lock();
-    LOCK(pwallet->cs_wallet);
-
-    std::string label;
-    if (!request.params[2].isNull())
-        label = LabelFromValue(request.params[2]);
-
-    // Get the public keys
-    std::vector<CPubKey> pubkeys;
-
-    auto processPubKey = [&] (const UniValue pubKey) -> bool {
-        if (!IsHex(pubKey.get_str()) || !(pubKey.get_str().length() == 66 || pubKey.get_str().length() == 130)) {
-            return false;
-        }
-
-        pubkeys.push_back(HexToPubKey(pubKey.get_str()));
-        return true;
-    };
-
-    if (!processPubKey(request.params[0])) {
-        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, strprintf("Invalid alert public key: %s\n.", request.params[0].get_str()));
-    }
-
-    if (!processPubKey(request.params[1])) {
-        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, strprintf("Invalid recovery public key: %s\n.", request.params[1].get_str()));
-    }
-
-    OutputType output_type = pwallet->m_default_address_type;
-    if (!request.params[3].isNull()) {
-        if (!ParseOutputType(request.params[3].get_str(), output_type)) {
-            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, strprintf("Unknown address type '%s'", request.params[3].get_str()));
-        }
-    }
-
-    // Construct using pay-to-script-hash:
-    const CScript inner = CreateVaultAddressRedeemscript(pubkeys, false);
-    CTxDestination dest = AddAndGetDestinationForScript(*pwallet, inner, output_type);
-    pwallet->SetAddressBook(dest, label, "send");
-
-    UniValue result(UniValue::VOBJ);
-    result.pushKV("address", EncodeDestination(dest));
-    result.pushKV("redeemScript", HexStr(inner.begin(), inner.end()));
-    return result;
-}
 
 static UniValue getrawchangeaddress(const JSONRPCRequest& request)
 {
@@ -4643,7 +4562,6 @@ static const CRPCCommand commands[] =
     { "wallet",             "abandontransaction",               &abandontransaction,            {"txid"} },
     { "wallet",             "abortrescan",                      &abortrescan,                   {} },
     { "wallet",             "addmultisigaddress",               &addmultisigaddress,            {"nrequired","keys","label","address_type"} },
-    { "wallet",             "addalertaddress",                  &addalertaddress,               {"alert_key","recovery_key","label","address_type"}  },
     { "wallet",             "getnewvaultaddress",               &getnewvaultaddress,            {"recovery_key","label","address_type"}  },
     { "wallet",             "getnewvaultinstantaddress",        &getnewvaultinstantaddress,     {"instant_key","recovery_key","label","address_type"}  },
     { "wallet",             "backupwallet",                     &backupwallet,                  {"destination"} },
