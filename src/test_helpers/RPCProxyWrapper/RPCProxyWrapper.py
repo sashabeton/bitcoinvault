@@ -33,8 +33,8 @@ class RPCProxyWrapper(AuthServiceProxy):
         if os.path.exists(self.datadir): shutil.rmtree(self.datadir)
         os.mkdir(self.datadir)
 
-    def listreceivedbyaddress(self):
-        return self.__getattr__('listreceivedbyaddress')(1, True)
+    def listreceivedbyaddress(self, minconf=1, include_empty=True, include_watchonly=True):
+        return self.__getattr__('listreceivedbyaddress')(minconf, include_empty, include_watchonly)
 
     def getblockbyheight(self, height):
         hash = self.__getattr__('getblockhash')(height)
@@ -44,8 +44,8 @@ class RPCProxyWrapper(AuthServiceProxy):
         hash = self.__getattr__('getbestblockhash')()
         return self.__getattr__('getblock')(hash)
 
-    def getrawtransaction(self, txhash):
-        return self.__getattr__('getrawtransaction')(txhash, True)
+    def getrawtransaction(self, txhash, verbose=True):
+        return self.__getattr__('getrawtransaction')(txhash, verbose)
 
     def send(self, addr, amount):
         return self.__getattr__('sendtoaddress')(addr, amount)

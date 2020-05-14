@@ -250,8 +250,8 @@ class TestNode():
         hash = self.getbestblockhash()
         return self.getblock(hash)
 
-    def listreceivedbyaddress(self, include_empty=1, include_watchonly=True):
-        return self.__getattr__('listreceivedbyaddress')(include_empty, include_watchonly)
+    def listreceivedbyaddress(self, minconf=1, include_empty=True, include_watchonly=True):
+        return self.__getattr__('listreceivedbyaddress')(minconf, include_empty, include_watchonly)
 
     def get_script_pubkey(self, txid, vout_n):
         txhex = self.gettransaction(txid)['hex']

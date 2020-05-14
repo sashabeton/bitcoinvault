@@ -15,8 +15,12 @@ from test_framework.util import get_datadir_path
 class AlertsTest(BitcoinTestFramework):
     def set_test_params(self):
         self.setup_clean_chain = True
-        self.num_nodes = 2
+        self.num_nodes = 3
         self.extra_args = [
+            [
+                "-reindex",
+                "-txindex",
+            ],
             [
                 "-reindex",
                 "-txindex",
@@ -68,6 +72,10 @@ class AlertsTest(BitcoinTestFramework):
         self.COINBASE_AMOUNT = Decimal(175)
 
         self.reset_blockchain()
+        self.log.info("Test add watch-only alert address")
+        self.test_add_watchonly_alert_address()
+
+        self.reset_blockchain()
         self.log.info("Test sign atx with wallet")
         self.test_sign_atx_with_wallet()
 
@@ -110,6 +118,28 @@ class AlertsTest(BitcoinTestFramework):
         self.reset_blockchain()
         self.log.info("Test recovery tx is rejected when iputs does not match alert")
         self.test_recovery_tx_is_rejected_when_inputs_does_not_match_alert()
+
+    def test_add_watchonly_alert_address(self):
+        alert_addr1 = self.nodes[1].getnewvaultaddress(self.alert_recovery_pubkey)
+
+        # add alert_addr1 to node0 as watch-only
+        self.nodes[0].importaddress(alert_addr1['redeemScript'], '', True, True)
+
+        # mine some coins to node2 and send tx to alert_address1
+        self.nodes[2].generate(200)
+        txid = self.nodes[2].sendtoaddress(alert_addr1['address'], 10)
+        self.nodes[2].generate(1)
+
+        # assert
+        self.sync_all()
+        receivedbyaddress = self.find_address(self.nodes[0].listreceivedbyaddress(), alert_addr1['address'])
+        assert self.nodes[0].getbalance() == 0
+        assert 'involvesWatchonly' in receivedbyaddress
+        assert receivedbyaddress['involvesWatchonly'] is True
+        assert receivedbyaddress['amount'] == 10
+        assert txid in receivedbyaddress['txids']
+        # TODO importpubkey
+        # TODO import priv key
 
     def test_tx_from_normal_addr_to_alert_addr(self):
         alert_addr1 = self.nodes[1].getnewvaultaddress(self.alert_recovery_pubkey)
