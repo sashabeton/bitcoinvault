@@ -89,17 +89,15 @@ class VaultReorgTest(BitcoinTestFramework):
         self.nodes[0].generatetoaddress(1, addr0)
         self.nodes[0].generatetoaddress(109, addr1)  # 110
 
-        # send coins from addr0 to alert_addr0 -> normal non-vault tx
+        # send tx
         self.nodes[0].sendtoaddress(alert_addr0['address'], 174.99)
         self.nodes[0].generatetoaddress(10, addr1)  # 120
 
-        # send coins from alert_addr0 to addr1 -> vault tx alert
-        atx_to_recover = self.nodes[0].sendtoaddress(addr1, 174.98)
-        atx_to_recover = self.nodes[0].gettransaction(atx_to_recover)['hex']
-        atx_to_recover = self.nodes[0].decoderawtransaction(atx_to_recover)
+        # send atx
+        self.nodes[0].sendtoaddress(addr1, 174.98)
         self.nodes[0].generatetoaddress(1, addr1)  # 121
 
-        # confirm (with offset) alert coins -> confirmed vault tx alert
+        # confirm atx
         self.nodes[0].generatetoaddress(144 + 35, addr1)  # 300
 
         # generate longer chain on node1
@@ -128,17 +126,17 @@ class VaultReorgTest(BitcoinTestFramework):
         self.nodes[0].generatetoaddress(1, addr0)
         self.nodes[0].generatetoaddress(109, addr1)  # 110
 
-        # send coins from addr0 to alert_addr0 -> normal non-vault tx
+        # send tx
         self.nodes[0].sendtoaddress(alert_addr0['address'], 174.99)
         self.nodes[0].generatetoaddress(10, addr1)  # 120
 
-        # send coins from alert_addr0 to addr1 -> vault tx alert
+        # send atx
         atx_to_recover = self.nodes[0].sendtoaddress(addr1, 174.98)
         atx_to_recover = self.nodes[0].gettransaction(atx_to_recover)['hex']
         atx_to_recover = self.nodes[0].decoderawtransaction(atx_to_recover)
         self.nodes[0].generatetoaddress(1, addr1)  # 121
 
-        # recover tx alert coins -> vault recovery tx
+        # recover atx
         recovery_tx = self.nodes[0].createrecoverytransaction(atx_to_recover['hash'], {addr0: 174.98})
         recovery_tx = self.nodes[0].signrecoverytransaction(recovery_tx, [self.alert_recovery_privkey], alert_addr0['redeemScript'])
         self.nodes[0].sendrawtransaction(recovery_tx['hex'])
@@ -154,6 +152,9 @@ class VaultReorgTest(BitcoinTestFramework):
 
         # synchronize nodes what cause reorganization on node0
         connect_nodes(self.nodes[1], 0)
+        self.sync_all()
+
+        self.restart_node(0, self.extra_args[0])
         self.sync_all()
 
         # post-reorganization assert
