@@ -72,6 +72,10 @@ class AlertsTest(BitcoinTestFramework):
         self.COINBASE_AMOUNT = Decimal(175)
 
         self.reset_blockchain()
+        self.log.info("Test dumpwallet / importwallet with alert address")
+        self.test_dumpwallet()
+
+        self.reset_blockchain()
         self.log.info("Test atx from imported alert address")
         self.test_atx_from_imported_alert_address()
 
@@ -134,6 +138,28 @@ class AlertsTest(BitcoinTestFramework):
         self.reset_blockchain()
         self.log.info("Test recovery tx is rejected when iputs does not match alert")
         self.test_recovery_tx_is_rejected_when_inputs_does_not_match_alert()
+
+    def test_dumpwallet(self):
+        alert_addr0 = self.nodes[0].getnewvaultaddress(self.alert_recovery_pubkey)
+
+        # get pubkey
+        pubkey = self.nodes[0].getaddressinfo(alert_addr0['address'])['pubkeys']
+        pubkey.remove(self.alert_recovery_pubkey)
+        pubkey = pubkey[0]
+
+        # dump wallet
+        wallet_path = os.path.join(self.nodes[0].datadir, "wallet.dump")
+        result = self.nodes[0].dumpwallet(wallet_path)
+        assert result['filename'] == wallet_path
+
+        # import wallet
+        self.nodes[1].importwallet(wallet_path)
+        info = self.nodes[1].getaddressinfo(alert_addr0['address'])
+
+        # assert
+        assert info['ismine'] is True
+        assert info['iswatchonly'] is False
+        assert sorted(info['pubkeys']) == sorted([pubkey, self.alert_recovery_pubkey])
 
     def test_add_watchonly_alert_address(self):
         alert_addr1 = self.nodes[1].getnewvaultaddress(self.alert_recovery_pubkey)
