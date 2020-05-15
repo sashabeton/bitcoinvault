@@ -359,9 +359,21 @@ void BlockAssembler::SortForBlock(const CTxMemPool::setEntries& package, std::ve
 void BlockAssembler::addTxsFromAlerts(const CBlock& ancestorBlock, const Consensus::Params& params)
 {
     CCoinsViewCache view(pcoinsTip.get());
-    // TODO-fork: Implement validation, especially:
-    // - check if Alert wasn't reverted
+    auto checkAlertTx = [&] (CAlertTransactionRef atx) -> bool {
+        for (unsigned int i = 0; i < atx->vin.size(); i++) {
+            if (!view.HaveCoin(atx->vin[i].prevout))
+                return false;
+            if (!view.AccessCoin(atx->vin[i].prevout).IsSpent())
+                return false;
+        }
+        return true;
+    };
+
     for (const CAlertTransactionRef& atx : ancestorBlock.vatx) {
+        if(!checkAlertTx(atx)) {
+            LogPrintf("addTxsFromAlerts(): skipping reverted tx alert %s\n, ", atx->GetHash().ToString());
+            continue;
+        }
         AddTxToBlock(atx, view);
     }
 }

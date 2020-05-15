@@ -39,30 +39,30 @@ public:
     //! at which height this containing transaction was included in the active block chain
     uint32_t nHeight : 31;
 
-    //! whether output is spent
-    bool fSpent;
+    //! at which height output was and whether is spent
+    uint32_t nSpentHeight;
 
     // memory only
     uint32_t fAlertsHeight;
 
     //! construct a Coin from a CTxOut and height/coinbase/confirmation information.
-    Coin(CTxOut&& outIn, int nHeightIn, bool fCoinBaseIn, bool fSpentIn = false, uint32_t fAlertsHeightIn = 0) : out(std::move(outIn)), fCoinBase(fCoinBaseIn), nHeight(nHeightIn), fSpent(fSpentIn), fAlertsHeight(fAlertsHeightIn) {}
-    Coin(const CTxOut& outIn, int nHeightIn, bool fCoinBaseIn, bool fSpentIn = false, uint32_t fAlertsHeightIn = 0) : out(outIn), fCoinBase(fCoinBaseIn), nHeight(nHeightIn), fSpent(fSpentIn), fAlertsHeight(fAlertsHeightIn) {}
+    Coin(CTxOut&& outIn, int nHeightIn, bool fCoinBaseIn, uint32_t nSpentHeightIn = 0, uint32_t fAlertsHeightIn = 0) : out(std::move(outIn)), fCoinBase(fCoinBaseIn), nHeight(nHeightIn), nSpentHeight(nSpentHeightIn), fAlertsHeight(fAlertsHeightIn) {}
+    Coin(const CTxOut& outIn, int nHeightIn, bool fCoinBaseIn, uint32_t nSpentHeightIn = 0, uint32_t fAlertsHeightIn = 0) : out(outIn), fCoinBase(fCoinBaseIn), nHeight(nHeightIn), nSpentHeight(nSpentHeightIn), fAlertsHeight(fAlertsHeightIn) {}
 
     void Clear() {
         out.SetNull();
         fCoinBase = false;
         nHeight = 0;
         fAlertsHeight = 0;
-        fSpent = true;
+        nSpentHeight = 0;
     }
 
-    void Spend() {
-        fSpent = true;
+    void Spend(uint32_t nHeight) {
+        nSpentHeight = nHeight;
     }
 
     //! empty constructor
-    Coin() : fCoinBase(false), nHeight(0), fSpent(false), fAlertsHeight(0) { }
+    Coin() : fCoinBase(false), nHeight(0), nSpentHeight(0), fAlertsHeight(0) { }
 
     bool IsCoinBase() const {
         return fCoinBase;
@@ -75,8 +75,9 @@ public:
         ::Serialize(s, VARINT(code));
         ::Serialize(s, CTxOutCompressor(REF(out)));
         // TODO-fork: Use AreAlertsEnable function
-        if (fAlertsHeight && nHeight > fAlertsHeight)
-            ::Serialize(s, fSpent);
+        if (fAlertsHeight && nHeight > fAlertsHeight) {
+            ::Serialize(s, VARINT(nSpentHeight));
+        }
     }
 
     template<typename Stream>
@@ -87,8 +88,9 @@ public:
         fCoinBase = code & 1;
         ::Unserialize(s, CTxOutCompressor(out));
         // TODO-fork: Use AreAlertsEnable function
-        if (fAlertsHeight && nHeight > fAlertsHeight)
-            ::Unserialize(s, fSpent);
+        if (fAlertsHeight && nHeight > fAlertsHeight) {
+            ::Unserialize(s, VARINT(nSpentHeight));
+        }
     }
 
     bool IsConfirmed() const {
@@ -96,7 +98,7 @@ public:
     }
 
     bool IsSpent() const {
-        return fSpent || IsConfirmed();
+        return nSpentHeight > 0 || IsConfirmed();
     }
 
     size_t DynamicMemoryUsage() const {
@@ -285,11 +287,11 @@ public:
     bool ConfirmCoin(const COutPoint &outpoint, Coin* moveto = nullptr);
 
     /**
-     * Spend a coin.
+     * Spend a coin. Pass moveto in order to get the deleted data.
      * If no unspent output exists for the passed outpoint, this call
      * has no effect.
      */
-    bool SpendCoin(const COutPoint &outpoint);
+    bool SpendCoin(const COutPoint &outpoint, int nHeight, Coin* moveto = nullptr);
 
     /**
      * Push the modifications applied to this cache to its base.

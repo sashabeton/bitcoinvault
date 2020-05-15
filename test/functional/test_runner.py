@@ -204,7 +204,8 @@ EXTENDED_SCRIPTS = [
 
 # Tests concerning new Bitcoin Vault features
 VAULT_SCRIPTS = [
-    'feature_alerts.py'
+    'feature_alerts.py',
+    'feature_vault_reorg.py'
 ]
 
 # Place EXTENDED_SCRIPTS first since it has the 3 longest running tests
