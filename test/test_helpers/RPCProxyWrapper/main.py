@@ -3,11 +3,9 @@ from pathlib import Path
 
 import time
 
-rpc_connection1 = RPCProxyWrapper(rpcport=18887, rpcuser='user', rpcpass='pass',
-                                  datadir=Path.home() / '.bvault1')
+rpc_connection1 = RPCProxyWrapper(rpcport=18887, rpcuser='user', rpcpass='pass', datadir=Path.home() / '.bvault1')
 
-rpc_connection2 = RPCProxyWrapper(rpcport=18888, rpcuser='user', rpcpass='pass',
-                                  datadir=Path.home() / '.bvault2')
+rpc_connection2 = RPCProxyWrapper(rpcport=18888, rpcuser='user', rpcpass='pass', datadir=Path.home() / '.bvault2')
 
 
 def construct_atx_from_utxo():
@@ -261,7 +259,7 @@ def test_recovery_balance():
     assert find_address(rpc_connection1.listreceivedbyaddress(), other_addr)['txids'] == [recovery_txid]
 
 
-if __name__ == '__main__':
+def main():
     RPCProxyWrapper.killall()
     rpc_connection1.reset()
     rpc_connection2.reset()
