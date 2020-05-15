@@ -65,7 +65,8 @@ class __test_key:
         self.priv = priv
 
 
-TEST_KEYS = [__test_key("02ecec100acb89f3049285ae01e7f03fb469e6b54d44b0f3c8240b1958e893cb8c", "cRfYLWua6WcpGbxuv5rJgA2eDESWxqgzmQjKQuqDFMfgbnEpqhrP")]
+TEST_KEYS = [__test_key("02ecec100acb89f3049285ae01e7f03fb469e6b54d44b0f3c8240b1958e893cb8c",
+                        "cRfYLWua6WcpGbxuv5rJgA2eDESWxqgzmQjKQuqDFMfgbnEpqhrP")]
 
 COINBASE_MATURITY = 100
 COINBASE_AMOUNT = 175
