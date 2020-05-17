@@ -113,7 +113,6 @@ bool IsStandardTx(const CTransaction& tx, std::string& reason)
         }
     }
 
-    unsigned int nDataOut = 0;
     txnouttype whichType;
     for (const CTxOut& txout : tx.vout) {
         if (!::IsStandard(txout.scriptPubKey, whichType)) {
@@ -121,21 +120,13 @@ bool IsStandardTx(const CTransaction& tx, std::string& reason)
             return false;
         }
 
-        if (whichType == TX_NULL_DATA)
-            nDataOut++;
-        else if ((whichType == TX_MULTISIG) && (!fIsBareMultisigStd)) {
+        if ((whichType == TX_MULTISIG) && (!fIsBareMultisigStd)) {
             reason = "bare-multisig";
             return false;
         } else if (IsDust(txout, ::dustRelayFee)) {
             reason = "dust";
             return false;
         }
-    }
-
-    // only one OP_RETURN txout is permitted
-    if (nDataOut > 1) {
-        reason = "multi-op-return";
-        return false;
     }
 
     return true;
