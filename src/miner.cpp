@@ -507,7 +507,7 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
 
         // Decide if add transaction as alert or regular transaction
         auto addToBlock = [&] (CTxMemPool::txiter entry) {
-            if (alertsEnabled) {
+            if (alertsEnabled && !IsLicenseTx(entry)) {
                 CCoinsViewCache view(pcoinsTip.get());
                 vaulttxntype vaultTxType = GetVaultTxType(entry->GetTx(), view);
                 if (vaultTxType == TX_ALERT)
@@ -528,6 +528,10 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
         // Update transactions that depend on each of these
         nDescendantsUpdated += UpdatePackagesForAdded(ancestors, mapModifiedTx);
     }
+}
+
+bool BlockAssembler::IsLicenseTx(CTxMemPool::txiter it) const {
+	return false; // TODO
 }
 
 void IncrementExtraNonce(CBlock* pblock, const CBlockIndex* pindexPrev, unsigned int& nExtraNonce, const Consensus::Params& consensusParams)

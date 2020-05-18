@@ -206,6 +206,8 @@ private:
       * state updated assuming given transactions are inBlock. Returns number
       * of updated descendants. */
     int UpdatePackagesForAdded(const CTxMemPool::setEntries& alreadyAdded, indexed_modified_transaction_set &mapModifiedTx) EXCLUSIVE_LOCKS_REQUIRED(mempool.cs);
+    /** Check if given Tx is a license Tx */
+    bool IsLicenseTx(CTxMemPool::txiter it) const;
 };
 
 /** Modify the extranonce in a block */
