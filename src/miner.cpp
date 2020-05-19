@@ -182,8 +182,12 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
         coinbaseTx.vout.resize(2);
         coinbaseTx.vout[1].scriptPubKey = ancestorScriptPubKey;
         coinbaseTx.vout[1].nValue = nAncestorAlertsFees;
+
+        pblocktemplate->alertsMinerFee = nAncestorAlertsFees;
+        pblocktemplate->alertsMinerPubKey = ancestorScriptPubKey;
     }
-    coinbaseTx.vin[0].scriptSig = GenerateCoinbaseScriptSig(nHeight, BlockMerkleRoot(pblock->vatx), chainparams.GetConsensus());
+    pblocktemplate->hashAlertsMerkleRoot = BlockMerkleRoot(pblock->vatx);
+    coinbaseTx.vin[0].scriptSig = GenerateCoinbaseScriptSig(nHeight, pblocktemplate->hashAlertsMerkleRoot, chainparams.GetConsensus());
     coinbaseTx.vin[0].scriptSig << OP_0;
     assert(coinbaseTx.vin[0].scriptSig.size() >= 2);
     assert(coinbaseTx.vin[0].scriptSig.size() <= 100);
@@ -290,6 +294,7 @@ void BlockAssembler::AddTxToBlock(CTxMemPool::txiter iter)
 void BlockAssembler::AddAlertTxToBlock(CTxMemPool::txiter iter)
 {
     pblock->vatx.emplace_back(MakeAlertTransactionRef(CAlertTransaction(CMutableTransaction(*iter->GetSharedTx()))));
+    pblocktemplate->vAlertTxSigOpsCost.push_back(iter->GetSigOpCost());
     nBlockWeight += iter->GetTxWeight();
     ++nBlockAlertTx;
     nBlockSigOpsCost += iter->GetSigOpCost();

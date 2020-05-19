@@ -30,6 +30,10 @@ struct CBlockTemplate
     CBlock block;
     std::vector<CAmount> vTxFees;
     std::vector<int64_t> vTxSigOpsCost;
+    std::vector<int64_t> vAlertTxSigOpsCost;
+    CAmount alertsMinerFee;
+    CScript alertsMinerPubKey;
+    uint256 hashAlertsMerkleRoot;
     std::vector<unsigned char> vchCoinbaseCommitment;
 };
 

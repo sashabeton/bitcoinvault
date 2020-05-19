@@ -531,6 +531,7 @@ static UniValue getblocktemplate(const JSONRPCRequest& request)
     assert(pindexPrev);
     CBlock* pblock = &pblocktemplate->block; // pointer for convenience
     const Consensus::Params& consensusParams = Params().GetConsensus();
+    bool fAlertsEnabled = AreAlertsEnabled(pindexPrev->nHeight + 1, consensusParams.AlertsHeight);
 
     // Update nTime
     UpdateTime(pblock, consensusParams, pindexPrev);
@@ -577,6 +578,38 @@ static UniValue getblocktemplate(const JSONRPCRequest& request)
         entry.pushKV("weight", GetTransactionWeight(tx));
 
         transactions.push_back(entry);
+    }
+
+    UniValue transactionAlerts(UniValue::VARR);
+    if (fAlertsEnabled) {
+        std::map<uint256, int64_t> setAlertTxIndex;
+        int j = 0;
+        for (const auto &it : pblock->vatx) {
+            const CAlertTransaction &atx = *it;
+            uint256 atxHash = atx.GetHash();
+            setAlertTxIndex[atxHash] = j++;
+
+            UniValue entry(UniValue::VOBJ);
+            entry.pushKV("data", EncodeHexTx(atx));
+            entry.pushKV("txid", atxHash.GetHex());
+            entry.pushKV("hash", atx.GetWitnessHash().GetHex());
+
+            UniValue deps(UniValue::VARR);
+            for (const CTxIn &in : atx.vin) {
+                if (setAlertTxIndex.count(in.prevout.hash))
+                    deps.push_back(setAlertTxIndex[in.prevout.hash]);
+            }
+            entry.pushKV("depends", deps);
+            int64_t nAlertTxSigOps = pblocktemplate->vAlertTxSigOpsCost[j];
+            if (fPreSegWit) {
+                assert(nAlertTxSigOps % WITNESS_SCALE_FACTOR == 0);
+                nAlertTxSigOps /= WITNESS_SCALE_FACTOR;
+            }
+            entry.pushKV("sigops", nAlertTxSigOps);
+            entry.pushKV("weight", GetTransactionWeight(atx));
+
+            transactionAlerts.push_back(entry);
+        }
     }
 
     UniValue aux(UniValue::VOBJ);
@@ -649,8 +682,17 @@ static UniValue getblocktemplate(const JSONRPCRequest& request)
 
     result.pushKV("previousblockhash", pblock->hashPrevBlock.GetHex());
     result.pushKV("transactions", transactions);
+    if (fAlertsEnabled) {
+        result.pushKV("transactionalerts", transactionAlerts);
+        if (transactionAlerts.size() > 0)
+            result.pushKV("transactionalertsmerkleroot", pblocktemplate->hashAlertsMerkleRoot.GetHex());
+    }
     result.pushKV("coinbaseaux", aux);
     result.pushKV("coinbasevalue", (int64_t)pblock->vtx[0]->vout[0].nValue);
+    if (fAlertsEnabled) {
+        result.pushKV("coinbasealertsminerfee", (int64_t)pblocktemplate->alertsMinerFee);
+        result.pushKV("coinbasealertsmnerpubkey", HexStr(pblocktemplate->alertsMinerPubKey.begin(), pblocktemplate->alertsMinerPubKey.end()));
+    }
     result.pushKV("longpollid", chainActive.Tip()->GetBlockHash().GetHex() + i64tostr(nTransactionsUpdatedLast));
     result.pushKV("target", hashTarget.GetHex());
     result.pushKV("mintime", (int64_t)pindexPrev->GetMedianTimePast()+1);
