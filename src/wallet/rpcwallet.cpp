@@ -4439,8 +4439,7 @@ static UniValue signrecoverytransaction(const JSONRPCRequest& request)
                            "\nSign inputs for raw recovery transaction (serialized, hex-encoded).\n"
                            "The second argument is an array of base58-encoded private\n"
                            "keys that will be the only keys used to sign the transaction.\n"
-                           "The third optional argument (may be null) is an array of previous transaction outputs that\n"
-                           "this transaction depends on but may not yet be in the block chain.\n",
+                           "The third argument is address redeem script.\n",
                            {
                                    {"hexstring", RPCArg::Type::STR, RPCArg::Optional::NO, "The transaction alert hex string"},
                                    {"privkeys", RPCArg::Type::ARR, RPCArg::Optional::NO, "A json array of base58-encoded private keys for signing",

@@ -36,8 +36,7 @@ New bvaultd RPC commands:
   Sign inputs for raw recovery transaction (serialized, hex-encoded).
   The second argument is an array of base58-encoded private
   keys that will be the only keys used to sign the transaction.
-  The third optional argument (may be null) is an array of previous transaction outputs that
-  this transaction depends on but may not yet be in the block chain.
+  The third argument is address redeem script.
   
 
 Basic end-user flow:
@@ -50,9 +49,9 @@ $ bvaultd-cli getnewvaultaddress '02ecec100acb89f3049285ae01e7f03fb469e6b54d44b0
 $ # get some coins
 $ bvaultd-cli sendtoaddress '2N34KyQQj97pAivV59wfTkzksYuPdR2jLfi' 10  # sign with wallet key and send alert transaction from alert address
   c2119cf6ae1d89e19d0b566f70b55f27ceb8395bca29977b96d8a6a2aaef82cd
-$ bvaultd-cli createrecoverytransaction "c2119cf6ae1d89e19d0b566f70b55f27ceb8395bca29977b96d8a6a2aaef82cd" [{"2NCQR2117wUpqXT4euTMVQFXApNQAh3AMS9": 174.99}] 
+$ bvaultd-cli createrecoverytransaction '"c2119cf6ae1d89e19d0b566f70b55f27ceb8395bca29977b96d8a6a2aaef82cd"' '[{"2NCQR2117wUpqXT4euTMVQFXApNQAh3AMS9": 174.99}]' 
   020000000108631a1eb168d3f55785c45945fa2fa069b6365dec687df787bb44c8354d94340000000000ffffffff0100ca9a3b0000000017a914d2275731482d31473695126727c442339dd7b50b8700000000
-$ bvaultd-cli signrecoverytransaction "020000000108631a1eb168d3f55785c45945fa2fa069b6365dec687df787bb44c8354d94340000000000ffffffff0100ca9a3b0000000017a914d2275731482d31473695126727c442339dd7b50b8700000000" ["cRfYLWua6WcpGbxuv5rJgA2eDESWxqgzmQjKQuqDFMfgbnEpqhrP"] "63516752682103c10bb9a7cabc41b28251cf4dfeb9da199696157052ecedf7b03647dd2f22b89a2102ecec100acb89f3049285ae01e7f03fb469e6b54d44b0f3c8240b1958e893cb8c52ae"
+$ bvaultd-cli signrecoverytransaction '"020000000108631a1eb168d3f55785c45945fa2fa069b6365dec687df787bb44c8354d94340000000000ffffffff0100ca9a3b0000000017a914d2275731482d31473695126727c442339dd7b50b8700000000"' '["cRfYLWua6WcpGbxuv5rJgA2eDESWxqgzmQjKQuqDFMfgbnEpqhrP"]' '"63516752682103c10bb9a7cabc41b28251cf4dfeb9da199696157052ecedf7b03647dd2f22b89a2102ecec100acb89f3049285ae01e7f03fb469e6b54d44b0f3c8240b1958e893cb8c52ae"'
   {
       "hex": "020000000108631a1eb168d3f55785c45945fa2fa069b6365dec687df787bb44c8354d943400000000df00473044022058f01583834e4d8ba2bceae550bdb484af8575c24403104adf2134c5b4130f13022048147bf5f6d69a827526377c8eb66ffc7b8ff38d581874e89c53fb185bf3869f014730440220224754a6b0bd96a601da0d282fad309fc8ab720d023f891cc3eec3dc3446bc4c022034495280624ae006004700d0daba9d1f741584a177256341abd8a4e442acc8760101004b63516752682103c10bb9a7cabc41b28251cf4dfeb9da199696157052ecedf7b03647dd2f22b89a2102ecec100acb89f3049285ae01e7f03fb469e6b54d44b0f3c8240b1958e893cb8c52aeffffffff0100ca9a3b0000000017a914d2275731482d31473695126727c442339dd7b50b8700000000",
       "complete": true
