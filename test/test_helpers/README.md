@@ -33,10 +33,19 @@ New bvaultd RPC commands:
 
 
 - `signrecoverytransaction "hexstring" ["privatekey",...] "redeemScript" ( "witnessScript" "sighashtype" )`
+
   Sign inputs for raw recovery transaction (serialized, hex-encoded).
   The second argument is an array of base58-encoded private
   keys that will be the only keys used to sign the transaction.
   The third argument is address redeem script.
+ 
+- `signinstanttransaction "hexstring" ["privatekey",...] ( [{"txid":"hex","vout":n,"scriptPubKey":"hex","redeemScript":"hex","witnessScript":"hex","amount":amount},...] "sighashtype" )`
+
+  Sign inputs for raw instant transaction (serialized, hex-encoded).
+  The second argument is an array of base58-encoded private
+  keys that will be the only keys used to sign the transaction.
+  The third optional argument (may be null) is an array of previous transaction outputs that
+  this transaction depends on but may not yet be in the block chain.
   
 
 Basic end-user flow:

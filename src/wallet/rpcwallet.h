@@ -13,6 +13,7 @@ class JSONRPCRequest;
 class UniValue;
 struct PartiallySignedTransaction;
 class CTransaction;
+class CBasicKeyStore;
 
 void RegisterWalletRPCCommands(CRPCTable &t);
 
@@ -27,6 +28,8 @@ std::shared_ptr<CWallet> GetWalletForJSONRPCRequest(const JSONRPCRequest& reques
 std::string HelpRequiringPassphrase(CWallet *);
 void EnsureWalletIsUnlocked(CWallet *);
 bool EnsureWalletIsAvailable(CWallet *, bool avoidException);
+vaulttxntype GetVaultTxType(const std::string& txHex);
+UniValue SignInstantTransaction(interfaces::Chain& chain, CMutableTransaction& otx, const UniValue& prevTxsUnival, const CBasicKeyStore *const okeystore, const UniValue& hashType);
 
 UniValue getaddressinfo(const JSONRPCRequest& request);
 UniValue signrawtransactionwithwallet(const JSONRPCRequest& request);
