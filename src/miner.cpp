@@ -531,7 +531,40 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
 }
 
 bool BlockAssembler::IsLicenseTx(CTxMemPool::txiter it) const {
-	return false; // TODO
+	auto tx = *it->GetSharedTx();
+	if (tx.IsNull() || tx.IsCoinBase())
+		return false;
+
+	if (tx.vin.size() != 1)
+		return false;
+
+	auto ComesFromWDMO = [&](CTxIn vin, CScript wdmoScript) {
+		COutPoint prevout = vin.prevout;
+		CBaseTransactionRef txOut;
+		uint256 hashBlock;
+		bool result = false;
+
+		if (GetTransaction(prevout.hash, txOut, Params().GetConsensus(), hashBlock))
+			for (const auto& vout : txOut.get()->vout)
+				result |= (vout.scriptPubKey == wdmoScript);
+
+		return result;
+	};
+
+	CScript wdmoScript; // TODO
+	if (!ComesFromWDMO(tx.vin[0], wdmoScript))
+		return false;
+
+	auto IsLicenseTxHeader = [&](CScript scriptPubKey) {
+		return scriptPubKey[0] == OP_RETURN && scriptPubKey[1] == 0x4C /*L*/
+				&& scriptPubKey[2] == 0x54 /*T*/ && scriptPubKey[3] == 0x78 /*x*/;
+	};
+
+	bool isLicenseTx = false;
+	for (const auto& vout : tx.vout)
+		isLicenseTx |= IsLicenseTxHeader(vout.scriptPubKey);
+
+	return isLicenseTx;
 }
 
 void IncrementExtraNonce(CBlock* pblock, const CBlockIndex* pindexPrev, unsigned int& nExtraNonce, const Consensus::Params& consensusParams)
