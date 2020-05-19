@@ -4538,7 +4538,39 @@ static UniValue signrecoverytransaction(const JSONRPCRequest& request)
         recovery_data.push_back(prevTx);
     }
 
-    return SignTransaction(pwallet->chain(), mtx, recovery_data, &keystore, true, request.params[4], /*expectSpent = */true);
+    UniValue result = SignTransaction(pwallet->chain(), mtx, recovery_data, &keystore, true, request.params[4], /*expectSpent = */true);
+
+    if (std::find(result.getKeys().begin(), result.getKeys().end(), "errors") == result.getKeys().end()) {
+        // assert that we indeed produced recovery tx
+
+        CMutableTransaction mtx;
+        if (!DecodeHexTx(mtx, result["hex"].getValStr(), true)) {
+            throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "TX decode failed");
+        }
+        CBaseTransaction btx(mtx);
+
+        // Fetch previous transactions (inputs):
+        CCoinsView viewDummy;
+        CCoinsViewCache view(&viewDummy);
+        {
+            LOCK2(cs_main, mempool.cs);
+            CCoinsViewCache &viewChain = *pcoinsTip;
+            CCoinsViewMemPool viewMempool(&viewChain, mempool);
+            view.SetBackend(viewMempool); // temporarily switch cache backend to db+mempool view
+
+            for (const CTxIn& txin : mtx.vin) {
+                view.AccessCoin(txin.prevout); // Load entries from viewChain into view; can fail.
+            }
+
+            view.SetBackend(viewDummy); // switch back to avoid locking mempool for too long
+        }
+
+        if (GetVaultTxType(btx, view) != TX_RECOVERY) {
+            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Produced non-recovery tx, possibly missing keys");
+        }
+    }
+
+    return result;
 }
 
 UniValue abortrescan(const JSONRPCRequest& request); // in rpcdump.cpp
