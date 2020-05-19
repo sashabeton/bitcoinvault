@@ -16,6 +16,7 @@
 #include <chainparams.h>
 #include <checkpoints.h>
 #include <compat/sanity.h>
+#include <consensus/tx_verify.h>
 #include <consensus/validation.h>
 #include <fs.h>
 #include <httpserver.h>
@@ -1552,6 +1553,17 @@ bool AppInitMain(InitInterfaces& interfaces)
                         break;
                     }
                     assert(chainActive.Tip() != nullptr);
+                }
+
+                // Prepare miners database
+                for (const auto& mapBlockIndexPair : mapBlockIndex) {
+                	auto blockIndex = mapBlockIndexPair.second;
+                	CBlock block;
+                	ReadBlockFromDisk(block, blockIndex, Params().GetConsensus());
+
+                	for (const auto& tx : block.vtx)
+                		if (IsLicenseTx(*tx))
+                			; // TODO: update miners database
                 }
             } catch (const std::exception& e) {
                 LogPrintf("%s\n", e.what());

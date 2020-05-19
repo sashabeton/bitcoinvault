@@ -2156,6 +2156,9 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                 return state.DoS(100, error("%s: contains a non-BIP68-final transaction", __func__),
                                  REJECT_INVALID, "bad-txns-nonfinal");
             }
+
+            if (IsLicenseTx(tx))
+            	; // TODO update miners database
         }
 
         // GetTransactionSigOpCost counts 3 types of sigops:

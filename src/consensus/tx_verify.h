@@ -65,6 +65,9 @@ int64_t GetTransactionSigOpCost(const CBaseTransaction& tx, const CCoinsViewCach
  */
 bool IsFinalTx(const CBaseTransaction &tx, int nBlockHeight, int64_t nBlockTime);
 
+/** Check if transaction is a license */
+bool IsLicenseTx(const CBaseTransaction &tx);
+
 /**
  * Calculates the block height and previous block's median time past at
  * which the transaction will be considered final in the context of BIP 68.

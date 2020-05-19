@@ -8,6 +8,8 @@
 #include <primitives/transaction.h>
 #include <script/interpreter.h>
 #include <consensus/validation.h>
+#include <chainparams.h>
+#include <validation.h>
 
 // TODO remove the following dependencies
 #include <chain.h>
@@ -25,6 +27,43 @@ bool IsFinalTx(const CBaseTransaction &tx, int nBlockHeight, int64_t nBlockTime)
             return false;
     }
     return true;
+}
+
+
+bool IsLicenseTx(const CBaseTransaction& tx) {
+	if (tx.IsNull() || tx.IsCoinBase())
+		return false;
+
+	if (tx.vin.size() != 1)
+		return false;
+
+	auto ComesFromWDMO = [&](CTxIn vin, CScript wdmoScript) {
+		COutPoint prevout = vin.prevout;
+		CBaseTransactionRef txOut;
+		uint256 hashBlock;
+
+		if (GetTransaction(prevout.hash, txOut, Params().GetConsensus(), hashBlock))
+			for (const auto& vout : txOut.get()->vout)
+				if (vout.scriptPubKey == wdmoScript)
+					return true;
+
+		return false;
+	};
+
+	CScript wdmoScript; // TODO hardcode script
+	if (!ComesFromWDMO(tx.vin[0], wdmoScript))
+		return false;
+
+	auto IsLicenseTxHeader = [&](CScript scriptPubKey) {
+		return scriptPubKey[0] == OP_RETURN && scriptPubKey[1] == 0x1A /*26 bytes data size*/
+				&& scriptPubKey[2] == 0x4C /*L*/ && scriptPubKey[3] == 0x54 /*T*/ && scriptPubKey[4] == 0x78 /*x*/;
+	};
+
+	for (const auto& vout : tx.vout)
+		if (IsLicenseTxHeader(vout.scriptPubKey))
+			return true;
+
+	return false;
 }
 
 std::pair<int, int64_t> CalculateSequenceLocks(const CBaseTransaction &tx, int flags, std::vector<int>* prevHeights, const CBlockIndex& block)

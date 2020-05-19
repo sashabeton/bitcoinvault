@@ -372,6 +372,22 @@ public:
     std::string ToString() const;
 };
 
+class CLicenseTransaction : public CTransaction
+{
+	enum class ActionType {
+		NEW, MODIFICATION, REVOCATION
+	};
+
+	using CTransaction::CTransaction;
+
+public:
+	std::string ToString() const;
+
+private:
+	ActionType type;
+	uint64_t assignedHashrate;
+};
+
 /** A mutable version of CBaseTransaction. */
 struct CMutableTransaction
 {
@@ -387,7 +403,6 @@ struct CMutableTransaction
     inline void Serialize(Stream& s) const {
         SerializeTransaction(*this, s);
     }
-
 
     template <typename Stream>
     inline void Unserialize(Stream& s) {
@@ -416,7 +431,6 @@ struct CMutableTransaction
 };
 
 typedef std::shared_ptr<const CBaseTransaction> CBaseTransactionRef;
-
 typedef std::shared_ptr<const CTransaction> CTransactionRef;
 static inline CTransactionRef MakeTransactionRef() { return std::make_shared<const CTransaction>(); }
 template <typename Tx> static inline CTransactionRef MakeTransactionRef(Tx&& txIn) { return std::make_shared<const CTransaction>(std::forward<Tx>(txIn)); }
@@ -424,4 +438,9 @@ template <typename Tx> static inline CTransactionRef MakeTransactionRef(Tx&& txI
 typedef std::shared_ptr<const CAlertTransaction> CAlertTransactionRef;
 static inline CAlertTransactionRef MakeAlertTransactionRef() { return std::make_shared<const CAlertTransaction>(); }
 template <typename Tx> static inline CAlertTransactionRef MakeAlertTransactionRef(Tx&& txIn) { return std::make_shared<const CAlertTransaction>(std::forward<Tx>(txIn)); }
+
+typedef std::shared_ptr<const CLicenseTransaction> CLicenseTransactionRef;
+static inline CLicenseTransactionRef MakeLicenseTransactionRef() { return std::make_shared<const CLicenseTransaction>(); }
+template <typename Tx> static inline CLicenseTransactionRef MakeLicenseTransactionRef(Tx&& txIn) { return std::make_shared<const CLicenseTransaction>(std::forward<Tx>(txIn)); }
+
 #endif // BITCOIN_PRIMITIVES_TRANSACTION_H
