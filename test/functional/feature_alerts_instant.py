@@ -76,6 +76,30 @@ class AlertsInstantTest(BitcoinTestFramework):
         self.COINBASE_AMOUNT = Decimal(175)
 
         self.reset_blockchain()
+        self.log.info("Test standard signinstanttransaction flow")
+        self.test_signinstanttransaction()
+
+        self.reset_blockchain()
+        self.log.info("Test signinstanttransaction when instant key imported")
+        self.test_signinstanttransaction_when_instant_key_imported()
+
+        self.reset_blockchain()
+        self.log.info("Test signinstanttransaction when both instant and recovery keys imported")
+        self.test_signinstanttransaction_when_both_instant_and_recovery_keys_imported()
+
+        self.reset_blockchain()
+        self.log.info("Test signinstanttransaction is rejected when missing key")
+        self.test_signinstanttransaction_is_rejected_when_missing_key()
+
+        self.reset_blockchain()
+        self.log.info("Test signinstanttransaction when recovery key imported")
+        self.test_signinstanttransaction_when_recovery_key_imported()
+
+        self.reset_blockchain()
+        self.log.info("Test signinstanttransaction when all keys given")
+        self.test_signinstanttransaction_when_all_keys_given()
+
+        self.reset_blockchain()
         self.log.info("Test recovery tx is rejected when missing recovery key")
         self.test_recovery_tx_is_rejected_when_missing_recovery_key()
 
@@ -733,6 +757,138 @@ class AlertsInstantTest(BitcoinTestFramework):
 
         # assert
         assert 'bad-tx-alert-type' in exception_message
+
+    def test_signinstanttransaction_when_instant_key_imported(self):
+        instant_addr0 = self.nodes[0].getnewvaultinstantaddress(self.alert_instant_pubkey, self.alert_recovery_pubkey)
+        addr1 = self.nodes[1].getnewaddress()
+
+        self.nodes[0].generatetoaddress(200, instant_addr0['address'])
+
+        # import instant key
+        self.nodes[0].importprivkey(self.alert_instant_privkey)
+
+        # create, sign and mine instant tx from instant_addr0 to addr1
+        txtospendhash = self.nodes[0].getblockbyheight(10)['tx'][0]
+        txtospend = self.nodes[0].getrawtransaction(txtospendhash, True)
+        vouttospend = self.find_vout_n(txtospend, 175)
+        instant_tx = self.nodes[0].createrawtransaction([{'txid': txtospendhash, 'vout': vouttospend}], {addr1: 174.99})
+        instant_tx = self.nodes[0].signinstanttransaction(instant_tx, [], [{'txid': txtospendhash, 'vout': vouttospend, 'scriptPubKey': txtospend['vout'][vouttospend]['scriptPubKey']['hex'], 'redeemScript': instant_addr0['redeemScript']}])
+        instant_txid = self.nodes[0].sendrawtransaction(instant_tx['hex'])
+        self.nodes[0].generatetoaddress(1, instant_addr0['address'])
+
+        # assert
+        self.sync_all()
+        assert instant_txid in self.nodes[0].getbestblock()['tx']
+        assert instant_txid not in self.nodes[0].getbestblock()['atx']
+
+    def test_signinstanttransaction_when_recovery_key_imported(self):
+        instant_addr0 = self.nodes[0].getnewvaultinstantaddress(self.alert_instant_pubkey, self.alert_recovery_pubkey)
+        addr1 = self.nodes[1].getnewaddress()
+
+        self.nodes[0].generatetoaddress(200, instant_addr0['address'])
+
+        # import recovery key
+        self.nodes[0].importprivkey(self.alert_recovery_privkey)
+
+        # create, sign and mine instant tx from instant_addr0 to addr1
+        txtospendhash = self.nodes[0].getblockbyheight(10)['tx'][0]
+        txtospend = self.nodes[0].getrawtransaction(txtospendhash, True)
+        vouttospend = self.find_vout_n(txtospend, 175)
+        instant_tx = self.nodes[0].createrawtransaction([{'txid': txtospendhash, 'vout': vouttospend}], {addr1: 174.99})
+        instant_tx = self.nodes[0].signinstanttransaction(instant_tx, [], [{'txid': txtospendhash, 'vout': vouttospend, 'scriptPubKey': txtospend['vout'][vouttospend]['scriptPubKey']['hex'], 'redeemScript': instant_addr0['redeemScript']}])
+        instant_txid = self.nodes[0].sendrawtransaction(instant_tx['hex'])
+        self.nodes[0].generatetoaddress(1, instant_addr0['address'])
+
+        # assert
+        self.sync_all()
+        assert instant_txid in self.nodes[0].getbestblock()['tx']
+        assert instant_txid not in self.nodes[0].getbestblock()['atx']
+
+    def test_signinstanttransaction_when_all_keys_given(self):
+        instant_addr0 = self.nodes[0].getnewvaultinstantaddress(self.alert_instant_pubkey, self.alert_recovery_pubkey)
+        addr1 = self.nodes[1].getnewaddress()
+
+        self.nodes[0].generatetoaddress(200, instant_addr0['address'])
+
+        # create, sign and mine instant tx from instant_addr0 to addr1
+        txtospendhash = self.nodes[0].getblockbyheight(10)['tx'][0]
+        txtospend = self.nodes[0].getrawtransaction(txtospendhash, True)
+        vouttospend = self.find_vout_n(txtospend, 175)
+        instant_tx = self.nodes[0].createrawtransaction([{'txid': txtospendhash, 'vout': vouttospend}], {addr1: 174.99})
+        instant_tx = self.nodes[0].signinstanttransaction(instant_tx, [self.alert_recovery_privkey, self.alert_instant_privkey], [{'txid': txtospendhash, 'vout': vouttospend, 'scriptPubKey': txtospend['vout'][vouttospend]['scriptPubKey']['hex'], 'redeemScript': instant_addr0['redeemScript']}])
+        instant_txid = self.nodes[0].sendrawtransaction(instant_tx['hex'])
+        self.nodes[0].generatetoaddress(1, instant_addr0['address'])
+
+        # assert
+        self.sync_all()
+        assert instant_txid in self.nodes[0].getbestblock()['tx']
+        assert instant_txid not in self.nodes[0].getbestblock()['atx']
+
+    def test_signinstanttransaction_when_both_instant_and_recovery_keys_imported(self):
+        instant_addr0 = self.nodes[0].getnewvaultinstantaddress(self.alert_instant_pubkey, self.alert_recovery_pubkey)
+        addr1 = self.nodes[1].getnewaddress()
+
+        self.nodes[0].generatetoaddress(200, instant_addr0['address'])
+
+        # import keys
+        self.nodes[0].importprivkey(self.alert_instant_privkey)
+        self.nodes[0].importprivkey(self.alert_recovery_privkey)
+
+        # create, sign and mine instant tx from instant_addr0 to addr1
+        txtospendhash = self.nodes[0].getblockbyheight(10)['tx'][0]
+        txtospend = self.nodes[0].getrawtransaction(txtospendhash, True)
+        vouttospend = self.find_vout_n(txtospend, 175)
+        instant_tx = self.nodes[0].createrawtransaction([{'txid': txtospendhash, 'vout': vouttospend}], {addr1: 174.99})
+        instant_tx = self.nodes[0].signinstanttransaction(instant_tx, [], [{'txid': txtospendhash, 'vout': vouttospend, 'scriptPubKey': txtospend['vout'][vouttospend]['scriptPubKey']['hex'], 'redeemScript': instant_addr0['redeemScript']}])
+        instant_txid = self.nodes[0].sendrawtransaction(instant_tx['hex'])
+        self.nodes[0].generatetoaddress(1, instant_addr0['address'])
+
+        # assert
+        self.sync_all()
+        assert instant_txid in self.nodes[0].getbestblock()['tx']
+        assert instant_txid not in self.nodes[0].getbestblock()['atx']
+
+    def test_signinstanttransaction_is_rejected_when_missing_key(self):
+        instant_addr0 = self.nodes[0].getnewvaultinstantaddress(self.alert_instant_pubkey, self.alert_recovery_pubkey)
+        addr1 = self.nodes[1].getnewaddress()
+
+        self.nodes[0].generatetoaddress(200, instant_addr0['address'])
+
+        # create, sign and mine instant tx from instant_addr0 to addr1
+        txtospendhash = self.nodes[0].getblockbyheight(10)['tx'][0]
+        txtospend = self.nodes[0].getrawtransaction(txtospendhash, True)
+        vouttospend = self.find_vout_n(txtospend, 175)
+        instant_tx = self.nodes[0].createrawtransaction([{'txid': txtospendhash, 'vout': vouttospend}], {addr1: 174.99})
+
+        error = None
+        try:
+            self.nodes[0].signinstanttransaction(instant_tx, [], [{'txid': txtospendhash, 'vout': vouttospend, 'scriptPubKey': txtospend['vout'][vouttospend]['scriptPubKey']['hex'], 'redeemScript': instant_addr0['redeemScript']}])
+        except Exception as e:
+            error = e.error
+
+        # assert
+        assert error['code'] == -5
+        assert 'Produced non-instant tx, possibly missing keys' in error['message']
+
+    def test_signinstanttransaction(self):
+        instant_addr0 = self.nodes[0].getnewvaultinstantaddress(self.alert_instant_pubkey, self.alert_recovery_pubkey)
+        addr1 = self.nodes[1].getnewaddress()
+
+        self.nodes[0].generatetoaddress(200, instant_addr0['address'])
+
+        # create, sign and mine instant tx from instant_addr0 to addr1
+        txtospendhash = self.nodes[0].getblockbyheight(10)['tx'][0]
+        txtospend = self.nodes[0].getrawtransaction(txtospendhash, True)
+        vouttospend = self.find_vout_n(txtospend, 175)
+        instant_tx = self.nodes[0].createrawtransaction([{'txid': txtospendhash, 'vout': vouttospend}], {addr1: 174.99})
+        instant_tx = self.nodes[0].signinstanttransaction(instant_tx, [self.alert_instant_privkey], [{'txid': txtospendhash, 'vout': vouttospend, 'scriptPubKey': txtospend['vout'][vouttospend]['scriptPubKey']['hex'], 'redeemScript': instant_addr0['redeemScript']}])
+        instant_txid = self.nodes[0].sendrawtransaction(instant_tx['hex'])
+        self.nodes[0].generatetoaddress(1, instant_addr0['address'])
+
+        # assert
+        self.sync_all()
+        assert instant_txid in self.nodes[0].getbestblock()['tx']
+        assert instant_txid not in self.nodes[0].getbestblock()['atx']
 
     def test_recovery_tx_flow(self):
         instant_addr0 = self.nodes[0].getnewvaultinstantaddress(self.alert_instant_pubkey, self.alert_recovery_pubkey)
