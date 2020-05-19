@@ -68,8 +68,17 @@ class AlertsTest(BitcoinTestFramework):
     def run_test(self):
         self.alert_recovery_pubkey = "02ecec100acb89f3049285ae01e7f03fb469e6b54d44b0f3c8240b1958e893cb8c"
         self.alert_recovery_privkey = "cRfYLWua6WcpGbxuv5rJgA2eDESWxqgzmQjKQuqDFMfgbnEpqhrP"
+
         self.COINBASE_MATURITY = 100
         self.COINBASE_AMOUNT = Decimal(175)
+
+        self.reset_blockchain()
+        self.log.info("Test recovery tx is rejected when missing recovery key")
+        self.test_recovery_tx_is_rejected_when_missing_recovery_key()
+
+        self.reset_blockchain()
+        self.log.info("Test recovery tx when all keys imported")
+        self.test_recovery_tx_when_all_keys_imported()
 
         self.reset_blockchain()
         self.log.info("Test dumpwallet / importwallet with alert address")
@@ -138,6 +147,51 @@ class AlertsTest(BitcoinTestFramework):
         self.reset_blockchain()
         self.log.info("Test recovery tx is rejected when iputs does not match alert")
         self.test_recovery_tx_is_rejected_when_inputs_does_not_match_alert()
+
+    def test_recovery_tx_is_rejected_when_missing_recovery_key(self):
+        alert_addr0 = self.nodes[0].getnewvaultaddress(self.alert_recovery_pubkey)
+        addr0 = self.nodes[0].getnewaddress()
+        addr1 = self.nodes[1].getnewaddress()
+
+        self.nodes[0].generatetoaddress(200, alert_addr0['address'])
+
+        # send atx and mine block with this atx
+        atxid = self.nodes[0].sendtoaddress(addr1, 10)
+        self.nodes[0].generatetoaddress(1, alert_addr0['address'])
+
+        # recover atx
+        recoverytx = self.nodes[0].createrecoverytransaction(atxid, [{addr0: 174.99}])
+        error = None
+        try:
+            self.nodes[0].signrecoverytransaction(recoverytx, [], alert_addr0['redeemScript'])
+        except Exception as e:
+            error = e.error
+
+        # assert
+        assert error['code'] == -5
+        assert 'Produced non-recovery tx, possibly missing keys' in error['message']
+
+    def test_recovery_tx_when_all_keys_imported(self):
+        alert_addr0 = self.nodes[0].getnewvaultaddress(self.alert_recovery_pubkey)
+        addr0 = self.nodes[0].getnewaddress()
+        addr1 = self.nodes[1].getnewaddress()
+
+        self.nodes[0].generatetoaddress(200, alert_addr0['address'])
+
+        # send atx and mine block with this atx
+        atxid = self.nodes[0].sendtoaddress(addr1, 10)
+        self.nodes[0].generatetoaddress(1, alert_addr0['address'])
+
+        # import recovery key into wallet
+        self.nodes[0].importprivkey(self.alert_recovery_privkey)
+
+        # recover atx
+        recoverytx = self.nodes[0].createrecoverytransaction(atxid, [{addr0: 174.99}])
+        self.nodes[0].signrecoverytransaction(recoverytx, [], alert_addr0['redeemScript'])
+
+        # assert
+        assert recoverytx is not None
+        assert recoverytx != ''
 
     def test_dumpwallet(self):
         alert_addr0 = self.nodes[0].getnewvaultaddress(self.alert_recovery_pubkey)
@@ -267,7 +321,7 @@ class AlertsTest(BitcoinTestFramework):
         self.sync_all()
         assert atxid is not None
         assert atxid != ''
-        assert atxid in self.nodes[0].getbestblock()['atx']
+        assert atxid in self.nodes[1].getbestblock()['atx']
 
     def test_tx_from_normal_addr_to_alert_addr(self):
         alert_addr1 = self.nodes[1].getnewvaultaddress(self.alert_recovery_pubkey)

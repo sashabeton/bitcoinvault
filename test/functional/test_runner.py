@@ -205,6 +205,7 @@ EXTENDED_SCRIPTS = [
 # Tests concerning new Bitcoin Vault features
 VAULT_SCRIPTS = [
     'feature_alerts.py',
+    'feature_alerts_instant.py',
     'feature_vault_reorg.py'
 ]
 
