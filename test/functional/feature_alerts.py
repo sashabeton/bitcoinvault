@@ -145,7 +145,7 @@ class AlertsTest(BitcoinTestFramework):
         self.test_recovery_tx_flow()
 
         self.reset_blockchain()
-        self.log.info("Test recovery tx is rejected when iputs does not match alert")
+        self.log.info("Test recovery tx is rejected when inputs does not match alert")
         self.test_recovery_tx_is_rejected_when_inputs_does_not_match_alert()
 
     def test_recovery_tx_is_rejected_when_missing_recovery_key(self):
@@ -253,7 +253,7 @@ class AlertsTest(BitcoinTestFramework):
     def test_getaddressinfo_on_imported_alert_address(self):
         alert_addr0 = self.nodes[0].getnewvaultaddress(self.alert_recovery_pubkey)
 
-        # import alert_addr1 to node0 as watch-only
+        # import alert_addr0 to node0 as watch-only
         self.nodes[1].importaddress(alert_addr0['redeemScript'], '', True, True)
 
         info = self.nodes[1].getaddressinfo(alert_addr0['address'])
@@ -415,9 +415,9 @@ class AlertsTest(BitcoinTestFramework):
 
     def test_sign_atx_with_wallet(self):
         addr0 = self.nodes[0].getnewaddress()
+        alert_addr1 = self.nodes[1].getnewvaultaddress(self.alert_recovery_pubkey)
 
         # mine some coins to alert_addr1
-        alert_addr1 = self.nodes[1].getnewvaultaddress(self.alert_recovery_pubkey)
         self.nodes[1].generatetoaddress(200, alert_addr1['address'])
 
         # find vout to spend
