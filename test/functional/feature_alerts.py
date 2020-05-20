@@ -73,6 +73,10 @@ class AlertsTest(BitcoinTestFramework):
         self.COINBASE_AMOUNT = Decimal(175)
 
         self.reset_blockchain()
+        self.log.info("Test standard signrawtransactionwithwallet flow")
+        self.test_signrawtransactionwithwallet()
+
+        self.reset_blockchain()
         self.log.info("Test standard signalerttransaction flow")
         self.test_signalerttransaction()
 
@@ -117,8 +121,8 @@ class AlertsTest(BitcoinTestFramework):
         self.test_import_alert_address_privkey()
 
         self.reset_blockchain()
-        self.log.info("Test sign atx with wallet")
-        self.test_sign_atx_with_wallet()
+        self.log.info("Test signrawtransactionwithwallet should reject alert transaction")
+        self.test_signrawtransactionwithwallet_should_reject_alert_transaction()
 
         self.reset_blockchain()
         self.log.info("Test sign atx with recovery key")
@@ -497,7 +501,28 @@ class AlertsTest(BitcoinTestFramework):
         self.sync_all()
         assert atxsent['txid'] in self.nodes[0].getbestblock()['atx']
 
-    def test_sign_atx_with_wallet(self):
+    def test_signrawtransactionwithwallet(self):
+        addr0 = self.nodes[0].getnewaddress()
+        addr1 = self.nodes[1].getnewaddress()
+
+        # mine some coins to addr1
+        self.nodes[1].generatetoaddress(200, addr1)
+
+        # find vout to spend
+        txtospendhash = self.nodes[1].getblockbyheight(10)['tx'][0]
+        txtospend = self.nodes[1].getrawtransaction(txtospendhash, True)
+        vouttospend = self.find_vout_n(txtospend, 175)
+
+        # create and sign tx from addr1 to addr0
+        txtosend = self.nodes[1].createrawtransaction([{'txid': txtospendhash, 'vout': vouttospend}], {addr0: 174.99})
+        txtosend = self.nodes[1].signrawtransactionwithwallet(txtosend, [{'txid': txtospendhash, 'vout': vouttospend, 'scriptPubKey': txtospend['vout'][vouttospend]['scriptPubKey']['hex'], 'amount': 174.99}])
+
+        # assert
+        self.sync_all()
+        assert txtosend is not None
+        assert txtosend != ''
+
+    def test_signrawtransactionwithwallet_should_reject_alert_transaction(self):
         addr0 = self.nodes[0].getnewaddress()
         alert_addr1 = self.nodes[1].getnewvaultaddress(self.alert_recovery_pubkey)
 
@@ -511,16 +536,16 @@ class AlertsTest(BitcoinTestFramework):
 
         # create and sign atx from alert_addr1 to addr0
         atxtosend = self.nodes[1].createrawtransaction([{'txid': txtospendhash, 'vout': vouttospend}], {addr0: 174.99})
-        atxtosend = self.nodes[1].signrawtransactionwithwallet(atxtosend, [{'txid': txtospendhash, 'vout': vouttospend, 'scriptPubKey': txtospend['vout'][vouttospend]['scriptPubKey']['hex'], 'redeemScript': alert_addr1['redeemScript'], 'amount': 174.99}])
-        atxsent = self.nodes[1].decoderawtransaction(atxtosend['hex'])
-
-        # broadcast atx and mine block with this atx
-        self.nodes[1].sendrawtransaction(atxtosend['hex'])
-        self.nodes[1].generatetoaddress(1, alert_addr1['address'])
+        error = None
+        try:
+            self.nodes[1].signrawtransactionwithwallet(atxtosend, [{'txid': txtospendhash, 'vout': vouttospend, 'scriptPubKey': txtospend['vout'][vouttospend]['scriptPubKey']['hex'], 'redeemScript': alert_addr1['redeemScript'], 'amount': 174.99}])
+        except Exception as e:
+            error = e.error
 
         # assert
         self.sync_all()
-        assert atxsent['txid'] in self.nodes[0].getbestblock()['atx']
+        assert error['code'] == -5
+        assert 'Unable to sign transaction from vault address' in error['message']
 
     def test_sign_atx_with_recovery_key(self):
         addr0 = self.nodes[0].getnewaddress()
@@ -593,21 +618,19 @@ class AlertsTest(BitcoinTestFramework):
 
         # create and sign atx from alert_addr1 and alert_addr2 to addr0
         txtosend = self.nodes[1].createrawtransaction([{'txid': txtospendhash, 'vout': vouttospend}, {'txid': txtospendhash2, 'vout': vouttospend2}], {addr0: 349.99})
-        txtosend = self.nodes[1].signrawtransactionwithwallet(txtosend, [
-            {'txid': txtospendhash, 'vout': vouttospend, 'scriptPubKey': txtospend['vout'][vouttospend]['scriptPubKey']['hex'], 'redeemScript': alert_addr1['redeemScript']},
-            {'txid': txtospendhash2, 'vout': vouttospend2, 'scriptPubKey': txtospend2['vout'][vouttospend2]['scriptPubKey']['hex'], 'redeemScript': alert_addr2['redeemScript']}
-        ])
-
-        # broadcast atx and mine block with this atx
-        self.nodes[1].sendrawtransaction(txtosend['hex'])
-        exception_message = ""
+        error = ''
         try:
-            self.nodes[1].generatetoaddress(1, alert_addr1['address'])
+            self.nodes[1].signalerttransaction(txtosend, [
+                {'txid': txtospendhash, 'vout': vouttospend, 'scriptPubKey': txtospend['vout'][vouttospend]['scriptPubKey']['hex'], 'redeemScript': alert_addr1['redeemScript']},
+                {'txid': txtospendhash2, 'vout': vouttospend2, 'scriptPubKey': txtospend2['vout'][vouttospend2]['scriptPubKey']['hex'], 'redeemScript': alert_addr2['redeemScript']}
+            ])
         except Exception as e:
-            exception_message = e.args[0]
+            error = e.error
 
         # assert
-        assert 'bad-tx-alert-type' in exception_message
+        self.sync_all()
+        assert error['code'] == -5
+        assert 'Produced invalid alert tx, possibly wrong inputs given' in error['message']
 
     def test_atx_is_rejected_when_contains_non_alert_inputs(self):
         addr0 = self.nodes[0].getnewaddress()
@@ -629,18 +652,15 @@ class AlertsTest(BitcoinTestFramework):
 
         # create and sign atx from alert_addr1 and alert_addr2 to addr0
         txtosend = self.nodes[1].createrawtransaction([{'txid': txtospendhash, 'vout': vouttospend}, {'txid': txtospendhash2, 'vout': vouttospend2}], {addr0: 349.99})
-        txtosend = self.nodes[1].signrawtransactionwithwallet(txtosend, [{'txid': txtospendhash, 'vout': vouttospend, 'scriptPubKey': txtospend['vout'][vouttospend]['scriptPubKey']['hex'], 'redeemScript': alert_addr1['redeemScript']}])
-
-        # broadcast atx and mine block with this atx
-        self.nodes[1].sendrawtransaction(txtosend['hex'])
-        exception_message = ""
         try:
-            self.nodes[1].generatetoaddress(1, alert_addr1['address'])
+            self.nodes[1].signalerttransaction(txtosend, [{'txid': txtospendhash, 'vout': vouttospend, 'scriptPubKey': txtospend['vout'][vouttospend]['scriptPubKey']['hex'], 'redeemScript': alert_addr1['redeemScript']}])
         except Exception as e:
-            exception_message = e.args[0]
+            error = e.error
 
         # assert
-        assert 'bad-tx-alert-type' in exception_message
+        self.sync_all()
+        assert error['code'] == -5
+        assert 'Produced invalid alert tx, possibly wrong inputs given' in error['message']
 
     def test_recovery_tx_flow(self):
         alert_addr0 = self.nodes[0].getnewvaultaddress(self.alert_recovery_pubkey)
@@ -705,7 +725,7 @@ class AlertsTest(BitcoinTestFramework):
         txtospend = self.nodes[1].getrawtransaction(txtospendhash, True)
         vouttospend = self.find_vout_n(txtospend, 175)
         tx_alert1 = self.nodes[1].createrawtransaction([{'txid': txtospendhash, 'vout': vouttospend}], {addr0: 174.99})
-        tx_alert1 = self.nodes[1].signrawtransactionwithwallet(tx_alert1, [{'txid': txtospendhash, 'vout': vouttospend, 'scriptPubKey': txtospend['vout'][vouttospend]['scriptPubKey']['hex'], 'redeemScript': alert_addr1['redeemScript']}])
+        tx_alert1 = self.nodes[1].signalerttransaction(tx_alert1, [{'txid': txtospendhash, 'vout': vouttospend, 'scriptPubKey': txtospend['vout'][vouttospend]['scriptPubKey']['hex'], 'redeemScript': alert_addr1['redeemScript']}])
         self.nodes[1].sendrawtransaction(tx_alert1['hex'])
         self.nodes[1].generatetoaddress(1, alert_addr1['address'])
 
@@ -715,7 +735,7 @@ class AlertsTest(BitcoinTestFramework):
         txtospend2 = self.nodes[1].getrawtransaction(txtospendhash2, True)
         vouttospend2 = self.find_vout_n(txtospend2, 175)
         tx_alert2 = self.nodes[1].createrawtransaction([{'txid': txtospendhash2, 'vout': vouttospend2}], {addr0: 174.99})
-        tx_alert2 = self.nodes[1].signrawtransactionwithwallet(tx_alert2, [{'txid': txtospendhash2, 'vout': vouttospend2, 'scriptPubKey': txtospend2['vout'][vouttospend2]['scriptPubKey']['hex'], 'redeemScript': alert_addr1['redeemScript']}])
+        tx_alert2 = self.nodes[1].signalerttransaction(tx_alert2, [{'txid': txtospendhash2, 'vout': vouttospend2, 'scriptPubKey': txtospend2['vout'][vouttospend2]['scriptPubKey']['hex'], 'redeemScript': alert_addr1['redeemScript']}])
         self.nodes[1].sendrawtransaction(tx_alert2['hex'])
         self.nodes[1].generatetoaddress(10, alert_addr1['address'])
         self.sync_all()

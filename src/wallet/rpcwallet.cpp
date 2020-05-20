@@ -76,11 +76,7 @@ std::string HelpRequiringPassphrase(CWallet * const pwallet)
         : "";
 }
 
-vaulttxntype GetVaultTxType(const std::string& txHex) {
-    CMutableTransaction mtx;
-    if (!DecodeHexTx(mtx, txHex, true)) {
-        throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "TX decode failed");
-    }
+vaulttxntype GetVaultTxType(const CMutableTransaction& mtx) {
     CBaseTransaction btx(mtx);
 
     // Fetch previous transactions (inputs):
@@ -100,6 +96,14 @@ vaulttxntype GetVaultTxType(const std::string& txHex) {
     }
 
     return GetVaultTxType(btx, view);
+}
+
+vaulttxntype GetVaultTxType(const std::string& txHex) {
+    CMutableTransaction mtx;
+    if (!DecodeHexTx(mtx, txHex, true)) {
+        throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "TX decode failed");
+    }
+    return GetVaultTxType(mtx);
 }
 
 UniValue SignInstantTransaction(interfaces::Chain& chain, CMutableTransaction& otx, const UniValue& prevTxsUnival, const CBasicKeyStore *const okeystore, const UniValue& hashType) {
@@ -128,6 +132,8 @@ UniValue SignInstantTransaction(interfaces::Chain& chain, CMutableTransaction& o
             if (txType == TX_RECOVERY) {
                 // to much privkeys used, try to remove last one and sign again
                 keys.erase(keys.rend().base());
+            } else if (txType == TX_INVALID) {
+                throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Produced invalid alert tx, possibly wrong inputs given");
             } else {
                 throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Produced non-instant tx, possibly missing keys");
             }
@@ -167,6 +173,8 @@ UniValue SignAlertTransaction(interfaces::Chain& chain, CMutableTransaction& otx
             if (txType == TX_RECOVERY || txType == TX_INSTANT) {
                 // to much privkeys used, try to remove last one and sign again
                 keys.erase(keys.rend().base());
+            } else if (txType == TX_INVALID) {
+                throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Produced invalid alert tx, possibly wrong inputs given");
             } else {
                 throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Produced non-alert tx, possibly missing keys");
             }
@@ -3432,7 +3440,8 @@ UniValue signrawtransactionwithwallet(const JSONRPCRequest& request)
             RPCHelpMan{"signrawtransactionwithwallet",
                 "\nSign inputs for raw transaction (serialized, hex-encoded).\n"
                 "The second optional argument (may be null) is an array of previous transaction outputs that\n"
-                "this transaction depends on but may not yet be in the block chain." +
+                "this transaction depends on but may not yet be in the block chain.\n"
+                "This function cannot be used to sign transaction from vault address, use signalerttransaction, signinstanttransaction, signrecoverytransaction for that." +
                     HelpRequiringPassphrase(pwallet) + "\n",
                 {
                     {"hexstring", RPCArg::Type::STR, RPCArg::Optional::NO, "The transaction hex string"},
@@ -3492,7 +3501,13 @@ UniValue signrawtransactionwithwallet(const JSONRPCRequest& request)
     LOCK(pwallet->cs_wallet);
     EnsureWalletIsUnlocked(pwallet);
 
-    return SignTransaction(pwallet->chain(), mtx, request.params[1], pwallet, false, request.params[2]);
+    UniValue result = SignTransaction(pwallet->chain(), mtx, request.params[1], pwallet, false, request.params[2]);
+
+    if (GetVaultTxType(mtx) != TX_NONVAULT) {
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Unable to sign transaction from vault address");
+    }
+
+    return result;
 }
 
 static UniValue bumpfee(const JSONRPCRequest& request)
