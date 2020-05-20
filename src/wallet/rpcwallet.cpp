@@ -126,16 +126,58 @@ UniValue SignInstantTransaction(interfaces::Chain& chain, CMutableTransaction& o
             }
 
             if (txType == TX_RECOVERY) {
-                // to much privkeys used, try to remove one and sign again
-                keys.erase(keys.begin());
-            }
-            else {
+                // to much privkeys used, try to remove last one and sign again
+                keys.erase(keys.rend().base());
+            } else {
                 throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Produced non-instant tx, possibly missing keys");
             }
+        } else {
+            // error signing tx, no chance to sign using less keys
+            otx = mtx;
+            return result;
         }
     } while (keys.size() >= 2);
 
     throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Produced non-instant tx, possibly missing keys");
+}
+
+UniValue SignAlertTransaction(interfaces::Chain& chain, CMutableTransaction& otx, const UniValue& prevTxsUnival, const CBasicKeyStore *const okeystore, const UniValue& hashType) {
+    auto keys = okeystore->GetKeys();
+
+    do {
+        CMutableTransaction mtx(otx);
+        CBasicKeyStore keystore;
+        for (const auto &pkey : keys) {
+            CKey key;
+            okeystore->GetKey(pkey, key);
+            keystore.AddKey(key);
+        }
+
+        UniValue result = SignTransaction(chain, mtx, prevTxsUnival, &keystore, true, hashType);
+
+        if (std::find(result.getKeys().begin(), result.getKeys().end(), "errors") == result.getKeys().end()) {
+            // assert that we indeed produced alert tx
+            auto txType = GetVaultTxType(result["hex"].getValStr());
+
+            if (txType == TX_ALERT) {
+                otx = mtx;
+                return result;
+            }
+
+            if (txType == TX_RECOVERY || txType == TX_INSTANT) {
+                // to much privkeys used, try to remove last one and sign again
+                keys.erase(keys.rend().base());
+            } else {
+                throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Produced non-alert tx, possibly missing keys");
+            }
+        } else {
+            // error signing tx, no chance to sign using less keys
+            otx = mtx;
+            return result;
+        }
+    } while (!keys.empty());
+
+    throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Produced non-alert tx, possibly missing keys");
 }
 
 bool EnsureWalletIsAvailable(CWallet * const pwallet, bool avoidException)
@@ -4710,8 +4752,84 @@ static UniValue signinstanttransaction(const JSONRPCRequest& request)
         keystore.AddKey(key);
     }
 
-    UniValue result = SignInstantTransaction(pwallet->chain(), mtx, request.params[2], &keystore, request.params[4]);
-    return result;
+    return SignInstantTransaction(pwallet->chain(), mtx, request.params[2], &keystore, request.params[4]);
+}
+
+static UniValue signalerttransaction(const JSONRPCRequest& request)
+{
+    std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request);
+    CWallet* const pwallet = wallet.get();
+
+    if (!EnsureWalletIsAvailable(pwallet, request.fHelp)) {
+        return NullUniValue;
+    }
+
+    if (request.fHelp || request.params.size() < 2 || request.params.size() > 4)
+        throw std::runtime_error(
+                RPCHelpMan{"signalerttransaction",
+                           "\nSign inputs for raw alert transaction (serialized, hex-encoded).\n"
+                           "The second optional argument (may be null) is an array of previous transaction outputs that\n"
+                           "this transaction depends on but may not yet be in the block chain.\n",
+                           {
+                                   {"hexstring", RPCArg::Type::STR, RPCArg::Optional::NO, "The transaction alert hex string"},
+                                   {"prevtxs", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG, "A json array of previous dependent transaction outputs",
+                                    {
+                                            {"", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
+                                             {
+                                                     {"txid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The transaction id"},
+                                                     {"vout", RPCArg::Type::NUM, RPCArg::Optional::NO, "The output number"},
+                                                     {"scriptPubKey", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "script key"},
+                                                     {"redeemScript", RPCArg::Type::STR_HEX, RPCArg::Optional::OMITTED, "(required for P2SH) redeem script"},
+                                                     {"witnessScript", RPCArg::Type::STR_HEX, RPCArg::Optional::OMITTED, "(required for P2WSH or P2SH-P2WSH) witness script"},
+                                                     {"amount", RPCArg::Type::AMOUNT, RPCArg::Optional::NO, "The amount spent"},
+                                             },
+                                            },
+                                    },
+                                   },
+                                   {"sighashtype", RPCArg::Type::STR, /* default */ "ALL", "The signature hash type. Must be one of:\n"
+                                                                                           "       \"ALL\"\n"
+                                                                                           "       \"NONE\"\n"
+                                                                                           "       \"SINGLE\"\n"
+                                                                                           "       \"ALL|ANYONECANPAY\"\n"
+                                                                                           "       \"NONE|ANYONECANPAY\"\n"
+                                                                                           "       \"SINGLE|ANYONECANPAY\"\n"
+                                   },
+                           },
+                           RPCResult{
+                                   "{\n"
+                                   "  \"hex\" : \"value\",                  (string) The hex-encoded raw transaction with signature(s)\n"
+                                   "  \"complete\" : true|false,          (boolean) If the transaction has a complete set of signatures\n"
+                                   "  \"errors\" : [                      (json array of objects) Script verification errors (if there are any)\n"
+                                   "    {\n"
+                                   "      \"txid\" : \"hash\",              (string) The hash of the referenced, previous transaction\n"
+                                   "      \"vout\" : n,                   (numeric) The index of the output to spent and used as input\n"
+                                   "      \"scriptSig\" : \"hex\",          (string) The hex-encoded signature script\n"
+                                   "      \"sequence\" : n,               (numeric) Script sequence number\n"
+                                   "      \"error\" : \"text\"              (string) Verification or signing error related to the input\n"
+                                   "    }\n"
+                                   "    ,...\n"
+                                   "  ]\n"
+                                   "}\n"
+                           },
+                           RPCExamples{
+                                   HelpExampleCli("signalerttransaction", "\"myhex\"")
+                                   + HelpExampleRpc("signalerttransaction", "\"myhex\"")
+                           },
+                }.ToString());
+
+    RPCTypeCheck(request.params, {UniValue::VSTR, UniValue::VARR, UniValue::VSTR}, true);
+
+    CMutableTransaction mtx;
+    if (!DecodeHexTx(mtx, request.params[0].get_str(), true)) {
+        throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "TX decode failed");
+    }
+
+    // Sign the transaction
+    auto locked_chain = pwallet->chain().lock();
+    LOCK(pwallet->cs_wallet);
+    EnsureWalletIsUnlocked(pwallet);
+
+    return SignAlertTransaction(pwallet->chain(), mtx, request.params[1], pwallet, request.params[2]);
 }
 
 UniValue abortrescan(const JSONRPCRequest& request); // in rpcdump.cpp
@@ -4754,6 +4872,7 @@ static const CRPCCommand commands[] =
     { "wallet",             "createrecoverytransaction",        &createrecoverytransaction,     {"atxid","outputs","locktime","replaceable"} },
     { "wallet",             "signrecoverytransaction",          &signrecoverytransaction,       {"hexstring","privkeys","redeemScript","witnessScript","sighashtype"} },
     { "wallet",             "signinstanttransaction",           &signinstanttransaction,        {"hexstring","privkeys","prevtxs","sighashtype"} },
+    { "wallet",             "signalerttransaction",             &signalerttransaction,          {"hexstring","prevtxs","sighashtype"} },
     { "wallet",             "getunconfirmedbalance",            &getunconfirmedbalance,         {} },
     { "wallet",             "getwalletinfo",                    &getwalletinfo,                 {} },
     { "wallet",             "importaddress",                    &importaddress,                 {"address","label","rescan","p2sh"} },
