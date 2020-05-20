@@ -227,6 +227,7 @@ class AlertsInstantTest(BitcoinTestFramework):
             error = e.error
 
         # assert
+        self.sync_all()
         assert error['code'] == -5
         assert 'Produced non-recovery tx, possibly missing keys' in error['message']
 
@@ -250,6 +251,7 @@ class AlertsInstantTest(BitcoinTestFramework):
             error = e.error
 
         # assert
+        self.sync_all()
         assert error['code'] == -5
         assert 'Produced non-recovery tx, possibly missing keys' in error['message']
 
@@ -273,6 +275,7 @@ class AlertsInstantTest(BitcoinTestFramework):
             error = e.error
 
         # assert
+        self.sync_all()
         assert error['code'] == -5
         assert 'Produced non-recovery tx, possibly missing keys' in error['message']
 
@@ -293,9 +296,10 @@ class AlertsInstantTest(BitcoinTestFramework):
 
         # recover atx
         recoverytx = self.nodes[0].createrecoverytransaction(atxid, [{addr0: 174.99}])
-        self.nodes[0].signrecoverytransaction(recoverytx, [], instant_addr0['redeemScript'])
+        recoverytx = self.nodes[0].signrecoverytransaction(recoverytx, [], instant_addr0['redeemScript'])
 
         # assert
+        self.sync_all()
         assert recoverytx is not None
         assert recoverytx != ''
 
@@ -322,6 +326,7 @@ class AlertsInstantTest(BitcoinTestFramework):
             error = e.error
 
         # assert
+        self.sync_all()
         assert error['code'] == -5
         assert 'Produced non-recovery tx, possibly missing keys' in error['message']
 
@@ -348,6 +353,7 @@ class AlertsInstantTest(BitcoinTestFramework):
             error = e.error
 
         # assert
+        self.sync_all()
         assert error['code'] == -5
         assert 'Produced non-recovery tx, possibly missing keys' in error['message']
 
@@ -367,9 +373,10 @@ class AlertsInstantTest(BitcoinTestFramework):
 
         # recover atx
         recoverytx = self.nodes[0].createrecoverytransaction(atxid, [{addr0: 174.99}])
-        self.nodes[0].signrecoverytransaction(recoverytx, [self.alert_recovery_privkey], instant_addr0['redeemScript'])
+        recoverytx = self.nodes[0].signrecoverytransaction(recoverytx, [self.alert_recovery_privkey], instant_addr0['redeemScript'])
 
         # assert
+        self.sync_all()
         assert recoverytx is not None
         assert recoverytx != ''
 
@@ -389,9 +396,10 @@ class AlertsInstantTest(BitcoinTestFramework):
 
         # recover atx
         recoverytx = self.nodes[0].createrecoverytransaction(atxid, [{addr0: 174.99}])
-        self.nodes[0].signrecoverytransaction(recoverytx, [self.alert_instant_privkey], instant_addr0['redeemScript'])
+        recoverytx = self.nodes[0].signrecoverytransaction(recoverytx, [self.alert_instant_privkey], instant_addr0['redeemScript'])
 
         # assert
+        self.sync_all()
         assert recoverytx is not None
         assert recoverytx != ''
 
@@ -408,9 +416,10 @@ class AlertsInstantTest(BitcoinTestFramework):
 
         # recover atx
         recoverytx = self.nodes[0].createrecoverytransaction(atxid, [{addr0: 174.99}])
-        self.nodes[0].signrecoverytransaction(recoverytx, [self.alert_instant_privkey, self.alert_recovery_privkey], instant_addr0['redeemScript'])
+        recoverytx = self.nodes[0].signrecoverytransaction(recoverytx, [self.alert_instant_privkey, self.alert_recovery_privkey], instant_addr0['redeemScript'])
 
         # assert
+        self.sync_all()
         assert recoverytx is not None
         assert recoverytx != ''
 
@@ -432,6 +441,7 @@ class AlertsInstantTest(BitcoinTestFramework):
         info = self.nodes[1].getaddressinfo(instant_addr0['address'])
 
         # assert
+        self.sync_all()
         assert info['ismine'] is True
         assert info['iswatchonly'] is False
         assert sorted(info['pubkeys']) == sorted([pubkey, self.alert_recovery_pubkey, self.alert_instant_pubkey])
@@ -922,6 +932,7 @@ class AlertsInstantTest(BitcoinTestFramework):
             error = e.error
 
         # assert
+        self.sync_all()
         assert error['code'] == -5
         assert 'Produced non-instant tx, possibly missing keys' in error['message']
 
@@ -1036,6 +1047,7 @@ class AlertsInstantTest(BitcoinTestFramework):
             error = e.error
 
         # assert
+        self.sync_all()
         assert error['code'] == -1
         assert 'Revert transaction check failed' in error['message']
         assert tx_id in error['message']

@@ -180,6 +180,7 @@ class AlertsTest(BitcoinTestFramework):
             error = e.error
 
         # assert
+        self.sync_all()
         assert error['code'] == -5
         assert 'Produced non-recovery tx, possibly missing keys' in error['message']
 
@@ -199,9 +200,10 @@ class AlertsTest(BitcoinTestFramework):
 
         # recover atx
         recoverytx = self.nodes[0].createrecoverytransaction(atxid, [{addr0: 174.99}])
-        self.nodes[0].signrecoverytransaction(recoverytx, [], alert_addr0['redeemScript'])
+        recoverytx = self.nodes[0].signrecoverytransaction(recoverytx, [], alert_addr0['redeemScript'])
 
         # assert
+        self.sync_all()
         assert recoverytx is not None
         assert recoverytx != ''
 
@@ -223,6 +225,7 @@ class AlertsTest(BitcoinTestFramework):
         info = self.nodes[1].getaddressinfo(alert_addr0['address'])
 
         # assert
+        self.sync_all()
         assert info['ismine'] is True
         assert info['iswatchonly'] is False
         assert sorted(info['pubkeys']) == sorted([pubkey, self.alert_recovery_pubkey])
@@ -730,6 +733,7 @@ class AlertsTest(BitcoinTestFramework):
             error = e.error
 
         # assert
+        self.sync_all()
         assert error['code'] == -1
         assert 'Revert transaction check failed' in error['message']
         assert tx_id in error['message']
