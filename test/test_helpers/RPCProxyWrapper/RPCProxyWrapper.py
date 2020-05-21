@@ -66,10 +66,13 @@ class __test_key:
 
 
 TEST_KEYS = [__test_key("02ecec100acb89f3049285ae01e7f03fb469e6b54d44b0f3c8240b1958e893cb8c",
-                        "cRfYLWua6WcpGbxuv5rJgA2eDESWxqgzmQjKQuqDFMfgbnEpqhrP")]
+                        "cRfYLWua6WcpGbxuv5rJgA2eDESWxqgzmQjKQuqDFMfgbnEpqhrP"),
+             __test_key("0263451a52f3d3ae6918969e1c5ce934743185578481ef8130336ad1726ba61ddb",
+                        "cN1XR72dusJgxpkT2AwENtTviskB96iB2Q6FTvAxqi24fT9DQZiR")]
 
 COINBASE_MATURITY = 100
 COINBASE_AMOUNT = 175
+
 conn = conn1 = RPCProxyWrapper(rpcport=18887, rpcuser='user', rpcpass='pass', datadir=Path.home() / '.bvault1')
 conn2 = RPCProxyWrapper(rpcport=18888, rpcuser='user', rpcpass='pass', datadir=Path.home() / '.bvault2')
 

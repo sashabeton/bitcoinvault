@@ -82,7 +82,7 @@ class VaultReorgTest(BitcoinTestFramework):
 
     def test_node_reorganize_blocks_with_tx_alerts(self):
         addr0 = self.nodes[0].getnewaddress()
-        alert_addr0 = self.nodes[0].getnewvaultaddress(self.alert_recovery_pubkey)
+        alert_addr0 = self.nodes[0].getnewvaultalertaddress(self.alert_recovery_pubkey)
         addr1 = self.nodes[1].getnewaddress()
 
         # generate 1 block to addr0 and 109 blocks to addr1
@@ -119,7 +119,7 @@ class VaultReorgTest(BitcoinTestFramework):
 
     def test_node_reorganize_blocks_with_recovery_tx(self):
         addr0 = self.nodes[0].getnewaddress()
-        alert_addr0 = self.nodes[0].getnewvaultaddress(self.alert_recovery_pubkey)
+        alert_addr0 = self.nodes[0].getnewvaultalertaddress(self.alert_recovery_pubkey)
         addr1 = self.nodes[1].getnewaddress()
 
         # generate 1 block to addr0 and 109 blocks to addr1

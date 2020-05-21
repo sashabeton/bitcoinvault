@@ -13,7 +13,7 @@ def construct_atx_from_utxo():
     addr2 = rpc_connection2.getnewaddress()
 
     # mine coins to alert address
-    alert_addr1 = rpc_connection1.getnewvaultaddress(TEST_KEYS[0].pub)
+    alert_addr1 = rpc_connection1.getnewvaultalertaddress(TEST_KEYS[0].pub)
     rpc_connection1.generatetoaddress(200, alert_addr1['address'])
 
     # create and sign tx from alert address
@@ -34,7 +34,7 @@ def atx_from_alert_addr_to_normal_addr():
     addr2 = rpc_connection2.getnewaddress()
 
     # mine coins to alert address
-    alert_addr1 = rpc_connection1.getnewvaultaddress(TEST_KEYS[0].pub)
+    alert_addr1 = rpc_connection1.getnewvaultalertaddress(TEST_KEYS[0].pub)
     rpc_connection1.generatetoaddress(200, alert_addr1['address'])
 
     # send from alert address
@@ -57,7 +57,7 @@ def atx_from_alert_addr_to_normal_addr():
 
 
 def tx_from_normal_addr_to_alert_addr():
-    alert_addr1 = rpc_connection1.getnewvaultaddress(TEST_KEYS[0].pub)
+    alert_addr1 = rpc_connection1.getnewvaultalertaddress(TEST_KEYS[0].pub)
 
     # mine coins to normal address
     addr2 = rpc_connection2.getnewaddress()
@@ -134,7 +134,7 @@ def test_synchronization_when_reset():
 
 
 def test_construct_recovery_tx():
-    alert_addr = rpc_connection1.getnewvaultaddress(TEST_KEYS[0].pub)
+    alert_addr = rpc_connection1.getnewvaultalertaddress(TEST_KEYS[0].pub)
     attacker_addr = rpc_connection1.getnewaddress()
     other_addr = rpc_connection1.getnewaddress()
 
@@ -170,7 +170,7 @@ def test_construct_recovery_tx():
 
 
 def test_recover_transaction():
-    alert_addr = rpc_connection1.getnewvaultaddress(TEST_KEYS[0].pub)
+    alert_addr = rpc_connection1.getnewvaultalertaddress(TEST_KEYS[0].pub)
     attacker_addr = rpc_connection1.getnewaddress()
     other_addr = rpc_connection1.getnewaddress()
 
@@ -212,7 +212,7 @@ def test_recover_transaction():
 
 
 def test_recovery_balance():
-    alert_addr = rpc_connection1.getnewvaultaddress(TEST_KEYS[0].pub)
+    alert_addr = rpc_connection1.getnewvaultalertaddress(TEST_KEYS[0].pub)
     other_addr = rpc_connection1.getnewaddress()
     attacker_addr = rpc_connection2.getnewaddress()
     addr_to_mine = '2MyvyKzR4iHgWnprW1o2jeFv9KehNfT5F7N'
