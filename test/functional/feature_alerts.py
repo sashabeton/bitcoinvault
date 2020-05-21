@@ -165,7 +165,7 @@ class AlertsTest(BitcoinTestFramework):
         self.test_recovery_tx_is_rejected_when_inputs_does_not_match_alert()
 
     def test_recovery_tx_is_rejected_when_missing_recovery_key(self):
-        alert_addr0 = self.nodes[0].getnewvaultaddress(self.alert_recovery_pubkey)
+        alert_addr0 = self.nodes[0].getnewvaultalertaddress(self.alert_recovery_pubkey)
         addr0 = self.nodes[0].getnewaddress()
         addr1 = self.nodes[1].getnewaddress()
 
@@ -189,7 +189,7 @@ class AlertsTest(BitcoinTestFramework):
         assert 'Produced non-recovery tx, possibly missing keys' in error['message']
 
     def test_recovery_tx_when_all_keys_imported(self):
-        alert_addr0 = self.nodes[0].getnewvaultaddress(self.alert_recovery_pubkey)
+        alert_addr0 = self.nodes[0].getnewvaultalertaddress(self.alert_recovery_pubkey)
         addr0 = self.nodes[0].getnewaddress()
         addr1 = self.nodes[1].getnewaddress()
 
@@ -212,7 +212,7 @@ class AlertsTest(BitcoinTestFramework):
         assert recoverytx != ''
 
     def test_dumpwallet(self):
-        alert_addr0 = self.nodes[0].getnewvaultaddress(self.alert_recovery_pubkey)
+        alert_addr0 = self.nodes[0].getnewvaultalertaddress(self.alert_recovery_pubkey)
 
         # get pubkey
         pubkey = self.nodes[0].getaddressinfo(alert_addr0['address'])['pubkeys']
@@ -235,7 +235,7 @@ class AlertsTest(BitcoinTestFramework):
         assert sorted(info['pubkeys']) == sorted([pubkey, self.alert_recovery_pubkey])
 
     def test_add_watchonly_alert_address(self):
-        alert_addr1 = self.nodes[1].getnewvaultaddress(self.alert_recovery_pubkey)
+        alert_addr1 = self.nodes[1].getnewvaultalertaddress(self.alert_recovery_pubkey)
 
         # import alert_addr1 to node0 as watch-only
         self.nodes[0].importaddress(alert_addr1['redeemScript'], '', True, True)
@@ -255,7 +255,7 @@ class AlertsTest(BitcoinTestFramework):
         assert txid in receivedbyaddress['txids']
 
     def test_getaddressinfo_on_alert_address(self):
-        alert_addr0 = self.nodes[0].getnewvaultaddress(self.alert_recovery_pubkey)
+        alert_addr0 = self.nodes[0].getnewvaultalertaddress(self.alert_recovery_pubkey)
         info = self.nodes[0].getaddressinfo(alert_addr0['address'])
 
         # assert
@@ -270,7 +270,7 @@ class AlertsTest(BitcoinTestFramework):
         assert self.alert_recovery_pubkey in info['pubkeys']
 
     def test_getaddressinfo_on_imported_alert_address(self):
-        alert_addr0 = self.nodes[0].getnewvaultaddress(self.alert_recovery_pubkey)
+        alert_addr0 = self.nodes[0].getnewvaultalertaddress(self.alert_recovery_pubkey)
 
         # import alert_addr0 to node0 as watch-only
         self.nodes[1].importaddress(alert_addr0['redeemScript'], '', True, True)
@@ -289,7 +289,7 @@ class AlertsTest(BitcoinTestFramework):
         assert self.alert_recovery_pubkey in info['pubkeys']
 
     def test_import_alert_address_privkey(self):
-        alert_addr0 = self.nodes[0].getnewvaultaddress(self.alert_recovery_pubkey)
+        alert_addr0 = self.nodes[0].getnewvaultalertaddress(self.alert_recovery_pubkey)
 
         # get pubkey
         pubkey = self.nodes[0].getaddressinfo(alert_addr0['address'])['pubkeys']
@@ -313,7 +313,7 @@ class AlertsTest(BitcoinTestFramework):
         assert sorted(info['pubkeys']) == sorted([pubkey, self.alert_recovery_pubkey])
 
     def test_atx_from_imported_alert_address(self):
-        alert_addr0 = self.nodes[0].getnewvaultaddress(self.alert_recovery_pubkey)
+        alert_addr0 = self.nodes[0].getnewvaultalertaddress(self.alert_recovery_pubkey)
         other_addr = '2N34KyQQj97pAivV59wfTkzksYuPdR2jLfi'  # not owned by test nodes
 
         # mine some coins to alert_addr0
@@ -343,7 +343,7 @@ class AlertsTest(BitcoinTestFramework):
         assert atxid in self.nodes[1].getbestblock()['atx']
 
     def test_tx_from_normal_addr_to_alert_addr(self):
-        alert_addr1 = self.nodes[1].getnewvaultaddress(self.alert_recovery_pubkey)
+        alert_addr1 = self.nodes[1].getnewvaultalertaddress(self.alert_recovery_pubkey)
 
         # mine some coins to node0
         self.nodes[0].generate(200)
@@ -361,7 +361,7 @@ class AlertsTest(BitcoinTestFramework):
 
     def test_atx_from_alert_addr_to_normal_addr(self):
         addr0 = self.nodes[0].getnewaddress()
-        alert_addr1 = self.nodes[1].getnewvaultaddress(self.alert_recovery_pubkey)
+        alert_addr1 = self.nodes[1].getnewvaultalertaddress(self.alert_recovery_pubkey)
 
         # mine some coins to alert_addr1
         self.nodes[1].generatetoaddress(200, alert_addr1['address'])
@@ -402,7 +402,7 @@ class AlertsTest(BitcoinTestFramework):
 
     def test_atx_becomes_tx(self):
         addr0 = self.nodes[0].getnewaddress()
-        alert_addr1 = self.nodes[1].getnewvaultaddress(self.alert_recovery_pubkey)
+        alert_addr1 = self.nodes[1].getnewvaultalertaddress(self.alert_recovery_pubkey)
 
         # mine some coins to alert_addr1
         self.nodes[1].generatetoaddress(200, alert_addr1['address'])
@@ -428,7 +428,7 @@ class AlertsTest(BitcoinTestFramework):
 
     def test_signalerttransaction_when_no_key(self):
         addr0 = self.nodes[0].getnewaddress()
-        alert_addr1 = self.nodes[1].getnewvaultaddress(self.alert_recovery_pubkey)
+        alert_addr1 = self.nodes[1].getnewvaultalertaddress(self.alert_recovery_pubkey)
 
         # mine some coins to alert_addr1
         self.nodes[1].generatetoaddress(200, alert_addr1['address'])
@@ -450,7 +450,7 @@ class AlertsTest(BitcoinTestFramework):
 
     def test_signalerttransaction_when_recovery_key_imported(self):
         addr0 = self.nodes[0].getnewaddress()
-        alert_addr1 = self.nodes[1].getnewvaultaddress(self.alert_recovery_pubkey)
+        alert_addr1 = self.nodes[1].getnewvaultalertaddress(self.alert_recovery_pubkey)
 
         # mine some coins to alert_addr1
         self.nodes[1].generatetoaddress(200, alert_addr1['address'])
@@ -478,7 +478,7 @@ class AlertsTest(BitcoinTestFramework):
 
     def test_signalerttransaction(self):
         addr0 = self.nodes[0].getnewaddress()
-        alert_addr1 = self.nodes[1].getnewvaultaddress(self.alert_recovery_pubkey)
+        alert_addr1 = self.nodes[1].getnewvaultalertaddress(self.alert_recovery_pubkey)
 
         # mine some coins to alert_addr1
         self.nodes[1].generatetoaddress(200, alert_addr1['address'])
@@ -524,7 +524,7 @@ class AlertsTest(BitcoinTestFramework):
 
     def test_signrawtransactionwithwallet_should_reject_alert_transaction(self):
         addr0 = self.nodes[0].getnewaddress()
-        alert_addr1 = self.nodes[1].getnewvaultaddress(self.alert_recovery_pubkey)
+        alert_addr1 = self.nodes[1].getnewvaultalertaddress(self.alert_recovery_pubkey)
 
         # mine some coins to alert_addr1
         self.nodes[1].generatetoaddress(200, alert_addr1['address'])
@@ -551,7 +551,7 @@ class AlertsTest(BitcoinTestFramework):
         addr0 = self.nodes[0].getnewaddress()
 
         # mine some coins to alert_addr1
-        alert_addr1 = self.nodes[1].getnewvaultaddress(self.alert_recovery_pubkey)
+        alert_addr1 = self.nodes[1].getnewvaultalertaddress(self.alert_recovery_pubkey)
         self.nodes[1].generatetoaddress(200, alert_addr1['address'])
 
         # find vout to spend
@@ -575,7 +575,7 @@ class AlertsTest(BitcoinTestFramework):
     def test_atx_fee_is_paid_to_original_miner(self):
         mine_addr = self.nodes[0].getnewaddress()
         mine_addr2 = self.nodes[0].getnewaddress()
-        alert_addr1 = self.nodes[1].getnewvaultaddress(self.alert_recovery_pubkey)
+        alert_addr1 = self.nodes[1].getnewvaultalertaddress(self.alert_recovery_pubkey)
 
         # mine coins and send 10 to alert address
         self.nodes[0].generatetoaddress(200, mine_addr)
@@ -602,9 +602,9 @@ class AlertsTest(BitcoinTestFramework):
         addr0 = self.nodes[0].getnewaddress()
 
         # mine some coins to alert_addr1
-        alert_addr1 = self.nodes[1].getnewvaultaddress(self.alert_recovery_pubkey)
+        alert_addr1 = self.nodes[1].getnewvaultalertaddress(self.alert_recovery_pubkey)
         self.nodes[1].generatetoaddress(50, alert_addr1['address'])
-        alert_addr2 = self.nodes[1].getnewvaultaddress(self.alert_recovery_pubkey)
+        alert_addr2 = self.nodes[1].getnewvaultalertaddress(self.alert_recovery_pubkey)
         self.nodes[1].generatetoaddress(50, alert_addr2['address'])
         self.nodes[1].generatetoaddress(200, alert_addr1['address'])
 
@@ -636,7 +636,7 @@ class AlertsTest(BitcoinTestFramework):
         addr0 = self.nodes[0].getnewaddress()
 
         # mine some coins to alert_addr1
-        alert_addr1 = self.nodes[1].getnewvaultaddress(self.alert_recovery_pubkey)
+        alert_addr1 = self.nodes[1].getnewvaultalertaddress(self.alert_recovery_pubkey)
         self.nodes[1].generatetoaddress(50, alert_addr1['address'])
         addr1 = self.nodes[1].getnewaddress()
         self.nodes[1].generatetoaddress(50, addr1)
@@ -663,7 +663,7 @@ class AlertsTest(BitcoinTestFramework):
         assert 'Produced invalid alert tx, possibly wrong inputs given' in error['message']
 
     def test_recovery_tx_flow(self):
-        alert_addr0 = self.nodes[0].getnewvaultaddress(self.alert_recovery_pubkey)
+        alert_addr0 = self.nodes[0].getnewvaultalertaddress(self.alert_recovery_pubkey)
         other_addr0 = self.nodes[0].getnewaddress()
         attacker_addr1 = self.nodes[1].getnewaddress()
 
@@ -717,7 +717,7 @@ class AlertsTest(BitcoinTestFramework):
         addr0 = self.nodes[0].getnewaddress()
 
         # mine some coins to alert_addr1
-        alert_addr1 = self.nodes[1].getnewvaultaddress(self.alert_recovery_pubkey)
+        alert_addr1 = self.nodes[1].getnewvaultalertaddress(self.alert_recovery_pubkey)
         self.nodes[1].generatetoaddress(200, alert_addr1['address'])
 
         # create, sign and mine 1st atx from alert_addr1 to addr0

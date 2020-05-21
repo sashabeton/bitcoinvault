@@ -320,7 +320,7 @@ static UniValue getnewaddress(const JSONRPCRequest& request)
     return EncodeDestination(dest);
 }
 
-static UniValue getnewvaultaddress(const JSONRPCRequest& request)
+static UniValue getnewvaultalertaddress(const JSONRPCRequest& request)
 {
     std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request);
     CWallet* const pwallet = wallet.get();
@@ -332,7 +332,7 @@ static UniValue getnewvaultaddress(const JSONRPCRequest& request)
     if (request.fHelp || request.params.size() < 1 || request.params.size() > 3)
     {
         std::string msg =
-                RPCHelpMan{"getnewvaultaddress",
+                RPCHelpMan{"getnewvaultalertaddress",
                            "\nCreates an alert address which generates recoverable transaction alert when signed with 1 signature of 2 keys.\n"
                            "It returns a json object with the address and redeemScript.\n",
                            {
@@ -348,9 +348,9 @@ static UniValue getnewvaultaddress(const JSONRPCRequest& request)
                            },
                            RPCExamples{
                                    "\nCreate an alert address with given recovery key public keys\n"
-                                   + HelpExampleCli("getnewvaultaddress",  "\"03dbc6764b8884a92e871274b87583e6d5c2a58819473e17e107ef3f6aa5a61626\"") +
+                                   + HelpExampleCli("getnewvaultalertaddress",  "\"03dbc6764b8884a92e871274b87583e6d5c2a58819473e17e107ef3f6aa5a61626\"") +
                                    "\nAs a JSON-RPC call\n"
-                                   + HelpExampleRpc("getnewvaultaddress", "\"03dbc6764b8884a92e871274b87583e6d5c2a58819473e17e107ef3f6aa5a61626\"")
+                                   + HelpExampleRpc("getnewvaultalertaddress", "\"03dbc6764b8884a92e871274b87583e6d5c2a58819473e17e107ef3f6aa5a61626\"")
                            },
                 }.ToString();
         throw std::runtime_error(msg);
@@ -4868,7 +4868,7 @@ static const CRPCCommand commands[] =
     { "wallet",             "abandontransaction",               &abandontransaction,            {"txid"} },
     { "wallet",             "abortrescan",                      &abortrescan,                   {} },
     { "wallet",             "addmultisigaddress",               &addmultisigaddress,            {"nrequired","keys","label","address_type"} },
-    { "wallet",             "getnewvaultaddress",               &getnewvaultaddress,            {"recovery_key","label","address_type"}  },
+    { "wallet",             "getnewvaultalertaddress",          &getnewvaultalertaddress,       {"recovery_key","label","address_type"}  },
     { "wallet",             "getnewvaultinstantaddress",        &getnewvaultinstantaddress,     {"instant_key","recovery_key","label","address_type"}  },
     { "wallet",             "backupwallet",                     &backupwallet,                  {"destination"} },
     { "wallet",             "bumpfee",                          &bumpfee,                       {"txid", "options"} },

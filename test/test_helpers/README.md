@@ -1,14 +1,15 @@
 New bvaultd RPC commands:
 
-- `getnewvaultaddress "recovery_key" ( "label" "address_type" )`
+- `getnewvaultalertaddress "recovery_key" ( "label" "address_type" )`
 
-  Creates an alert address which generates recoverable transaction alert when signed with 1 signature of 2 keys.
-  It returns a json object with the address and redeemScript.
+  Creates and adds to the wallet an alert address which generates recoverable transaction alert when signed
+  with 1 signature of 2 keys. It returns a json object with the address and redeemScript.
 
 
 - `getnewvaultinstantaddress "instant_key" "recovery_key" ( "label" "address_type" )`
 
-  Creates an instant/alert address which generates: recoverable transaction alert when signed with 1 signature of 3 keys and instant transaction when signed with 2 signatures of 3 keys.
+  Creates and adds to the wallet an instant/alert address which generates: recoverable transaction alert when signed
+  with 1 signature of 3 keys and instant transaction when signed with 2 signatures of 3 keys.
   It returns a json object with the address and redeemScript.
 
   
@@ -58,7 +59,7 @@ New bvaultd RPC commands:
 
 Basic end-user flow:
 ```bash
-$ bvaultd-cli getnewvaultaddress '02ecec100acb89f3049285ae01e7f03fb469e6b54d44b0f3c8240b1958e893cb8c'
+$ bvaultd-cli getnewvaultalertaddress '02ecec100acb89f3049285ae01e7f03fb469e6b54d44b0f3c8240b1958e893cb8c'
   {
     "address": "2Mt65Q7ARUYhev6HXtDCrxWbFYF8XJ2T2wG",
     "redeemScript": "63516752682103c10bb9a7cabc41b28251cf4dfeb9da199696157052ecedf7b03647dd2f22b89a2102ecec100acb89f3049285ae01e7f03fb469e6b54d44b0f3c8240b1958e893cb8c52ae"
@@ -79,7 +80,7 @@ $ bvaultd-cli sendrawtransaction "020000000108631a1eb168d3f55785c45945fa2fa069b6
 ```python
 >>> from RPCProxyWrapper import *
 >>> conn = RPCProxyWrapper(rpcport=18887, rpcuser='user', rpcpass='pass')
->>> conn.getnewvaultaddress('02ecec100acb89f3049285ae01e7f03fb469e6b54d44b0f3c8240b1958e893cb8c')
+>>> conn.getnewvaultalertaddress('02ecec100acb89f3049285ae01e7f03fb469e6b54d44b0f3c8240b1958e893cb8c')
     {
         "address": "2Mt65Q7ARUYhev6HXtDCrxWbFYF8XJ2T2wG",
         "redeemScript": "63516752682103c10bb9a7cabc41b28251cf4dfeb9da199696157052ecedf7b03647dd2f22b89a2102ecec100acb89f3049285ae01e7f03fb469e6b54d44b0f3c8240b1958e893cb8c52ae"
