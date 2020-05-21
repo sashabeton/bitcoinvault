@@ -3504,7 +3504,7 @@ UniValue signrawtransactionwithwallet(const JSONRPCRequest& request)
     UniValue result = SignTransaction(pwallet->chain(), mtx, request.params[1], pwallet, false, request.params[2]);
 
     if (GetVaultTxType(mtx) != TX_NONVAULT) {
-        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Unable to sign transaction from vault address");
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Unable to sign transaction from vault address. Use one of: signalerttransaction, signinstanttransaction, signrecoverytransaction instead.");
     }
 
     return result;
