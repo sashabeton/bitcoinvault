@@ -372,6 +372,7 @@ public:
     std::string ToString() const;
 };
 
+/** TODO implement if needed for miners database, remove otherwise */
 class CLicenseTransaction : public CTransaction
 {
 	enum class ActionType {
@@ -380,12 +381,10 @@ class CLicenseTransaction : public CTransaction
 
 	using CTransaction::CTransaction;
 
-public:
-	std::string ToString() const;
-
 private:
 	ActionType type;
-	uint64_t assignedHashrate;
+	uint16_t assignedHashrate;
+	std::string address;
 };
 
 /** A mutable version of CBaseTransaction. */

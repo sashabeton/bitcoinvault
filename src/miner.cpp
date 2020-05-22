@@ -507,9 +507,9 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
 
         // Decide if add transaction as alert or regular transaction
         auto addToBlock = [&] (CTxMemPool::txiter entry) {
-            if ( auto tx = entry->GetTx(); alertsEnabled && !IsLicenseTx(tx)) {
+            if (alertsEnabled && !IsLicenseTx(entry->GetTx())) {
                 CCoinsViewCache view(pcoinsTip.get());
-                vaulttxntype vaultTxType = GetVaultTxType(tx, view);
+                vaulttxntype vaultTxType = GetVaultTxType(entry->GetTx(), view);
                 if (vaultTxType == TX_ALERT)
                     return AddAlertTxToBlock(entry);
             }
