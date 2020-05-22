@@ -73,6 +73,14 @@ class AlertsTest(BitcoinTestFramework):
         self.COINBASE_AMOUNT = Decimal(175)
 
         self.reset_blockchain()
+        self.log.info("Test sendtoaddress fails when no coins available on regular addresses")
+        self.test_sendtoaddress_fails_when_no_coins_available_on_regular_addresses()
+
+        self.reset_blockchain()
+        self.log.info("Test sendtoaddress selects coins on regular addresses only")
+        self.test_sendtoaddress_selects_coins_on_regular_addresses_only()
+
+        self.reset_blockchain()
         self.log.info("Test standard signrawtransactionwithwallet flow")
         self.test_signrawtransactionwithwallet()
 
@@ -188,6 +196,41 @@ class AlertsTest(BitcoinTestFramework):
         self.log.info("Test getrawtransaction returns information about unconfirmed atx")
         self.test_getrawtransaction_returns_information_about_unconfirmed_atx()
 
+    def test_sendtoaddress_fails_when_no_coins_available_on_regular_addresses(self):
+        alert_addr0 = self.nodes[0].getnewvaultalertaddress(self.alert_recovery_pubkey)
+        other_addr = '2N34KyQQj97pAivV59wfTkzksYuPdR2jLfi'
+
+        self.nodes[0].generatetoaddress(200, alert_addr0['address'])  # coins are available only on alert address ...
+        error = None
+        try:
+            self.nodes[0].sendtoaddress(other_addr, 10)  # ... so this call should fail
+        except Exception as e:
+            error = e.error
+
+        # assert
+        self.sync_all()
+        assert error['code'] == -4
+        assert 'Insufficient funds' in error['message']
+
+    def test_sendtoaddress_selects_coins_on_regular_addresses_only(self):
+        alert_addr0 = self.nodes[0].getnewvaultalertaddress(self.alert_recovery_pubkey)
+        addr0 = self.nodes[0].getnewaddress()
+        other_addr = '2N34KyQQj97pAivV59wfTkzksYuPdR2jLfi'
+
+        self.nodes[0].generatetoaddress(200, addr0)
+        self.nodes[0].generatetoaddress(200, alert_addr0['address'])
+
+        coins_to_use = self.nodes[0].listunspent()
+        coins_to_use = [c for c in coins_to_use if c['address'] == addr0]
+        assert len(coins_to_use) == 200
+
+        txid = self.nodes[0].sendtoaddress(other_addr, self.COINBASE_AMOUNT * 200, '', '', True)
+        tx = self.nodes[0].getrawtransaction(txid, True)
+
+        # assert
+        self.sync_all()
+        assert len(tx['vin']) == 200
+        assert {v['txid']: v['vout'] for v in tx['vin']} == {c['txid']: c['vout'] for c in coins_to_use}
 
     def test_recovery_tx_is_rejected_when_missing_recovery_key(self):
         alert_addr0 = self.nodes[0].getnewvaultalertaddress(self.alert_recovery_pubkey)
