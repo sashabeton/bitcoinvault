@@ -149,12 +149,20 @@ class AlertsTest(BitcoinTestFramework):
         self.test_atx_fee_is_paid_to_original_miner()
 
         self.reset_blockchain()
-        self.log.info("Test atx is rejected when inputs have different source")
-        self.test_atx_is_rejected_when_inputs_have_different_source()
+        self.log.info("Test atx is rejected by wallet when inputs have different source")
+        self.test_atx_is_rejected_by_wallet_when_inputs_have_different_source()
 
         self.reset_blockchain()
-        self.log.info("Test atx is rejected when contains non-alert type inputs")
-        self.test_atx_is_rejected_when_contains_non_alert_inputs()
+        self.log.info("Test atx is rejected by wallet when contains non-alert type inputs")
+        self.test_atx_is_rejected_by_wallet_when_contains_non_alert_inputs()
+
+        self.reset_blockchain()
+        self.log.info("Test atx is rejected by node when contains non-alert type inputs")
+        self.test_atx_is_rejected_by_node_when_inputs_have_different_source()
+
+        self.reset_blockchain()
+        self.log.info("Test atx is rejected by node when contains non-alert type inputs")
+        self.test_atx_is_rejected_by_node_when_contains_non_alert_inputs()
 
         self.reset_blockchain()
         self.log.info("Test standard recovery transaction flow")
@@ -598,7 +606,7 @@ class AlertsTest(BitcoinTestFramework):
         coinbase = self.nodes[1].getrawtransaction(coinbase_id, 1)
         assert coinbase['vout'][1]['value'] == fee
 
-    def test_atx_is_rejected_when_inputs_have_different_source(self):
+    def test_atx_is_rejected_by_wallet_when_inputs_have_different_source(self):
         addr0 = self.nodes[0].getnewaddress()
 
         # mine some coins to alert_addr1
@@ -632,7 +640,7 @@ class AlertsTest(BitcoinTestFramework):
         assert error['code'] == -5
         assert 'Produced invalid alert tx, possibly wrong inputs given' in error['message']
 
-    def test_atx_is_rejected_when_contains_non_alert_inputs(self):
+    def test_atx_is_rejected_by_wallet_when_contains_non_alert_inputs(self):
         addr0 = self.nodes[0].getnewaddress()
 
         # mine some coins to alert_addr1
@@ -661,6 +669,87 @@ class AlertsTest(BitcoinTestFramework):
         self.sync_all()
         assert error['code'] == -5
         assert 'Produced invalid alert tx, possibly wrong inputs given' in error['message']
+
+    def test_atx_is_rejected_by_node_when_inputs_have_different_source(self):
+        addr0 = self.nodes[0].getnewaddress()
+        addr0_prvkey = self.nodes[0].dumpprivkey(addr0)
+        addr0_pubkey = self.nodes[0].getaddressinfo(addr0)['pubkey']
+        addr1 = self.nodes[0].getnewaddress()
+        addr1_prvkey = self.nodes[0].dumpprivkey(addr1)
+        addr1_pubkey = self.nodes[0].getaddressinfo(addr1)['pubkey']
+
+        # mine some coins to alert_addr1
+        alert_addr1 = self.nodes[1].createvaultalertaddress(addr0_pubkey, self.alert_recovery_pubkey)
+        self.nodes[1].generatetoaddress(50, alert_addr1['address'])
+        alert_addr2 = self.nodes[1].createvaultalertaddress(addr1_pubkey, self.alert_recovery_pubkey)
+        self.nodes[1].generatetoaddress(50, alert_addr2['address'])
+        self.nodes[1].generatetoaddress(200, alert_addr1['address'])
+
+        # find vout to spend
+        txtospendhash = self.nodes[1].getblockbyheight(10)['tx'][0]
+        txtospend = self.nodes[1].getrawtransaction(txtospendhash, True)
+        vouttospend = self.find_vout_n(txtospend, 175)
+        txtospendhash2 = self.nodes[1].getblockbyheight(60)['tx'][0]
+        txtospend2 = self.nodes[1].getrawtransaction(txtospendhash2, True)
+        vouttospend2 = self.find_vout_n(txtospend2, 175)
+
+        # create atx
+        atxtosend = self.nodes[1].createrawtransaction([{'txid': txtospendhash, 'vout': vouttospend}, {'txid': txtospendhash2, 'vout': vouttospend2}], {addr0: 349.99})
+        atxtosend = self.nodes[1].signrawtransactionwithkey(atxtosend, [addr0_prvkey, addr1_prvkey], [
+            {'txid': txtospendhash, 'vout': vouttospend, 'scriptPubKey': txtospend['vout'][vouttospend]['scriptPubKey']['hex'], 'redeemScript': alert_addr1['redeemScript']},
+            {'txid': txtospendhash2, 'vout': vouttospend2, 'scriptPubKey': txtospend2['vout'][vouttospend2]['scriptPubKey']['hex'], 'redeemScript': alert_addr2['redeemScript']}
+        ])
+
+        # send atx
+        self.nodes[1].sendrawtransaction(atxtosend['hex'])
+        error = ''
+        try:
+            self.nodes[1].generatetoaddress(1, alert_addr1['address'])
+        except Exception as e:
+            error = e.error
+
+        # assert
+        self.sync_all()
+        assert error['code'] == -1
+        assert 'bad-tx-alert-type' in error['message']
+
+    def test_atx_is_rejected_by_node_when_contains_non_alert_inputs(self):
+        addr0 = self.nodes[0].getnewaddress()
+        addr0_prvkey = self.nodes[0].dumpprivkey(addr0)
+        addr0_pubkey = self.nodes[0].getaddressinfo(addr0)['pubkey']
+        addr1 = self.nodes[0].getnewaddress()
+        addr1_prvkey = self.nodes[0].dumpprivkey(addr1)
+
+        # mine some coins to alert_addr1
+        alert_addr1 = self.nodes[1].createvaultalertaddress(addr0_pubkey, self.alert_recovery_pubkey)
+        self.nodes[1].generatetoaddress(50, alert_addr1['address'])
+        self.nodes[1].generatetoaddress(50, addr1)
+        self.nodes[1].generatetoaddress(200, alert_addr1['address'])
+
+        # find vout to spend
+        txtospendhash = self.nodes[1].getblockbyheight(10)['tx'][0]
+        txtospend = self.nodes[1].getrawtransaction(txtospendhash, True)
+        vouttospend = self.find_vout_n(txtospend, 175)
+        txtospendhash2 = self.nodes[1].getblockbyheight(60)['tx'][0]
+        txtospend2 = self.nodes[1].getrawtransaction(txtospendhash2, True)
+        vouttospend2 = self.find_vout_n(txtospend2, 175)
+
+        # create atx
+        atxtosend = self.nodes[1].createrawtransaction([{'txid': txtospendhash, 'vout': vouttospend}, {'txid': txtospendhash2, 'vout': vouttospend2}], {addr0: 349.99})
+        atxtosend = self.nodes[1].signrawtransactionwithkey(atxtosend, [addr0_prvkey, addr1_prvkey], [{'txid': txtospendhash, 'vout': vouttospend, 'scriptPubKey': txtospend['vout'][vouttospend]['scriptPubKey']['hex'], 'redeemScript': alert_addr1['redeemScript']}])
+
+        # send atx
+        self.nodes[1].sendrawtransaction(atxtosend['hex'])
+        error = ''
+        try:
+            self.nodes[1].generatetoaddress(1, alert_addr1['address'])
+        except Exception as e:
+            error = e.error
+
+        # assert
+        self.sync_all()
+        assert error['code'] == -1
+        assert 'bad-tx-alert-type' in error['message']
 
     def test_recovery_tx_flow(self):
         alert_addr0 = self.nodes[0].getnewvaultalertaddress(self.alert_recovery_pubkey)
