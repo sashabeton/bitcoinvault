@@ -737,6 +737,7 @@ static UniValue sendtoaddress(const JSONRPCRequest& request)
 
 
     EnsureWalletIsUnlocked(pwallet);
+    coin_control.m_tx_type = TX_NONVAULT;
 
     CTransactionRef tx = SendMoney(*locked_chain, pwallet, dest, nAmount, fSubtractFeeFromAmount, coin_control, std::move(mapValue));
     return tx->GetHash().GetHex();
@@ -1231,6 +1232,7 @@ static UniValue sendmany(const JSONRPCRequest& request)
     }
 
     EnsureWalletIsUnlocked(pwallet);
+    coin_control.m_tx_type = TX_NONVAULT;
 
     // Check funds
     if (totalAmount > pwallet->GetLegacyBalance(ISMINE_SPENDABLE, nMinDepth)) {

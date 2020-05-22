@@ -248,5 +248,6 @@ void UpdateInput(CTxIn& input, const SignatureData& data);
  * provider is used to look up public keys and redeemscripts by hash.
  * Solvability is unrelated to whether we consider this output to be ours. */
 bool IsSolvable(const SigningProvider& provider, const CScript& script);
+bool IsSolvable(const SigningProvider& provider, const CScript& script, SignatureData& ret);
 
 #endif // BITCOIN_SCRIPT_SIGN_H

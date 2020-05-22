@@ -492,6 +492,12 @@ const SigningProvider& DUMMY_SIGNING_PROVIDER = SigningProvider();
 
 bool IsSolvable(const SigningProvider& provider, const CScript& script)
 {
+    SignatureData ret;
+    return IsSolvable(provider, script, ret);
+}
+
+bool IsSolvable(const SigningProvider& provider, const CScript& script, SignatureData& ret)
+{
     // This check is to make sure that the script we created can actually be solved for and signed by us
     // if we were to have the private keys. This is just to make sure that the script is valid and that,
     // if found in a transaction, we would still accept and relay that transaction. In particular,
@@ -504,6 +510,7 @@ bool IsSolvable(const SigningProvider& provider, const CScript& script)
         // VerifyScript check is just defensive, and should never fail.
         bool verified = VerifyScript(sigs.scriptSig, script, &sigs.scriptWitness, STANDARD_SCRIPT_VERIFY_FLAGS, DUMMY_CHECKER);
         assert(verified);
+        ret = sigs;
         return true;
     }
     return false;

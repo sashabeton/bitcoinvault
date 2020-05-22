@@ -2397,8 +2397,29 @@ void CWallet::AvailableCoins(interfaces::Chain::Lock& locked_chain, std::vector<
                 continue;
             }
 
-            bool solvable = IsSolvable(*this, pcoin->tx->vout[i].scriptPubKey);
+            SignatureData data;
+            bool solvable = IsSolvable(*this, pcoin->tx->vout[i].scriptPubKey, data);
             bool spendable = ((mine & ISMINE_SPENDABLE) != ISMINE_NO) || (((mine & ISMINE_WATCH_ONLY) != ISMINE_NO) && (coinControl && coinControl->fAllowWatchOnly && solvable));
+            Stacks stack(data);
+            txnouttype scriptType = ExtractDataFromIncompleteScript(data, stack, BaseSignatureChecker(), pcoin->tx->vout[i]);
+
+            if (coinControl && coinControl->m_tx_type != TX_INVALID) { // TX_INVALID means unset
+                if (coinControl->m_tx_type == TX_NONVAULT) {
+                    if (scriptType == TX_VAULT_ALERTADDRESS || scriptType == TX_VAULT_INSTANTADDRESS) {
+                        continue;
+                    }
+                } else if (coinControl->m_tx_type == TX_ALERT || coinControl->m_tx_type == TX_RECOVERY) {
+                    if (scriptType != TX_VAULT_ALERTADDRESS && scriptType != TX_VAULT_INSTANTADDRESS) {
+                        continue;
+                    }
+                } else if (coinControl->m_tx_type == TX_INSTANT) {
+                    if (scriptType != TX_VAULT_INSTANTADDRESS) {
+                        continue;
+                    }
+                } else {
+                    assert(false);
+                }
+            }
 
             vCoins.push_back(COutput(pcoin, i, nDepth, spendable, solvable, safeTx, (coinControl && coinControl->fAllowWatchOnly)));
 
