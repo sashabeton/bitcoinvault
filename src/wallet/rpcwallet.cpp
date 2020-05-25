@@ -76,28 +76,6 @@ std::string HelpRequiringPassphrase(CWallet * const pwallet)
         : "";
 }
 
-vaulttxntype GetVaultTxType(const CMutableTransaction& mtx) {
-    CBaseTransaction btx(mtx);
-
-    // Fetch previous transactions (inputs):
-    CCoinsView viewDummy;
-    CCoinsViewCache view(&viewDummy);
-    {
-        LOCK2(cs_main, mempool.cs);
-        CCoinsViewCache &viewChain = *pcoinsTip;
-        CCoinsViewMemPool viewMempool(&viewChain, mempool);
-        view.SetBackend(viewMempool); // temporarily switch cache backend to db+mempool view
-
-        for (const CTxIn& txin : mtx.vin) {
-            view.AccessCoin(txin.prevout); // Load entries from viewChain into view; can fail.
-        }
-
-        view.SetBackend(viewDummy); // switch back to avoid locking mempool for too long
-    }
-
-    return GetVaultTxType(btx, view);
-}
-
 vaulttxntype GetVaultTxType(const std::string& txHex) {
     CMutableTransaction mtx;
     if (!DecodeHexTx(mtx, txHex, true)) {

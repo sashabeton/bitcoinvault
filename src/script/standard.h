@@ -139,6 +139,7 @@ bool IsValidDestination(const CTxDestination& dest);
 
 /** Get the name of a txnouttype as a C string, or nullptr if unknown. */
 const char* GetTxnOutputType(txnouttype t);
+const char* GetTxnOutputType(vaulttxntype t);
 
 /**
  * Parse a scriptPubKey and identify script type for standard scripts. If

@@ -28,11 +28,9 @@ std::shared_ptr<CWallet> GetWalletForJSONRPCRequest(const JSONRPCRequest& reques
 std::string HelpRequiringPassphrase(CWallet *);
 void EnsureWalletIsUnlocked(CWallet *);
 bool EnsureWalletIsAvailable(CWallet *, bool avoidException);
-vaulttxntype GetVaultTxType(const std::string& txHex);
-vaulttxntype GetVaultTxType(const CMutableTransaction& mtx);
 UniValue SignInstantTransaction(interfaces::Chain& chain, CMutableTransaction& otx, const UniValue& prevTxsUnival, const CBasicKeyStore *const okeystore, const UniValue& hashType);
 UniValue SignAlertTransaction(interfaces::Chain& chain, CMutableTransaction& otx, const UniValue& prevTxsUnival, const CBasicKeyStore *const okeystore, const UniValue& hashType);
-
+vaulttxntype GetVaultTxType(const std::string& txHex);
 UniValue getaddressinfo(const JSONRPCRequest& request);
 UniValue signrawtransactionwithwallet(const JSONRPCRequest& request);
 #endif //BITCOIN_WALLET_RPCWALLET_H

@@ -43,6 +43,20 @@ const char* GetTxnOutputType(txnouttype t)
     return nullptr;
 }
 
+const char* GetTxnOutputType(vaulttxntype t)
+{
+    switch (t)
+    {
+        case TX_INVALID: return "invalid";
+        case TX_NONVAULT: return "nonvault";
+        case TX_ALERT: return "vaultalert";
+        case TX_INSTANT: return "vaultinstant";
+        case TX_RECOVERY: return "vaultrecovery";
+
+    }
+    return nullptr;
+}
+
 static bool MatchPayToPubkey(const CScript& script, valtype& pubkey)
 {
     if (script.size() == CPubKey::PUBLIC_KEY_SIZE + 2 && script[0] == CPubKey::PUBLIC_KEY_SIZE && script.back() == OP_CHECKSIG) {

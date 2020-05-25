@@ -1296,4 +1296,6 @@ public:
 // be IsAllFromMe).
 int64_t CalculateMaximumSignedTxSize(const CTransaction &tx, const CWallet *wallet, bool use_max_sig = false) EXCLUSIVE_LOCKS_REQUIRED(wallet->cs_wallet);
 int64_t CalculateMaximumSignedTxSize(const CTransaction &tx, const CWallet *wallet, const std::vector<CTxOut>& txouts, bool use_max_sig = false);
+vaulttxntype GetVaultTxType(const CBaseTransaction& btx);
+vaulttxntype GetVaultTxType(const CMutableTransaction& mtx);
 #endif // BITCOIN_WALLET_WALLET_H

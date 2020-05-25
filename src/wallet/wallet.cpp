@@ -87,6 +87,31 @@ static Mutex g_wallet_release_mutex;
 static std::condition_variable g_wallet_release_cv;
 static std::set<CWallet*> g_unloading_wallet_set;
 
+vaulttxntype GetVaultTxType(const CBaseTransaction& btx) {
+    // Fetch previous transactions (inputs):
+    CCoinsView viewDummy;
+    CCoinsViewCache view(&viewDummy);
+    {
+        LOCK2(cs_main, mempool.cs);
+        CCoinsViewCache &viewChain = *pcoinsTip;
+        CCoinsViewMemPool viewMempool(&viewChain, mempool);
+        view.SetBackend(viewMempool); // temporarily switch cache backend to db+mempool view
+
+        for (const CTxIn& txin : btx.vin) {
+            view.AccessCoin(txin.prevout); // Load entries from viewChain into view; can fail.
+        }
+
+        view.SetBackend(viewDummy); // switch back to avoid locking mempool for too long
+    }
+
+    return GetVaultTxType(btx, view);
+}
+
+vaulttxntype GetVaultTxType(const CMutableTransaction& mtx) {
+    CBaseTransaction btx(mtx);
+    return GetVaultTxType(btx);
+}
+
 // Custom deleter for shared_ptr<CWallet>.
 static void ReleaseWallet(CWallet* wallet)
 {
@@ -3133,6 +3158,16 @@ bool CWallet::CreateTransaction(interfaces::Chain::Lock& locked_chain, const std
                 }
 
                 nIn++;
+            }
+        }
+
+        // Check for requested transaction type
+        if (sign && coin_control.m_tx_type != TX_INVALID) {  // TX_INVALID means unset
+            auto txType = GetVaultTxType(txNew);
+            if (txType != coin_control.m_tx_type) {
+                std::string txTypeStr = GetTxnOutputType(txType);
+                strFailReason = _("Produced ") + txTypeStr + _(" transaction type, possibly missing keys");
+                return false;
             }
         }
 
