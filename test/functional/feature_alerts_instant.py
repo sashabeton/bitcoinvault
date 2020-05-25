@@ -76,6 +76,10 @@ class AlertsInstantTest(BitcoinTestFramework):
         self.COINBASE_AMOUNT = Decimal(175)
 
         self.reset_blockchain()
+        self.log.info("Test sendalerttoaddress selects coins on alert and instant addresses only")
+        self.test_sendalerttoaddress_selects_coins_on_alert_and_instant_addresses_only()
+
+        self.reset_blockchain()
         self.log.info("Test sendtoaddress fails when no coins available on regular addresses")
         self.test_sendtoaddress_fails_when_no_coins_available_on_regular_addresses()
 
@@ -243,6 +247,28 @@ class AlertsInstantTest(BitcoinTestFramework):
         self.log.info("Test getrawtransaction returns information about unconfirmed atx")
         self.test_getrawtransaction_returns_information_about_unconfirmed_atx()
 
+    def test_sendalerttoaddress_selects_coins_on_alert_and_instant_addresses_only(self):
+        alert_addr0 = self.nodes[0].getnewvaultalertaddress(self.alert_recovery_pubkey)
+        instant_addr0 = self.nodes[0].getnewvaultinstantaddress(self.alert_instant_pubkey, self.alert_recovery_pubkey)
+        addr0 = self.nodes[0].getnewaddress()
+        other_addr = '2N34KyQQj97pAivV59wfTkzksYuPdR2jLfi'
+
+        self.nodes[0].generatetoaddress(100, alert_addr0['address'])
+        self.nodes[0].generatetoaddress(100, instant_addr0['address'])
+        self.nodes[0].generatetoaddress(200, addr0)
+
+        coins_to_use = self.nodes[0].listunspent()
+        coins_to_use = [c for c in coins_to_use if c['address'] in [alert_addr0['address'], instant_addr0['address']]]
+        assert len(coins_to_use) == 200
+
+        txid = self.nodes[0].sendalerttoaddress(other_addr, self.COINBASE_AMOUNT * 200, '', '', True)
+        tx = self.nodes[0].getrawtransaction(txid, True)
+
+        # assert
+        self.sync_all()
+        assert len(tx['vin']) == 200
+        assert {v['txid']: v['vout'] for v in tx['vin']} == {c['txid']: c['vout'] for c in coins_to_use}
+
     def test_sendtoaddress_fails_when_no_coins_available_on_regular_addresses(self):
         instant_addr0 = self.nodes[0].getnewvaultinstantaddress(self.alert_instant_pubkey, self.alert_recovery_pubkey)
         other_addr = '2N34KyQQj97pAivV59wfTkzksYuPdR2jLfi'
@@ -287,7 +313,7 @@ class AlertsInstantTest(BitcoinTestFramework):
         self.nodes[0].generatetoaddress(200, instant_addr0['address'])
 
         # send atx and mine block with this atx
-        atxid = self.nodes[0].sendtoaddress(addr1, 10)
+        atxid = self.nodes[0].sendalerttoaddress(addr1, 10)
         self.nodes[0].generatetoaddress(1, instant_addr0['address'])
 
         # recover atx
@@ -311,7 +337,7 @@ class AlertsInstantTest(BitcoinTestFramework):
         self.nodes[0].generatetoaddress(200, instant_addr0['address'])
 
         # send atx and mine block with this atx
-        atxid = self.nodes[0].sendtoaddress(addr1, 10)
+        atxid = self.nodes[0].sendalerttoaddress(addr1, 10)
         self.nodes[0].generatetoaddress(1, instant_addr0['address'])
 
         # recover atx
@@ -335,7 +361,7 @@ class AlertsInstantTest(BitcoinTestFramework):
         self.nodes[0].generatetoaddress(200, instant_addr0['address'])
 
         # send atx and mine block with this atx
-        atxid = self.nodes[0].sendtoaddress(addr1, 10)
+        atxid = self.nodes[0].sendalerttoaddress(addr1, 10)
         self.nodes[0].generatetoaddress(1, instant_addr0['address'])
 
         # recover atx
@@ -359,7 +385,7 @@ class AlertsInstantTest(BitcoinTestFramework):
         self.nodes[0].generatetoaddress(200, instant_addr0['address'])
 
         # send atx and mine block with this atx
-        atxid = self.nodes[0].sendtoaddress(addr1, 10)
+        atxid = self.nodes[0].sendalerttoaddress(addr1, 10)
         self.nodes[0].generatetoaddress(1, instant_addr0['address'])
 
         # import keys into wallet
@@ -383,7 +409,7 @@ class AlertsInstantTest(BitcoinTestFramework):
         self.nodes[0].generatetoaddress(200, instant_addr0['address'])
 
         # send atx and mine block with this atx
-        atxid = self.nodes[0].sendtoaddress(addr1, 10)
+        atxid = self.nodes[0].sendalerttoaddress(addr1, 10)
         self.nodes[0].generatetoaddress(1, instant_addr0['address'])
 
         # import keys into wallet
@@ -410,7 +436,7 @@ class AlertsInstantTest(BitcoinTestFramework):
         self.nodes[0].generatetoaddress(200, instant_addr0['address'])
 
         # send atx and mine block with this atx
-        atxid = self.nodes[0].sendtoaddress(addr1, 10)
+        atxid = self.nodes[0].sendalerttoaddress(addr1, 10)
         self.nodes[0].generatetoaddress(1, instant_addr0['address'])
 
         # import keys into wallet
@@ -437,7 +463,7 @@ class AlertsInstantTest(BitcoinTestFramework):
         self.nodes[0].generatetoaddress(200, instant_addr0['address'])
 
         # send atx and mine block with this atx
-        atxid = self.nodes[0].sendtoaddress(addr1, 10)
+        atxid = self.nodes[0].sendalerttoaddress(addr1, 10)
         self.nodes[0].generatetoaddress(1, instant_addr0['address'])
 
         # import keys into wallet
@@ -460,7 +486,7 @@ class AlertsInstantTest(BitcoinTestFramework):
         self.nodes[0].generatetoaddress(200, instant_addr0['address'])
 
         # send atx and mine block with this atx
-        atxid = self.nodes[0].sendtoaddress(addr1, 10)
+        atxid = self.nodes[0].sendalerttoaddress(addr1, 10)
         self.nodes[0].generatetoaddress(1, instant_addr0['address'])
 
         # import keys into wallet
@@ -483,7 +509,7 @@ class AlertsInstantTest(BitcoinTestFramework):
         self.nodes[0].generatetoaddress(200, instant_addr0['address'])
 
         # send atx and mine block with this atx
-        atxid = self.nodes[0].sendtoaddress(addr1, 10)
+        atxid = self.nodes[0].sendalerttoaddress(addr1, 10)
         self.nodes[0].generatetoaddress(1, instant_addr0['address'])
 
         # recover atx
@@ -619,7 +645,7 @@ class AlertsInstantTest(BitcoinTestFramework):
         self.nodes[1].importprivkey(privkey)
 
         # send atx from node1 and mine block with this atx
-        atxid = self.nodes[1].sendtoaddress(other_addr, 10)
+        atxid = self.nodes[1].sendalerttoaddress(other_addr, 10)
         self.nodes[1].generatetoaddress(1, instant_addr0['address'])
 
         # assert
@@ -653,7 +679,7 @@ class AlertsInstantTest(BitcoinTestFramework):
         self.nodes[1].generatetoaddress(200, instant_addr1['address'])
 
         # send atx from instant_addr1 to addr0 and generate block with this atx
-        atxid = self.nodes[1].sendtoaddress(addr0, 10)
+        atxid = self.nodes[1].sendalerttoaddress(addr0, 10)
         self.nodes[1].generatetoaddress(1, instant_addr1['address'])
 
         # assert
@@ -709,7 +735,7 @@ class AlertsInstantTest(BitcoinTestFramework):
         self.nodes[1].generatetoaddress(200, instant_addr1['address'])
 
         # send atx from instant_addr1 to addr0 and generate block with this atx
-        atxid = self.nodes[1].sendtoaddress(addr0, 10)
+        atxid = self.nodes[1].sendalerttoaddress(addr0, 10)
         self.nodes[1].generatetoaddress(1, instant_addr1['address'])
 
         # assert
@@ -870,10 +896,10 @@ class AlertsInstantTest(BitcoinTestFramework):
         self.nodes[0].sendtoaddress(instant_addr1['address'], amount)
         self.nodes[0].generatetoaddress(1, mine_addr)
 
-        # send coins back as with tx alert and confirm it
+        # send coins back by atx and confirm it
         self.sync_all()
         assert self.nodes[1].getbalance() == amount
-        txid = self.nodes[1].sendtoaddress(mine_addr, amount - 1)
+        txid = self.nodes[1].sendalerttoaddress(mine_addr, amount - 1)
         tx = self.nodes[1].getrawtransaction(txid, 1)
         fee = amount - tx['vout'][0]['value'] - tx['vout'][1]['value']
         self.nodes[1].generatetoaddress(1, mine_addr2)  # mine to separate address
@@ -1260,7 +1286,7 @@ class AlertsInstantTest(BitcoinTestFramework):
         assert self.nodes[0].getbalance() == (200 - self.COINBASE_MATURITY) * self.COINBASE_AMOUNT
 
         # send atx to node1
-        atx_to_recover = self.nodes[0].sendtoaddress(attacker_addr1, 10)
+        atx_to_recover = self.nodes[0].sendalerttoaddress(attacker_addr1, 10)
         atx_to_recover = self.nodes[0].gettransaction(atx_to_recover)['hex']
         atx_to_recover = self.nodes[0].decoderawtransaction(atx_to_recover)
         atx_fee = (200 - self.COINBASE_MATURITY) * self.COINBASE_AMOUNT - 10 - self.nodes[0].getbalance()

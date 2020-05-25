@@ -56,6 +56,9 @@ New bvaultd RPC commands:
   The second optional argument (may be null) is an array of previous transaction outputs that
   this transaction depends on but may not yet be in the block chain.
 
+- `sendalerttoaddress "address" amount ( "comment" "comment_to" subtractfeefromamount replaceable conf_target "estimate_mode" )`
+  Send an amount to a given address as alert.
+
 
 Basic end-user flow:
 ```bash
