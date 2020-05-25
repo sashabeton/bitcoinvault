@@ -319,7 +319,7 @@ enum class FlushStateMode {
 static bool FlushStateToDisk(const CChainParams& chainParams, CValidationState &state, FlushStateMode mode, int nManualPruneHeight=0);
 static void FindFilesToPruneManual(std::set<int>& setFilesToPrune, int nManualPruneHeight);
 static void FindFilesToPrune(std::set<int>& setFilesToPrune, uint64_t nPruneAfterHeight);
-bool CheckInputs(const CBaseTransaction& tx, CValidationState &state, const CCoinsViewCache &inputs, bool fScriptChecks, unsigned int flags, bool cacheSigStore, bool cacheFullScriptStore, PrecomputedTransactionData& txdata, std::vector<CScriptCheck> *pvChecks = nullptr, bool acceptSpent = false);
+bool CheckInputs(const CBaseTransaction& tx, CValidationState &state, const CCoinsViewCache &inputs, bool fScriptChecks, unsigned int flags, bool cacheSigStore, bool cacheFullScriptStore, PrecomputedTransactionData& txdata, std::vector<CScriptCheck> *pvChecks = nullptr, bool expectedToBeSpent = false);
 static FILE* OpenUndoFile(const CDiskBlockPos &pos, bool fReadOnly = false);
 
 bool CheckFinalTx(const CTransaction &tx, int flags)
@@ -532,7 +532,7 @@ static void UpdateMempoolForReorg(DisconnectedBlockTransactions &disconnectpool,
 // Used to avoid mempool polluting consensus critical paths if CCoinsViewMempool
 // were somehow broken and returning the wrong scriptPubKeys
 static bool CheckInputsFromMempoolAndCache(const CTransaction& tx, CValidationState& state, const CCoinsViewCache& view, const CTxMemPool& pool,
-                 unsigned int flags, bool cacheSigStore, PrecomputedTransactionData& txdata, bool acceptSpent) EXCLUSIVE_LOCKS_REQUIRED(cs_main) {
+                 unsigned int flags, bool cacheSigStore, PrecomputedTransactionData& txdata, bool expectedToBeSpent) EXCLUSIVE_LOCKS_REQUIRED(cs_main) {
     AssertLockHeld(cs_main);
 
     // pool.cs should be locked already, but go ahead and re-take the lock here
@@ -548,7 +548,7 @@ static bool CheckInputsFromMempoolAndCache(const CTransaction& tx, CValidationSt
         // available (or shouldn't assume we have, since CheckInputs does).
         // So we just return failure if the inputs are not available here,
         // and then only have to check equivalence for available inputs.
-        if ((!acceptSpent && coin.IsSpent()) || (acceptSpent && coin.IsConfirmed()))
+        if ((!expectedToBeSpent && coin.IsSpent()) || (expectedToBeSpent && !coin.IsSpent()))
             return false;
 
         const CTransactionRef& txFrom = pool.get(txin.prevout.hash);
@@ -558,12 +558,12 @@ static bool CheckInputsFromMempoolAndCache(const CTransaction& tx, CValidationSt
             assert(txFrom->vout[txin.prevout.n] == coin.out);
         } else {
             const Coin& coinFromDisk = pcoinsTip->AccessCoin(txin.prevout);
-            acceptSpent ? assert(!coinFromDisk.IsConfirmed()) : assert(!coinFromDisk.IsSpent());
+            expectedToBeSpent ? assert(!coinFromDisk.IsConfirmed()) : assert(!coinFromDisk.IsSpent());
             assert(coinFromDisk.out == coin.out);
         }
     }
 
-    return CheckInputs(tx, state, view, true, flags, cacheSigStore, true, txdata, nullptr, acceptSpent);
+    return CheckInputs(tx, state, view, true, flags, cacheSigStore, true, txdata, nullptr, expectedToBeSpent);
 }
 
 static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool& pool, CValidationState& state, const CTransactionRef& ptx,
@@ -694,7 +694,7 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
             return state.DoS(0, false, REJECT_NONSTANDARD, "non-BIP68-final");
 
         CAmount nFees = 0;
-        bool expectedToBeSpent = vaultTxType == TX_RECOVERY;
+        bool expectedToBeSpent = vaultTxType == TX_RECOVERY; // The only case when tx can spend already spent coins
         if (!Consensus::CheckTxInputs(tx, state, view, GetSpendHeight(view), nFees, expectedToBeSpent)) {
             return error("%s: Consensus::CheckTxInputs: %s, %s", __func__, tx.GetHash().ToString(), FormatStateMessage(state));
         }
@@ -1026,6 +1026,13 @@ bool GetTransaction(const uint256& hash, CBaseTransactionRef& txOut, const Conse
             for (const auto& tx : block.vtx) {
                 if (tx->GetHash() == hash) {
                     txOut = tx;
+                    hashBlock = block_index->GetBlockHash();
+                    return true;
+                }
+            }
+            for (const auto& atx : block.vatx) {
+                if (atx->GetHash() == hash) {
+                    txOut = atx;
                     hashBlock = block_index->GetBlockHash();
                     return true;
                 }
@@ -1416,7 +1423,7 @@ void InitScriptExecutionCache() {
  *
  * Non-static (and re-declared) in src/test/txvalidationcache_tests.cpp
  */
-bool CheckInputs(const CBaseTransaction& tx, CValidationState &state, const CCoinsViewCache &inputs, bool fScriptChecks, unsigned int flags, bool cacheSigStore, bool cacheFullScriptStore, PrecomputedTransactionData& txdata, std::vector<CScriptCheck> *pvChecks, bool acceptSpent) EXCLUSIVE_LOCKS_REQUIRED(cs_main)
+bool CheckInputs(const CBaseTransaction& tx, CValidationState &state, const CCoinsViewCache &inputs, bool fScriptChecks, unsigned int flags, bool cacheSigStore, bool cacheFullScriptStore, PrecomputedTransactionData& txdata, std::vector<CScriptCheck> *pvChecks, bool expectedToBeSpent) EXCLUSIVE_LOCKS_REQUIRED(cs_main)
 {
     if (!tx.IsCoinBase())
     {
@@ -1451,7 +1458,12 @@ bool CheckInputs(const CBaseTransaction& tx, CValidationState &state, const CCoi
             for (unsigned int i = 0; i < tx.vin.size(); i++) {
                 const COutPoint &prevout = tx.vin[i].prevout;
                 const Coin& coin = inputs.AccessCoin(prevout);
-                acceptSpent ? assert(!coin.IsConfirmed()) : assert(!coin.IsSpent());
+                assert(!coin.IsConfirmed());
+
+                if (!expectedToBeSpent && coin.IsSpent())
+                    return state.Invalid(false, REJECT_NONSTANDARD, "bad-txn-inputs-spent");
+                else if (expectedToBeSpent && !coin.IsSpent())
+                    return state.Invalid(false, REJECT_NONSTANDARD, "bad-txn-inputs-not-spent");
 
                 // We very carefully only pass in things to CScriptCheck which
                 // are clearly committed to by tx' witness hash. This provides
