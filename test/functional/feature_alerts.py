@@ -234,11 +234,13 @@ class AlertsTest(BitcoinTestFramework):
 
         txid = self.nodes[0].sendtoaddress(other_addr, self.COINBASE_AMOUNT * 200, '', '', True)
         tx = self.nodes[0].getrawtransaction(txid, True)
+        self.nodes[0].generatetoaddress(1, other_addr)
 
         # assert
         self.sync_all()
         assert len(tx['vin']) == 200
         assert {v['txid']: v['vout'] for v in tx['vin']} == {c['txid']: c['vout'] for c in coins_to_use}
+        assert txid in self.nodes[0].getbestblock()['tx']
 
     def test_sendalerttoaddress_fails_when_no_coins_available_on_alert_addresses(self):
         alert_addr0 = self.nodes[0].getnewaddress()
@@ -268,13 +270,15 @@ class AlertsTest(BitcoinTestFramework):
         coins_to_use = [c for c in coins_to_use if c['address'] == alert_addr0['address']]
         assert len(coins_to_use) == 200
 
-        txid = self.nodes[0].sendalerttoaddress(other_addr, self.COINBASE_AMOUNT * 200, '', '', True)
-        tx = self.nodes[0].getrawtransaction(txid, True)
+        atxid = self.nodes[0].sendalerttoaddress(other_addr, self.COINBASE_AMOUNT * 200, '', '', True)
+        atx = self.nodes[0].getrawtransaction(atxid, True)
+        self.nodes[0].generatetoaddress(1, other_addr)
 
         # assert
         self.sync_all()
-        assert len(tx['vin']) == 200
-        assert {v['txid']: v['vout'] for v in tx['vin']} == {c['txid']: c['vout'] for c in coins_to_use}
+        assert len(atx['vin']) == 200
+        assert {v['txid']: v['vout'] for v in atx['vin']} == {c['txid']: c['vout'] for c in coins_to_use}
+        assert atxid in self.nodes[0].getbestblock()['atx']
 
     def test_recovery_tx_is_rejected_when_missing_recovery_key(self):
         alert_addr0 = self.nodes[0].getnewvaultalertaddress(self.alert_recovery_pubkey)
