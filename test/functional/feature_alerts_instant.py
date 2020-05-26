@@ -76,6 +76,18 @@ class AlertsInstantTest(BitcoinTestFramework):
         self.COINBASE_AMOUNT = Decimal(175)
 
         self.reset_blockchain()
+        self.log.info("Test sendinstanttoaddress selects coins on instant addresses only")
+        self.test_sendinstanttoaddress_selects_coins_on_instant_addresses_only()
+
+        self.reset_blockchain()
+        self.log.info("Test sendinstanttoaddress with multiple instant addresses")
+        self.test_sendinstanttoaddress_with_multiple_instant_addresses()
+
+        self.reset_blockchain()
+        self.log.info("Test sendinstanttoaddress fails when no coins available on instant addresses")
+        self.test_sendinstanttoaddress_fails_when_no_coins_available_on_instant_addresses()
+
+        self.reset_blockchain()
         self.log.info("Test sendalerttoaddress selects coins on instant addresses only")
         self.test_sendalerttoaddress_selects_coins_on_instant_addresses_only()
 
@@ -296,6 +308,75 @@ class AlertsInstantTest(BitcoinTestFramework):
         assert len(atx['vin']) == 100
         assert {v['txid']: v['vout'] for v in atx['vin']} == {c['txid']: c['vout'] for c in coins_to_use}
         assert atxid in self.nodes[0].getbestblock()['atx']
+
+    def test_sendinstanttoaddress_selects_coins_on_instant_addresses_only(self):
+        alert_addr0 = self.nodes[0].getnewvaultalertaddress(self.alert_recovery_pubkey)
+        instant_addr0 = self.nodes[0].getnewvaultinstantaddress(self.alert_instant_pubkey, self.alert_recovery_pubkey)
+        addr0 = self.nodes[0].getnewaddress()
+        other_addr = '2N34KyQQj97pAivV59wfTkzksYuPdR2jLfi'
+
+        self.nodes[0].generatetoaddress(100, alert_addr0['address'])
+        self.nodes[0].generatetoaddress(100, instant_addr0['address'])
+        self.nodes[0].generatetoaddress(200, addr0)
+
+        coins_to_use = self.nodes[0].listunspent()
+        coins_to_use = [c for c in coins_to_use if c['address'] == instant_addr0['address']]
+        assert len(coins_to_use) == 100
+
+        self.nodes[0].importprivkey(self.alert_instant_privkey)  # TODO-fork privkey should be passes to sendinstanttoaddress
+        txid = self.nodes[0].sendinstanttoaddress(other_addr, self.COINBASE_AMOUNT * 100, '', '', True)
+        tx = self.nodes[0].getrawtransaction(txid, True)
+        self.nodes[0].generatetoaddress(1, other_addr)
+
+        # assert
+        self.sync_all()
+        assert len(tx['vin']) == 100
+        assert {v['txid']: v['vout'] for v in tx['vin']} == {c['txid']: c['vout'] for c in coins_to_use}
+        assert txid in self.nodes[0].getbestblock()['tx']
+
+    def test_sendinstanttoaddress_with_multiple_instant_addresses(self):
+        instant_addr0 = self.nodes[0].getnewvaultinstantaddress(self.alert_instant_pubkey, self.alert_recovery_pubkey)
+        instant_addr01 = self.nodes[0].getnewvaultinstantaddress(self.alert_instant_pubkey, self.alert_recovery_pubkey)
+        addr0 = self.nodes[0].getnewaddress()
+        other_addr = '2N34KyQQj97pAivV59wfTkzksYuPdR2jLfi'
+
+        self.nodes[0].generatetoaddress(100, instant_addr01['address'])
+        self.nodes[0].generatetoaddress(100, instant_addr0['address'])
+        self.nodes[0].generatetoaddress(200, addr0)
+
+        coins_to_use = self.nodes[0].listunspent()
+        coins_to_use = [c for c in coins_to_use if c['address'] in [instant_addr0['address'], instant_addr01['address']]]
+        assert len(coins_to_use) == 200
+
+        self.nodes[0].importprivkey(self.alert_instant_privkey)  # TODO-fork privkey should be passes to sendinstanttoaddress
+        txid = self.nodes[0].sendinstanttoaddress(other_addr, self.COINBASE_AMOUNT * 200, '', '', True)
+        tx = self.nodes[0].getrawtransaction(txid, True)
+        self.nodes[0].generatetoaddress(1, other_addr)
+
+        # assert
+        self.sync_all()
+        assert len(tx['vin']) == 200
+        assert {v['txid']: v['vout'] for v in tx['vin']} == {c['txid']: c['vout'] for c in coins_to_use}
+        assert txid in self.nodes[0].getbestblock()['tx']
+
+    def test_sendinstanttoaddress_fails_when_no_coins_available_on_instant_addresses(self):
+        alert_addr0 = self.nodes[0].getnewvaultalertaddress(self.alert_instant_pubkey)
+        addr0 = self.nodes[0].getnewaddress()
+        other_addr = '2N34KyQQj97pAivV59wfTkzksYuPdR2jLfi'
+        self.nodes[0].importprivkey(self.alert_instant_privkey)
+
+        self.nodes[0].generatetoaddress(200, alert_addr0['address'])  # coins are available on alert address ...
+        self.nodes[0].generatetoaddress(200, addr0)  # ... and regular address ...
+        error = None
+        try:
+            self.nodes[0].sendinstanttoaddress(other_addr, 10)  # ... so this call should fail
+        except Exception as e:
+            error = e.error
+
+        # assert
+        self.sync_all()
+        assert error['code'] == -4
+        assert 'Insufficient funds' in error['message']
 
     def test_sendtoaddress_fails_when_no_coins_available_on_regular_addresses(self):
         instant_addr0 = self.nodes[0].getnewvaultinstantaddress(self.alert_instant_pubkey, self.alert_recovery_pubkey)
@@ -682,7 +763,7 @@ class AlertsInstantTest(BitcoinTestFramework):
         self.sync_all()
         assert atxid is not None
         assert atxid != ''
-        assert atxid in self.nodes[0].getbestblock()['atx']
+        assert atxid in self.nodes[1].getbestblock()['atx']
 
     def test_tx_from_normal_addr_to_instant_addr(self):
         instant_addr1 = self.nodes[1].getnewvaultinstantaddress(self.alert_instant_pubkey, self.alert_recovery_pubkey)

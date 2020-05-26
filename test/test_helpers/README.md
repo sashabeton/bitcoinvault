@@ -59,6 +59,9 @@ New bvaultd RPC commands:
 - `sendalerttoaddress "address" amount ( "comment" "comment_to" subtractfeefromamount replaceable conf_target "estimate_mode" )`
   Send an amount to a given address as alert.
 
+- `sendinstanttoaddress "address" amount ( "comment" "comment_to" subtractfeefromamount replaceable conf_target "estimate_mode" )`
+  Send an amount to a given address as instant transaction.
+
 
 Basic end-user flow:
 ```bash
