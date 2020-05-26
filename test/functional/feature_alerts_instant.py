@@ -76,8 +76,8 @@ class AlertsInstantTest(BitcoinTestFramework):
         self.COINBASE_AMOUNT = Decimal(175)
 
         self.reset_blockchain()
-        self.log.info("Test sendalerttoaddress selects coins on alert and instant addresses only")
-        self.test_sendalerttoaddress_selects_coins_on_alert_and_instant_addresses_only()
+        self.log.info("Test sendalerttoaddress selects coins on instant addresses only")
+        self.test_sendalerttoaddress_selects_coins_on_instant_addresses_only()
 
         self.reset_blockchain()
         self.log.info("Test sendtoaddress fails when no coins available on regular addresses")
@@ -247,18 +247,16 @@ class AlertsInstantTest(BitcoinTestFramework):
         self.log.info("Test getrawtransaction returns information about unconfirmed atx")
         self.test_getrawtransaction_returns_information_about_unconfirmed_atx()
 
-    def test_sendalerttoaddress_selects_coins_on_alert_and_instant_addresses_only(self):
-        alert_addr0 = self.nodes[0].getnewvaultalertaddress(self.alert_recovery_pubkey)
+    def test_sendalerttoaddress_selects_coins_on_instant_addresses_only(self):
         instant_addr0 = self.nodes[0].getnewvaultinstantaddress(self.alert_instant_pubkey, self.alert_recovery_pubkey)
         addr0 = self.nodes[0].getnewaddress()
         other_addr = '2N34KyQQj97pAivV59wfTkzksYuPdR2jLfi'
 
-        self.nodes[0].generatetoaddress(100, alert_addr0['address'])
-        self.nodes[0].generatetoaddress(100, instant_addr0['address'])
+        self.nodes[0].generatetoaddress(200, instant_addr0['address'])
         self.nodes[0].generatetoaddress(200, addr0)
 
         coins_to_use = self.nodes[0].listunspent()
-        coins_to_use = [c for c in coins_to_use if c['address'] in [alert_addr0['address'], instant_addr0['address']]]
+        coins_to_use = [c for c in coins_to_use if c['address'] == instant_addr0['address']]
         assert len(coins_to_use) == 200
 
         atxid = self.nodes[0].sendalerttoaddress(other_addr, self.COINBASE_AMOUNT * 200, '', '', True)
@@ -1384,7 +1382,7 @@ class AlertsInstantTest(BitcoinTestFramework):
         self.nodes[1].generatetoaddress(200, alert_addr1['address'])
 
         # create atx
-        atxid = self.nodes[1].sendtoaddress(addr0, 10)
+        atxid = self.nodes[1].sendalerttoaddress(addr0, 10)
         self.nodes[1].generatetoaddress(1, alert_addr1['address'])
 
         # getrawtransaction

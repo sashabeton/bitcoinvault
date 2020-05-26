@@ -1075,7 +1075,7 @@ class AlertsTest(BitcoinTestFramework):
         self.nodes[1].generatetoaddress(200, alert_addr1['address'])
 
         # create atx
-        atxid = self.nodes[1].sendtoaddress(addr0, 10)
+        atxid = self.nodes[1].sendalerttoaddress(addr0, 10)
         self.nodes[1].generatetoaddress(1, alert_addr1['address'])
 
         # getrawtransaction
