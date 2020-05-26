@@ -2465,6 +2465,52 @@ void CWallet::AvailableCoins(interfaces::Chain::Lock& locked_chain, std::vector<
     }
 }
 
+void CWallet::FilterAvailableCoinsForAlertTx(std::vector<COutput>& vAvailableCoins, const CAmount& nTargetValue) {
+    std::unordered_map<std::string, std::vector<COutput> > coinsByAlertAddress;
+    std::unordered_map<std::string, std::vector<COutput> > coinsByInstantAddress;
+    std::unordered_map<std::string, CAmount> addressToAmount;
+
+    for (const COutput& coin : vAvailableCoins) {
+        const CTxOut& txout = coin.tx->tx->vout[coin.i];
+
+        SignatureData data;
+        IsSolvable(*this, txout.scriptPubKey, data);
+        Stacks stack(data);
+        txnouttype scriptType = ExtractDataFromIncompleteScript(data, stack, BaseSignatureChecker(), txout);
+
+        CHashWriter ss(SER_GETHASH, 0);
+        ss << data.redeem_script;
+        std::string redeemScriptHash = ss.GetHash().GetHex();
+
+        addressToAmount[redeemScriptHash] += txout.nValue;
+
+        if (scriptType == TX_VAULT_ALERTADDRESS) {
+            coinsByAlertAddress[redeemScriptHash].push_back(coin);
+        } else if (scriptType == TX_VAULT_INSTANTADDRESS) {
+            coinsByInstantAddress[redeemScriptHash].push_back(coin);
+        } else {
+            assert(false);
+        }
+    }
+
+    auto comp = [&](const std::pair<std::string, std::vector<COutput> >& a, const std::pair<std::string, std::vector<COutput> >& b) {
+        return addressToAmount[a.first] < addressToAmount[b.first];
+    };
+
+    auto maxAmountAlertAddr = std::max_element(coinsByAlertAddress.begin(), coinsByAlertAddress.end(), comp);
+    auto maxAmountInstantAddr = std::max_element(coinsByInstantAddress.begin(), coinsByInstantAddress.end(), comp);
+
+    if (maxAmountAlertAddr != coinsByAlertAddress.end() && addressToAmount[maxAmountAlertAddr->first] >= nTargetValue) {
+        // first try to use coins from alert addr
+        vAvailableCoins = coinsByAlertAddress[maxAmountAlertAddr->first];
+    } else if (maxAmountInstantAddr != coinsByInstantAddress.end() && addressToAmount[maxAmountInstantAddr->first] >= nTargetValue) {
+        vAvailableCoins = coinsByInstantAddress[maxAmountInstantAddr->first];
+    } else {
+        // insufficient funds
+        vAvailableCoins.clear();
+    }
+}
+
 std::map<CTxDestination, std::vector<COutput>> CWallet::ListCoins(interfaces::Chain::Lock& locked_chain) const
 {
     AssertLockHeld(cs_main);
@@ -2865,6 +2911,10 @@ bool CWallet::CreateTransaction(interfaces::Chain::Lock& locked_chain, const std
         {
             std::vector<COutput> vAvailableCoins;
             AvailableCoins(*locked_chain, vAvailableCoins, true, &coin_control);
+            if (coin_control.m_tx_type == TX_ALERT) {
+                FilterAvailableCoinsForAlertTx(vAvailableCoins, nValue);
+            }
+
             CoinSelectionParams coin_selection_params; // Parameters for coin selection, init with dummy
 
             // Create change script that will be used if we need change

@@ -73,6 +73,10 @@ class AlertsTest(BitcoinTestFramework):
         self.COINBASE_AMOUNT = Decimal(175)
 
         self.reset_blockchain()
+        self.log.info("Test sendalerttoaddress fails when no coins available on single alert address")
+        self.test_sendalerttoaddress_fails_when_no_coins_available_on_single_alert_address()
+
+        self.reset_blockchain()
         self.log.info("Test sendalerttoaddress fails when no coins available on alert addresses")
         self.test_sendalerttoaddress_fails_when_no_coins_available_on_alert_addresses()
 
@@ -243,13 +247,32 @@ class AlertsTest(BitcoinTestFramework):
         assert txid in self.nodes[0].getbestblock()['tx']
 
     def test_sendalerttoaddress_fails_when_no_coins_available_on_alert_addresses(self):
-        alert_addr0 = self.nodes[0].getnewaddress()
+        addr0 = self.nodes[0].getnewaddress()
         other_addr = '2N34KyQQj97pAivV59wfTkzksYuPdR2jLfi'
 
-        self.nodes[0].generatetoaddress(200, alert_addr0)  # coins are available only on regular address ...
+        self.nodes[0].generatetoaddress(200, addr0)  # coins are available only on regular address ...
         error = None
         try:
             self.nodes[0].sendalerttoaddress(other_addr, 10)  # ... so this call should fail
+        except Exception as e:
+            error = e.error
+
+        # assert
+        self.sync_all()
+        assert error['code'] == -4
+        assert 'Insufficient funds' in error['message']
+
+    def test_sendalerttoaddress_fails_when_no_coins_available_on_single_alert_address(self):
+        alert_addr0 = self.nodes[0].getnewvaultalertaddress(self.alert_recovery_pubkey)
+        alert_addr1 = self.nodes[0].getnewvaultalertaddress(self.alert_recovery_pubkey)
+        other_addr = '2N34KyQQj97pAivV59wfTkzksYuPdR2jLfi'
+
+        self.nodes[0].generatetoaddress(100, alert_addr0['address'])  # max 100 * COINBASE_AMOUNT on single alert address
+        self.nodes[0].generatetoaddress(100, alert_addr1['address'])  # max 100 * COINBASE_AMOUNT on single alert address
+        self.nodes[0].generatetoaddress(200, other_addr)
+        error = None
+        try:
+            self.nodes[0].sendalerttoaddress(other_addr, 101 * self.COINBASE_AMOUNT)  # ... so this call should fail
         except Exception as e:
             error = e.error
 

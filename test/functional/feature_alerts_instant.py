@@ -80,6 +80,10 @@ class AlertsInstantTest(BitcoinTestFramework):
         self.test_sendalerttoaddress_selects_coins_on_instant_addresses_only()
 
         self.reset_blockchain()
+        self.log.info("Test sendalerttoaddress selects coins on instant and alert addresses only")
+        self.test_sendalerttoaddress_selects_coins_on_instant_and_alert_addresses_only()
+
+        self.reset_blockchain()
         self.log.info("Test sendtoaddress fails when no coins available on regular addresses")
         self.test_sendtoaddress_fails_when_no_coins_available_on_regular_addresses()
 
@@ -266,6 +270,30 @@ class AlertsInstantTest(BitcoinTestFramework):
         # assert
         self.sync_all()
         assert len(atx['vin']) == 200
+        assert {v['txid']: v['vout'] for v in atx['vin']} == {c['txid']: c['vout'] for c in coins_to_use}
+        assert atxid in self.nodes[0].getbestblock()['atx']
+
+    def test_sendalerttoaddress_selects_coins_on_instant_and_alert_addresses_only(self):
+        alert_addr0 = self.nodes[0].getnewvaultalertaddress(self.alert_instant_pubkey)
+        instant_addr0 = self.nodes[0].getnewvaultinstantaddress(self.alert_instant_pubkey, self.alert_recovery_pubkey)
+        addr0 = self.nodes[0].getnewaddress()
+        other_addr = '2N34KyQQj97pAivV59wfTkzksYuPdR2jLfi'
+
+        self.nodes[0].generatetoaddress(100, instant_addr0['address'])
+        self.nodes[0].generatetoaddress(100, alert_addr0['address'])
+        self.nodes[0].generatetoaddress(200, addr0)
+
+        coins_to_use = self.nodes[0].listunspent()
+        coins_to_use = [c for c in coins_to_use if c['address'] == alert_addr0['address']]
+        assert len(coins_to_use) == 100
+
+        atxid = self.nodes[0].sendalerttoaddress(other_addr, self.COINBASE_AMOUNT * 100, '', '', True)
+        atx = self.nodes[0].getrawtransaction(atxid, True)
+        self.nodes[0].generatetoaddress(1, other_addr)
+
+        # assert
+        self.sync_all()
+        assert len(atx['vin']) == 100
         assert {v['txid']: v['vout'] for v in atx['vin']} == {c['txid']: c['vout'] for c in coins_to_use}
         assert atxid in self.nodes[0].getbestblock()['atx']
 
