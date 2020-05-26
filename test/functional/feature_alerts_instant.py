@@ -231,6 +231,10 @@ class AlertsInstantTest(BitcoinTestFramework):
         self.log.info("Test recovery tx is rejected when inputs does not match alert")
         self.test_recovery_tx_is_rejected_when_inputs_does_not_match_alert()
 
+        self.reset_blockchain()
+        self.log.info("Test getrawtransaction returns information about unconfirmed atx")
+        self.test_getrawtransaction_returns_information_about_unconfirmed_atx()
+
     def test_recovery_tx_is_rejected_when_missing_recovery_key(self):
         instant_addr0 = self.nodes[0].getnewvaultinstantaddress(self.alert_instant_pubkey, self.alert_recovery_pubkey)
         addr0 = self.nodes[0].getnewaddress()
@@ -1297,6 +1301,23 @@ class AlertsInstantTest(BitcoinTestFramework):
         assert error['code'] == -1
         assert 'Revert transaction check failed' in error['message']
         assert tx_id in error['message']
+
+    def test_getrawtransaction_returns_information_about_unconfirmed_atx(self):
+        addr0 = self.nodes[0].getnewaddress()
+        alert_addr1 = self.nodes[1].getnewvaultinstantaddress(self.alert_instant_pubkey, self.alert_recovery_pubkey)
+
+        # mine some coins to alert_addr1
+        self.nodes[1].generatetoaddress(200, alert_addr1['address'])
+
+        # create atx
+        atxid = self.nodes[1].sendtoaddress(addr0, 10)
+        self.nodes[1].generatetoaddress(1, alert_addr1['address'])
+
+        # getrawtransaction
+        rawtx = self.nodes[1].getrawtransaction(atxid, True)
+
+        # assert
+        assert rawtx['txid'] == atxid
 
 
 if __name__ == '__main__':
