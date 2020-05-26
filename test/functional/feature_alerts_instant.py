@@ -188,6 +188,10 @@ class AlertsInstantTest(BitcoinTestFramework):
         self.test_atx_from_instant_addr_to_normal_addr()
 
         self.reset_blockchain()
+        self.log.info("Test atx with multiple inputs from alert address to normal address")
+        self.test_atx_with_multiple_inputs_from_alert_addr_to_normal_addr()
+
+        self.reset_blockchain()
         self.log.info("Test atx becomes tx after 144 blocks")
         self.test_atx_becomes_tx()
 
@@ -617,6 +621,37 @@ class AlertsInstantTest(BitcoinTestFramework):
         self.sync_all()
         assert self.nodes[0].getbalance() == 10
         assert txid in self.find_address(self.nodes[0].listreceivedbyaddress(), addr0)['txids']
+
+    def test_atx_with_multiple_inputs_from_alert_addr_to_normal_addr(self):
+        addr0 = self.nodes[0].getnewaddress()
+        addr0_pubkey = self.nodes[0].getaddressinfo(addr0)['pubkey']
+
+        # mine some coins to alert_addr1
+        alert_addr1 = self.nodes[1].createvaultinstantaddress(addr0_pubkey, self.alert_instant_pubkey, self.alert_recovery_pubkey)
+        self.nodes[1].generatetoaddress(300, alert_addr1['address'])
+
+        # find vout to spend
+        txtospendhash = self.nodes[1].getblockbyheight(10)['tx'][0]
+        txtospend = self.nodes[1].getrawtransaction(txtospendhash, True)
+        vouttospend = self.find_vout_n(txtospend, 175)
+        txtospendhash2 = self.nodes[1].getblockbyheight(60)['tx'][0]
+        txtospend2 = self.nodes[1].getrawtransaction(txtospendhash2, True)
+        vouttospend2 = self.find_vout_n(txtospend2, 175)
+
+        # create atx
+        atxtosend = self.nodes[1].createrawtransaction([{'txid': txtospendhash, 'vout': vouttospend}, {'txid': txtospendhash2, 'vout': vouttospend2}], {addr0: 349.99})
+        atxtosend = self.nodes[1].signrawtransactionwithkey(atxtosend, [self.alert_recovery_privkey], [
+            {'txid': txtospendhash, 'vout': vouttospend, 'scriptPubKey': txtospend['vout'][vouttospend]['scriptPubKey']['hex'], 'redeemScript': alert_addr1['redeemScript']},
+            {'txid': txtospendhash2, 'vout': vouttospend2, 'scriptPubKey': txtospend2['vout'][vouttospend2]['scriptPubKey']['hex'], 'redeemScript': alert_addr1['redeemScript']}
+        ])
+
+        # send atx
+        atxid = self.nodes[1].sendrawtransaction(atxtosend['hex'])
+        self.nodes[1].generatetoaddress(1, alert_addr1['address'])
+
+        # assert
+        self.sync_all()
+        assert atxid in self.nodes[0].getbestblock()['atx']
 
     def test_atx_becomes_tx(self):
         addr0 = self.nodes[0].getnewaddress()

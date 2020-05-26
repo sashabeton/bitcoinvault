@@ -3607,22 +3607,22 @@ vaulttxntype GetVaultTxType(const CBaseTransaction& tx, const CCoinsViewCache& v
     bool hasInstantTxCoin = false;
     bool hasRecoveryTxCoin = false;
     bool allAlertTxCoin = true;
-    CScript alertsScriptSig;
+    CScript alertsRedeemScript;
     for (unsigned int i = 0; i < mutableTx.vin.size(); i++) {
         const Coin &coin = view.AccessCoin(mutableTx.vin[i].prevout);
-        SignatureData data;
-        data.scriptSig = mutableTx.vin[i].scriptSig;
-        data.scriptWitness = mutableTx.vin[i].scriptWitness;
-        Stacks stack(data);
-        txnouttype scriptType = ExtractDataFromIncompleteScript(data, stack, BaseSignatureChecker(), coin.out);
+        SignatureData incompleteData;
+        incompleteData.scriptSig = mutableTx.vin[i].scriptSig;
+        incompleteData.scriptWitness = mutableTx.vin[i].scriptWitness;
+        Stacks stack(incompleteData);
+        txnouttype scriptType = ExtractDataFromIncompleteScript(incompleteData, stack, BaseSignatureChecker(), coin.out);
         if (scriptType == TX_VAULT_ALERTADDRESS || scriptType == TX_VAULT_INSTANTADDRESS) {
-            data = DataFromTransaction(mutableTx, i, coin.out);
-            size_t signaturesCount = data.signatures.size();
+            SignatureData completeData = DataFromTransaction(mutableTx, i, coin.out);
+            size_t signaturesCount = completeData.signatures.size();
             if (signaturesCount == 1) { // is alert
                 hasAlertTxCoin = true;
                 // check if all inputs have the same source
-                if (i == 0) alertsScriptSig = data.scriptSig;
-                else if (alertsScriptSig != data.scriptSig)
+                if (i == 0) alertsRedeemScript = incompleteData.redeem_script;
+                else if (alertsRedeemScript != incompleteData.redeem_script)
                     return TX_INVALID;
             } else if (signaturesCount == 3 || (scriptType == TX_VAULT_ALERTADDRESS && signaturesCount == 2)) { // is recovery
                 hasRecoveryTxCoin = true;
