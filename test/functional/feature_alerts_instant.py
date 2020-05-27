@@ -438,7 +438,7 @@ class AlertsInstantTest(BitcoinTestFramework):
         # assert
         self.sync_all()
         assert error['code'] == -5
-        assert 'Produced non-recovery tx, possibly missing keys' in error['message']
+        assert 'Produced vaultinstant transaction type, possibly missing keys' in error['message']
 
     def test_recovery_tx_is_rejected_when_missing_both_instant_and_recovery_keys(self):
         instant_addr0 = self.nodes[0].getnewvaultinstantaddress(self.alert_instant_pubkey, self.alert_recovery_pubkey)
@@ -462,7 +462,7 @@ class AlertsInstantTest(BitcoinTestFramework):
         # assert
         self.sync_all()
         assert error['code'] == -5
-        assert 'Produced non-recovery tx, possibly missing keys' in error['message']
+        assert 'Produced vaultalert transaction type, possibly missing keys' in error['message']
 
     def test_recovery_tx_is_rejected_when_missing_instant_key(self):
         instant_addr0 = self.nodes[0].getnewvaultinstantaddress(self.alert_instant_pubkey, self.alert_recovery_pubkey)
@@ -486,7 +486,7 @@ class AlertsInstantTest(BitcoinTestFramework):
         # assert
         self.sync_all()
         assert error['code'] == -5
-        assert 'Produced non-recovery tx, possibly missing keys' in error['message']
+        assert 'Produced vaultinstant transaction type, possibly missing keys' in error['message']
 
     def test_recovery_tx_when_all_keys_imported(self):
         instant_addr0 = self.nodes[0].getnewvaultinstantaddress(self.alert_instant_pubkey, self.alert_recovery_pubkey)
@@ -537,7 +537,7 @@ class AlertsInstantTest(BitcoinTestFramework):
         # assert
         self.sync_all()
         assert error['code'] == -5
-        assert 'Produced non-recovery tx, possibly missing keys' in error['message']
+        assert 'Produced vaultinstant transaction type, possibly missing keys' in error['message']
 
     def test_recovery_tx_is_rejected_when_only_instant_key_imported(self):
         instant_addr0 = self.nodes[0].getnewvaultinstantaddress(self.alert_instant_pubkey, self.alert_recovery_pubkey)
@@ -564,7 +564,7 @@ class AlertsInstantTest(BitcoinTestFramework):
         # assert
         self.sync_all()
         assert error['code'] == -5
-        assert 'Produced non-recovery tx, possibly missing keys' in error['message']
+        assert 'Produced vaultinstant transaction type, possibly missing keys' in error['message']
 
     def test_recovery_tx_when_instant_key_imported_and_recovery_key_given(self):
         instant_addr0 = self.nodes[0].getnewvaultinstantaddress(self.alert_instant_pubkey, self.alert_recovery_pubkey)
@@ -1054,7 +1054,7 @@ class AlertsInstantTest(BitcoinTestFramework):
         # assert
         self.sync_all()
         assert error['code'] == -5
-        assert 'Produced invalid alert tx, possibly wrong inputs given' in error['message']
+        assert 'Produced invalid transaction type, possibly missing keys' in error['message']
 
     def test_atx_is_rejected_by_wallet_when_contains_non_alert_inputs(self):
         addr0 = self.nodes[0].getnewaddress()
@@ -1084,7 +1084,7 @@ class AlertsInstantTest(BitcoinTestFramework):
         # assert
         self.sync_all()
         assert error['code'] == -5
-        assert 'Produced invalid alert tx, possibly wrong inputs given' in error['message']
+        assert 'Produced invalid transaction type, possibly missing keys' in error['message']
 
     def test_atx_is_rejected_by_node_when_inputs_have_different_source(self):
         addr0 = self.nodes[0].getnewaddress()
@@ -1278,7 +1278,7 @@ class AlertsInstantTest(BitcoinTestFramework):
         # assert
         self.sync_all()
         assert error['code'] == -5
-        assert 'Produced non-instant tx, possibly missing keys' in error['message']
+        assert 'Produced vaultalert transaction type, possibly missing keys' in error['message']
 
     def test_signinstanttransaction(self):
         instant_addr0 = self.nodes[0].getnewvaultinstantaddress(self.alert_instant_pubkey, self.alert_recovery_pubkey)

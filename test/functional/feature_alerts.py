@@ -325,7 +325,7 @@ class AlertsTest(BitcoinTestFramework):
         # assert
         self.sync_all()
         assert error['code'] == -5
-        assert 'Produced non-recovery tx, possibly missing keys' in error['message']
+        assert 'Produced vaultalert transaction type, possibly missing keys' in error['message']
 
     def test_recovery_tx_when_all_keys_imported(self):
         alert_addr0 = self.nodes[0].getnewvaultalertaddress(self.alert_recovery_pubkey)
@@ -800,7 +800,7 @@ class AlertsTest(BitcoinTestFramework):
         # assert
         self.sync_all()
         assert error['code'] == -5
-        assert 'Produced invalid alert tx, possibly wrong inputs given' in error['message']
+        assert 'Produced invalid transaction type, possibly missing keys' in error['message']
 
     def test_atx_is_rejected_by_wallet_when_contains_non_alert_inputs(self):
         addr0 = self.nodes[0].getnewaddress()
@@ -830,7 +830,7 @@ class AlertsTest(BitcoinTestFramework):
         # assert
         self.sync_all()
         assert error['code'] == -5
-        assert 'Produced invalid alert tx, possibly wrong inputs given' in error['message']
+        assert 'Produced invalid transaction type, possibly missing keys' in error['message']
 
     def test_atx_is_rejected_by_node_when_inputs_have_different_source(self):
         addr0 = self.nodes[0].getnewaddress()
