@@ -3596,6 +3596,32 @@ CAmount GetTxFee(const CBaseTransaction &tx, const CCoinsViewCache &inputs)
     return txfee_aux;
 }
 
+
+vaulttxntype GetVaultTxType(const CBaseTransaction& btx) {
+    // Fetch previous transactions (inputs):
+    CCoinsView viewDummy;
+    CCoinsViewCache view(&viewDummy);
+    {
+        LOCK2(cs_main, mempool.cs);
+        CCoinsViewCache &viewChain = *pcoinsTip;
+        CCoinsViewMemPool viewMempool(&viewChain, mempool);
+        view.SetBackend(viewMempool); // temporarily switch cache backend to db+mempool view
+
+        for (const CTxIn& txin : btx.vin) {
+            view.AccessCoin(txin.prevout); // Load entries from viewChain into view; can fail.
+        }
+
+        view.SetBackend(viewDummy); // switch back to avoid locking mempool for too long
+    }
+
+    return GetVaultTxType(btx, view);
+}
+
+vaulttxntype GetVaultTxType(const CMutableTransaction& mtx) {
+    CBaseTransaction btx(mtx);
+    return GetVaultTxType(btx);
+}
+
 vaulttxntype GetVaultTxType(const CBaseTransaction& tx, const CCoinsViewCache& view)
 {
     CMutableTransaction mutableTx = CMutableTransaction(tx);

@@ -438,6 +438,8 @@ CAmount GetTxFee(const CBaseTransaction& tx, const CCoinsViewCache& inputs);
 
 /** Check what VaultTxType tx has **/
 vaulttxntype GetVaultTxType(const CBaseTransaction& tx, const CCoinsViewCache& view);
+vaulttxntype GetVaultTxType(const CBaseTransaction& btx);
+vaulttxntype GetVaultTxType(const CMutableTransaction& mtx);
 
 /** When there are blocks in the active chain with missing data, rewind the chainstate and remove them from the block index */
 bool RewindBlockIndex(const CChainParams& params);

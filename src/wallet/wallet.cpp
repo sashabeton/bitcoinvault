@@ -87,31 +87,6 @@ static Mutex g_wallet_release_mutex;
 static std::condition_variable g_wallet_release_cv;
 static std::set<CWallet*> g_unloading_wallet_set;
 
-vaulttxntype GetVaultTxType(const CBaseTransaction& btx) {
-    // Fetch previous transactions (inputs):
-    CCoinsView viewDummy;
-    CCoinsViewCache view(&viewDummy);
-    {
-        LOCK2(cs_main, mempool.cs);
-        CCoinsViewCache &viewChain = *pcoinsTip;
-        CCoinsViewMemPool viewMempool(&viewChain, mempool);
-        view.SetBackend(viewMempool); // temporarily switch cache backend to db+mempool view
-
-        for (const CTxIn& txin : btx.vin) {
-            view.AccessCoin(txin.prevout); // Load entries from viewChain into view; can fail.
-        }
-
-        view.SetBackend(viewDummy); // switch back to avoid locking mempool for too long
-    }
-
-    return GetVaultTxType(btx, view);
-}
-
-vaulttxntype GetVaultTxType(const CMutableTransaction& mtx) {
-    CBaseTransaction btx(mtx);
-    return GetVaultTxType(btx);
-}
-
 // Custom deleter for shared_ptr<CWallet>.
 static void ReleaseWallet(CWallet* wallet)
 {
@@ -3199,7 +3174,7 @@ bool CWallet::CreateTransaction(interfaces::Chain::Lock& locked_chain, const std
                 const CScript& scriptPubKey = coin.txout.scriptPubKey;
                 SignatureData sigdata;
 
-                if (!ProduceSignature(*this, MutableTransactionSignatureCreator(&txNew, nIn, coin.txout.nValue, SIGHASH_ALL), scriptPubKey, sigdata))
+                if (!ProduceSignature(*this, MutableTransactionSignatureCreator(&txNew, nIn, coin.txout.nValue, SIGHASH_ALL), scriptPubKey, sigdata, coin_control.m_tx_type))
                 {
                     strFailReason = _("Signing transaction failed");
                     return false;

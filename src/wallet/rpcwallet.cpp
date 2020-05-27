@@ -84,88 +84,6 @@ vaulttxntype GetVaultTxType(const std::string& txHex) {
     return GetVaultTxType(mtx);
 }
 
-UniValue SignInstantTransaction(interfaces::Chain& chain, CMutableTransaction& otx, const UniValue& prevTxsUnival, const CBasicKeyStore *const okeystore, const UniValue& hashType) {
-    auto keys = okeystore->GetKeys();
-
-    do {
-        CMutableTransaction mtx(otx);
-        CBasicKeyStore keystore;
-        for (const auto &pkey : keys) {
-            CKey key;
-            okeystore->GetKey(pkey, key);
-            keystore.AddKey(key);
-        }
-
-        UniValue result = SignTransaction(chain, mtx, prevTxsUnival, &keystore, true, hashType);
-
-        if (std::find(result.getKeys().begin(), result.getKeys().end(), "errors") == result.getKeys().end()) {
-            // assert that we indeed produced instant tx
-            auto txType = GetVaultTxType(result["hex"].getValStr());
-
-            if (txType == TX_INSTANT) {
-                otx = mtx;
-                return result;
-            }
-
-            if (txType == TX_RECOVERY) {
-                // to much privkeys used, try to remove last one and sign again
-                keys.erase(keys.rend().base());
-            } else if (txType == TX_INVALID) {
-                throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Produced invalid alert tx, possibly wrong inputs given");
-            } else {
-                throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Produced non-instant tx, possibly missing keys");
-            }
-        } else {
-            // error signing tx, no chance to sign using less keys
-            otx = mtx;
-            return result;
-        }
-    } while (keys.size() >= 2);
-
-    throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Produced non-instant tx, possibly missing keys");
-}
-
-UniValue SignAlertTransaction(interfaces::Chain& chain, CMutableTransaction& otx, const UniValue& prevTxsUnival, const CBasicKeyStore *const okeystore, const UniValue& hashType) {
-    auto keys = okeystore->GetKeys();
-
-    do {
-        CMutableTransaction mtx(otx);
-        CBasicKeyStore keystore;
-        for (const auto &pkey : keys) {
-            CKey key;
-            okeystore->GetKey(pkey, key);
-            keystore.AddKey(key);
-        }
-
-        UniValue result = SignTransaction(chain, mtx, prevTxsUnival, &keystore, true, hashType);
-
-        if (std::find(result.getKeys().begin(), result.getKeys().end(), "errors") == result.getKeys().end()) {
-            // assert that we indeed produced alert tx
-            auto txType = GetVaultTxType(result["hex"].getValStr());
-
-            if (txType == TX_ALERT) {
-                otx = mtx;
-                return result;
-            }
-
-            if (txType == TX_RECOVERY || txType == TX_INSTANT) {
-                // to much privkeys used, try to remove last one and sign again
-                keys.erase(keys.rend().base());
-            } else if (txType == TX_INVALID) {
-                throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Produced invalid alert tx, possibly wrong inputs given");
-            } else {
-                throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Produced non-alert tx, possibly missing keys");
-            }
-        } else {
-            // error signing tx, no chance to sign using less keys
-            otx = mtx;
-            return result;
-        }
-    } while (!keys.empty());
-
-    throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Produced non-alert tx, possibly missing keys");
-}
-
 bool EnsureWalletIsAvailable(CWallet * const pwallet, bool avoidException)
 {
     if (pwallet) return true;
@@ -4824,16 +4742,7 @@ static UniValue signrecoverytransaction(const JSONRPCRequest& request)
         recovery_data.push_back(prevTx);
     }
 
-    UniValue result = SignTransaction(pwallet->chain(), mtx, recovery_data, &keystore, true, request.params[4], /*expectSpent = */true);
-
-    if (std::find(result.getKeys().begin(), result.getKeys().end(), "errors") == result.getKeys().end()) {
-        // assert that we indeed produced recovery tx
-        if (GetVaultTxType(result["hex"].getValStr()) != TX_RECOVERY) {
-            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Produced non-recovery tx, possibly missing keys");
-        }
-    }
-
-    return result;
+    return SignTransaction(pwallet->chain(), mtx, recovery_data, &keystore, true, request.params[4], /*expectSpent = */true, TX_RECOVERY);
 }
 
 static UniValue signinstanttransaction(const JSONRPCRequest& request)
@@ -4935,7 +4844,7 @@ static UniValue signinstanttransaction(const JSONRPCRequest& request)
         keystore.AddKey(key);
     }
 
-    return SignInstantTransaction(pwallet->chain(), mtx, request.params[2], &keystore, request.params[4]);
+    return SignTransaction(pwallet->chain(), mtx, request.params[2], &keystore, true, request.params[3], false, TX_INSTANT);
 }
 
 static UniValue signalerttransaction(const JSONRPCRequest& request)
@@ -4947,7 +4856,7 @@ static UniValue signalerttransaction(const JSONRPCRequest& request)
         return NullUniValue;
     }
 
-    if (request.fHelp || request.params.size() < 2 || request.params.size() > 4)
+    if (request.fHelp || request.params.size() < 2 || request.params.size() > 3)
         throw std::runtime_error(
                 RPCHelpMan{"signalerttransaction",
                            "\nSign inputs for raw alert transaction (serialized, hex-encoded).\n"
@@ -5011,8 +4920,7 @@ static UniValue signalerttransaction(const JSONRPCRequest& request)
     auto locked_chain = pwallet->chain().lock();
     LOCK(pwallet->cs_wallet);
     EnsureWalletIsUnlocked(pwallet);
-
-    return SignAlertTransaction(pwallet->chain(), mtx, request.params[1], pwallet, request.params[2]);
+    return SignTransaction(pwallet->chain(), mtx, request.params[1], pwallet, true, request.params[2], false, TX_ALERT);
 }
 
 UniValue abortrescan(const JSONRPCRequest& request); // in rpcdump.cpp
