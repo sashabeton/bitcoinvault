@@ -84,6 +84,38 @@ vaulttxntype GetVaultTxType(const std::string& txHex) {
     return GetVaultTxType(mtx);
 }
 
+void CreateTempKeystoreFrom(CWallet* pwallet, const UniValue& privkeys, CBasicKeyStore& result) {
+    // Get the keys from wallet
+    auto locked_chain = pwallet->chain().lock();
+    LOCK(pwallet->cs_wallet);
+    EnsureWalletIsUnlocked(pwallet);
+    for (const auto &pkey : pwallet->GetKeys()) {
+        CKey key;
+        pwallet->GetKey(pkey, key);
+        result.AddKey(key);
+    }
+    for (const auto& cscriptId : pwallet->GetCScripts()) {
+        CScript cscript;
+        pwallet->GetCScript(cscriptId, cscript);
+        result.AddCScript(cscript);
+    }
+
+    if (!privkeys.isNull()) {
+        // Get the keys from params
+        const UniValue &keys = privkeys.get_array();
+        for (unsigned int idx = 0; idx < keys.size(); ++idx)
+        {
+            UniValue k = keys[idx];
+            CKey key = DecodeSecret(k.get_str());
+            if (!key.IsValid())
+            {
+                throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid private key");
+            }
+            result.AddKey(key);
+        }
+    }
+}
+
 bool EnsureWalletIsAvailable(CWallet * const pwallet, bool avoidException)
 {
     if (pwallet) return true;
@@ -545,6 +577,52 @@ static CTransactionRef SendMoney(interfaces::Chain::Lock& locked_chain, CWallet 
     return tx;
 }
 
+static CTransactionRef SendInstantMoney(interfaces::Chain::Lock& locked_chain, CWallet * const pwallet, const CTxDestination &address, CAmount nValue, bool fSubtractFeeFromAmount, const CCoinControl& coin_control, mapValue_t mapValue, CBasicKeyStore& keystore)
+{
+    assert(coin_control.m_tx_type == TX_INSTANT);
+    CAmount curBalance = pwallet->GetBalance();
+
+    // Check amount
+    if (nValue <= 0)
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid amount");
+
+    if (nValue > curBalance)
+        throw JSONRPCError(RPC_WALLET_INSUFFICIENT_FUNDS, "Insufficient funds");
+
+    if (pwallet->GetBroadcastTransactions() && !g_connman) {
+        throw JSONRPCError(RPC_CLIENT_P2P_DISABLED, "Error: Peer-to-peer functionality missing or disabled");
+    }
+
+    // Parse Bitcoin address
+    CScript scriptPubKey = GetScriptForDestination(address);
+
+    // Create and send the transaction
+    CReserveKey reservekey(pwallet);
+    CAmount nFeeRequired;
+    std::string strError;
+    std::vector<CRecipient> vecSend;
+    int nChangePosRet = -1;
+    CRecipient recipient = {scriptPubKey, nValue, fSubtractFeeFromAmount};
+    vecSend.push_back(recipient);
+    CTransactionRef tx;
+    if (!pwallet->CreateTransaction(locked_chain, vecSend, tx, reservekey, nFeeRequired, nChangePosRet, strError, coin_control, false)) {
+        if (!fSubtractFeeFromAmount && nValue + nFeeRequired > curBalance)
+            strError = strprintf("Error: This transaction requires a transaction fee of at least %s", FormatMoney(nFeeRequired));
+        throw JSONRPCError(RPC_WALLET_ERROR, strError);
+    }
+
+    CMutableTransaction mtx(*tx);
+    SignTransaction(pwallet->chain(), mtx, UniValue(), &keystore, true, UniValue("ALL"), false, TX_INSTANT);
+    CTransactionRef ttx = MakeTransactionRef(mtx);
+
+    CValidationState state;
+    if (!pwallet->CommitTransaction(ttx, std::move(mapValue), {} /* orderForm */, reservekey, g_connman.get(), state)) {
+        strError = strprintf("Error: The transaction was rejected! Reason given: %s", FormatStateMessage(state));
+        throw JSONRPCError(RPC_WALLET_ERROR, strError);
+    }
+    return ttx;
+}
+
 static UniValue sendtoaddress(const JSONRPCRequest& request)
 {
     std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request);
@@ -742,7 +820,7 @@ static UniValue sendinstanttoaddress(const JSONRPCRequest& request)
         return NullUniValue;
     }
 
-    if (request.fHelp || request.params.size() < 2 || request.params.size() > 8)
+    if (request.fHelp || request.params.size() < 2 || request.params.size() > 9)
         throw std::runtime_error(
                 RPCHelpMan{"sendinstanttoaddress",
                            "\nSend an amount to a given address as instant transaction." +
@@ -750,6 +828,11 @@ static UniValue sendinstanttoaddress(const JSONRPCRequest& request)
                            {
                                    {"address", RPCArg::Type::STR, RPCArg::Optional::NO, "The bitcoin address to send to."},
                                    {"amount", RPCArg::Type::AMOUNT, RPCArg::Optional::NO, "The amount in " + CURRENCY_UNIT + " to send. eg 0.1"},
+                                   {"privkeys", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG, "A json array of base58-encoded private keys for signing",
+                                    {
+                                            {"privatekey", RPCArg::Type::STR_HEX, RPCArg::Optional::OMITTED, "private key in base58-encoding"},
+                                    },
+                                   },
                                    {"comment", RPCArg::Type::STR, RPCArg::Optional::OMITTED_NAMED_ARG, "A comment used to store what the transaction is for.\n"
                                                                                                        "                             This is not part of the transaction, just kept in your wallet."},
                                    {"comment_to", RPCArg::Type::STR, RPCArg::Optional::OMITTED_NAMED_ARG, "A comment to store the name of the person or organization\n"
@@ -794,27 +877,27 @@ static UniValue sendinstanttoaddress(const JSONRPCRequest& request)
 
     // Wallet comments
     mapValue_t mapValue;
-    if (!request.params[2].isNull() && !request.params[2].get_str().empty())
-        mapValue["comment"] = request.params[2].get_str();
     if (!request.params[3].isNull() && !request.params[3].get_str().empty())
-        mapValue["to"] = request.params[3].get_str();
+        mapValue["comment"] = request.params[3].get_str();
+    if (!request.params[4].isNull() && !request.params[4].get_str().empty())
+        mapValue["to"] = request.params[4].get_str();
 
     bool fSubtractFeeFromAmount = false;
-    if (!request.params[4].isNull()) {
-        fSubtractFeeFromAmount = request.params[4].get_bool();
+    if (!request.params[5].isNull()) {
+        fSubtractFeeFromAmount = request.params[5].get_bool();
     }
 
     CCoinControl coin_control;
-    if (!request.params[5].isNull()) {
-        coin_control.m_signal_bip125_rbf = request.params[5].get_bool();
-    }
-
     if (!request.params[6].isNull()) {
-        coin_control.m_confirm_target = ParseConfirmTarget(request.params[6]);
+        coin_control.m_signal_bip125_rbf = request.params[6].get_bool();
     }
 
     if (!request.params[7].isNull()) {
-        if (!FeeModeFromString(request.params[7].get_str(), coin_control.m_fee_mode)) {
+        coin_control.m_confirm_target = ParseConfirmTarget(request.params[7]);
+    }
+
+    if (!request.params[8].isNull()) {
+        if (!FeeModeFromString(request.params[8].get_str(), coin_control.m_fee_mode)) {
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid estimate_mode parameter");
         }
     }
@@ -822,8 +905,10 @@ static UniValue sendinstanttoaddress(const JSONRPCRequest& request)
 
     EnsureWalletIsUnlocked(pwallet);
     coin_control.m_tx_type = TX_INSTANT;
+    CBasicKeyStore keystore;
+    CreateTempKeystoreFrom(pwallet, request.params[2], keystore);
 
-    CTransactionRef tx = SendMoney(*locked_chain, pwallet, dest, nAmount, fSubtractFeeFromAmount, coin_control, std::move(mapValue));
+    CTransactionRef tx = SendInstantMoney(*locked_chain, pwallet, dest, nAmount, fSubtractFeeFromAmount, coin_control, std::move(mapValue), keystore);
     return tx->GetHash().GetHex();
 }
 
@@ -4693,27 +4778,7 @@ static UniValue signrecoverytransaction(const JSONRPCRequest& request)
     }
 
     CBasicKeyStore keystore;
-
-    // Get the keys from wallet
-    auto locked_chain = pwallet->chain().lock();
-    LOCK(pwallet->cs_wallet);
-    EnsureWalletIsUnlocked(pwallet);
-    for (const auto &pkey : pwallet->GetKeys()) {
-        CKey key;
-        pwallet->GetKey(pkey, key);
-        keystore.AddKey(key);
-    }
-
-    // Get the keys from params
-    const UniValue& keys = request.params[1].get_array();
-    for (unsigned int idx = 0; idx < keys.size(); ++idx) {
-        UniValue k = keys[idx];
-        CKey key = DecodeSecret(k.get_str());
-        if (!key.IsValid()) {
-            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid private key");
-        }
-        keystore.AddKey(key);
-    }
+    CreateTempKeystoreFrom(pwallet, request.params[1], keystore);
 
     UniValue recovery_data(UniValue::VARR);
     for (unsigned int i = 0; i < mtx.vin.size(); ++i) {
@@ -4822,28 +4887,7 @@ static UniValue signinstanttransaction(const JSONRPCRequest& request)
     }
 
     CBasicKeyStore keystore;
-
-    // Get the keys from wallet
-    auto locked_chain = pwallet->chain().lock();
-    LOCK(pwallet->cs_wallet);
-    EnsureWalletIsUnlocked(pwallet);
-    for (const auto &pkey : pwallet->GetKeys()) {
-        CKey key;
-        pwallet->GetKey(pkey, key);
-        keystore.AddKey(key);
-    }
-
-    // Get the keys from params
-    const UniValue& keys = request.params[1].get_array();
-    for (unsigned int idx = 0; idx < keys.size(); ++idx) {
-        UniValue k = keys[idx];
-        CKey key = DecodeSecret(k.get_str());
-        if (!key.IsValid()) {
-            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid private key");
-        }
-        keystore.AddKey(key);
-    }
-
+    CreateTempKeystoreFrom(pwallet, request.params[1], keystore);
     return SignTransaction(pwallet->chain(), mtx, request.params[2], &keystore, true, request.params[3], false, TX_INSTANT);
 }
 
@@ -4990,7 +5034,7 @@ static const CRPCCommand commands[] =
     { "wallet",             "sendmany",                         &sendmany,                      {"dummy","amounts","minconf","comment","subtractfeefrom","replaceable","conf_target","estimate_mode"} },
     { "wallet",             "sendtoaddress",                    &sendtoaddress,                 {"address","amount","comment","comment_to","subtractfeefromamount","replaceable","conf_target","estimate_mode"} },
     { "wallet",             "sendalerttoaddress",               &sendalerttoaddress,            {"address","amount","comment","comment_to","subtractfeefromamount","replaceable","conf_target","estimate_mode"} },
-    { "wallet",             "sendinstanttoaddress",             &sendinstanttoaddress,          {"address","amount","comment","comment_to","subtractfeefromamount","replaceable","conf_target","estimate_mode"} },
+    { "wallet",             "sendinstanttoaddress",             &sendinstanttoaddress,          {"address","amount","privkeys","comment","comment_to","subtractfeefromamount","replaceable","conf_target","estimate_mode"} },
     { "wallet",             "sethdseed",                        &sethdseed,                     {"newkeypool","seed"} },
     { "wallet",             "setlabel",                         &setlabel,                      {"address","label"} },
     { "wallet",             "settxfee",                         &settxfee,                      {"amount"} },

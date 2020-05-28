@@ -29,6 +29,7 @@ std::string HelpRequiringPassphrase(CWallet *);
 void EnsureWalletIsUnlocked(CWallet *);
 bool EnsureWalletIsAvailable(CWallet *, bool avoidException);
 vaulttxntype GetVaultTxType(const std::string& txHex);
+void CreateTempKeystoreFrom(CWallet* pwallet, const UniValue& privkeys, CBasicKeyStore& result);
 UniValue getaddressinfo(const JSONRPCRequest& request);
 UniValue signrawtransactionwithwallet(const JSONRPCRequest& request);
 #endif //BITCOIN_WALLET_RPCWALLET_H

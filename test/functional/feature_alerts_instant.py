@@ -295,16 +295,14 @@ class AlertsInstantTest(BitcoinTestFramework):
 
     def test_instant_tx_change_is_by_default_sent_back_to_the_sender(self):
         addr0 = self.nodes[0].getnewaddress()
-        alert_addr1 = self.nodes[1].getnewvaultinstantaddress(self.alert_instant_pubkey, self.alert_recovery_pubkey)
+        instant_addr1 = self.nodes[1].getnewvaultinstantaddress(self.alert_instant_pubkey, self.alert_recovery_pubkey)
 
-        self.nodes[1].importprivkey(self.alert_instant_privkey)  # TODO-fork privkey should be passes to sendinstanttoaddress
-
-        # mine some coins to alert_addr1
-        self.nodes[1].generatetoaddress(200, alert_addr1['address'])
+        # mine some coins to instant_addr1
+        self.nodes[1].generatetoaddress(200, instant_addr1['address'])
 
         # create itx
         amount = 10
-        atxid = self.nodes[1].sendinstanttoaddress(addr0, amount)
+        atxid = self.nodes[1].sendinstanttoaddress(addr0, amount, [self.alert_instant_privkey])
         atx = self.nodes[1].getrawtransaction(atxid, True)
         fee = self.COINBASE_AMOUNT - self.sum_vouts_value(atx)
         change = self.COINBASE_AMOUNT - amount - fee
@@ -312,7 +310,7 @@ class AlertsInstantTest(BitcoinTestFramework):
 
         # assert
         assert len(change_vout['scriptPubKey']['addresses']) == 1
-        assert alert_addr1['address'] == change_vout['scriptPubKey']['addresses'][0]
+        assert instant_addr1['address'] == change_vout['scriptPubKey']['addresses'][0]
 
     def test_sendalerttoaddress_selects_coins_on_instant_addresses_only(self):
         instant_addr0 = self.nodes[0].getnewvaultinstantaddress(self.alert_instant_pubkey, self.alert_recovery_pubkey)
@@ -374,8 +372,7 @@ class AlertsInstantTest(BitcoinTestFramework):
         coins_to_use = [c for c in coins_to_use if c['address'] == instant_addr0['address']]
         assert len(coins_to_use) == 100
 
-        self.nodes[0].importprivkey(self.alert_instant_privkey)  # TODO-fork privkey should be passes to sendinstanttoaddress
-        txid = self.nodes[0].sendinstanttoaddress(other_addr, self.COINBASE_AMOUNT * 100, '', '', True)
+        txid = self.nodes[0].sendinstanttoaddress(other_addr, self.COINBASE_AMOUNT * 100, [self.alert_instant_privkey], '', '', True)
         tx = self.nodes[0].getrawtransaction(txid, True)
         self.nodes[0].generatetoaddress(1, other_addr)
 
@@ -399,8 +396,7 @@ class AlertsInstantTest(BitcoinTestFramework):
         coins_to_use = [c for c in coins_to_use if c['address'] in [instant_addr0['address'], instant_addr01['address']]]
         assert len(coins_to_use) == 200
 
-        self.nodes[0].importprivkey(self.alert_instant_privkey)  # TODO-fork privkey should be passes to sendinstanttoaddress
-        txid = self.nodes[0].sendinstanttoaddress(other_addr, self.COINBASE_AMOUNT * 200, '', '', True)
+        txid = self.nodes[0].sendinstanttoaddress(other_addr, self.COINBASE_AMOUNT * 200, [self.alert_instant_privkey], '', '', True)
         tx = self.nodes[0].getrawtransaction(txid, True)
         self.nodes[0].generatetoaddress(1, other_addr)
 
