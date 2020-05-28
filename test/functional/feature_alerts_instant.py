@@ -42,6 +42,9 @@ class AlertsInstantTest(BitcoinTestFramework):
         for vout in rawtransaction['vout']:
             if vout['value'] == amount: return vout['n']
 
+    def sum_vouts_value(self, rawtransaction):
+        return sum(vout['value'] for vout in rawtransaction['vout'])
+
     def reset_blockchain(self):
         self.stop_nodes(wait=1)
         for i in range(self.num_nodes):
@@ -74,6 +77,14 @@ class AlertsInstantTest(BitcoinTestFramework):
 
         self.COINBASE_MATURITY = 100
         self.COINBASE_AMOUNT = Decimal(175)
+
+        self.reset_blockchain()
+        self.log.info("Test alert tx change is by default sent back to the sender")
+        self.test_alert_tx_change_is_by_default_sent_back_to_the_sender()
+
+        self.reset_blockchain()
+        self.log.info("Test instant tx change is by default sent back to the sender")
+        self.test_instant_tx_change_is_by_default_sent_back_to_the_sender()
 
         self.reset_blockchain()
         self.log.info("Test sendinstanttoaddress selects coins on instant addresses only")
@@ -262,6 +273,46 @@ class AlertsInstantTest(BitcoinTestFramework):
         self.reset_blockchain()
         self.log.info("Test getrawtransaction returns information about unconfirmed atx")
         self.test_getrawtransaction_returns_information_about_unconfirmed_atx()
+
+    def test_alert_tx_change_is_by_default_sent_back_to_the_sender(self):
+        addr0 = self.nodes[0].getnewaddress()
+        alert_addr1 = self.nodes[1].getnewvaultinstantaddress(self.alert_instant_pubkey, self.alert_recovery_pubkey)
+
+        # mine some coins to alert_addr1
+        self.nodes[1].generatetoaddress(200, alert_addr1['address'])
+
+        # create atx
+        amount = 10
+        atxid = self.nodes[1].sendalerttoaddress(addr0, amount)
+        atx = self.nodes[1].getrawtransaction(atxid, True)
+        fee = self.COINBASE_AMOUNT - self.sum_vouts_value(atx)
+        change = self.COINBASE_AMOUNT - amount - fee
+        change_vout = atx['vout'][self.find_vout_n(atx, change)]
+
+        # assert
+        assert len(change_vout['scriptPubKey']['addresses']) == 1
+        assert alert_addr1['address'] == change_vout['scriptPubKey']['addresses'][0]
+
+    def test_instant_tx_change_is_by_default_sent_back_to_the_sender(self):
+        addr0 = self.nodes[0].getnewaddress()
+        alert_addr1 = self.nodes[1].getnewvaultinstantaddress(self.alert_instant_pubkey, self.alert_recovery_pubkey)
+
+        self.nodes[1].importprivkey(self.alert_instant_privkey)  # TODO-fork privkey should be passes to sendinstanttoaddress
+
+        # mine some coins to alert_addr1
+        self.nodes[1].generatetoaddress(200, alert_addr1['address'])
+
+        # create itx
+        amount = 10
+        atxid = self.nodes[1].sendinstanttoaddress(addr0, amount)
+        atx = self.nodes[1].getrawtransaction(atxid, True)
+        fee = self.COINBASE_AMOUNT - self.sum_vouts_value(atx)
+        change = self.COINBASE_AMOUNT - amount - fee
+        change_vout = atx['vout'][self.find_vout_n(atx, change)]
+
+        # assert
+        assert len(change_vout['scriptPubKey']['addresses']) == 1
+        assert alert_addr1['address'] == change_vout['scriptPubKey']['addresses'][0]
 
     def test_sendalerttoaddress_selects_coins_on_instant_addresses_only(self):
         instant_addr0 = self.nodes[0].getnewvaultinstantaddress(self.alert_instant_pubkey, self.alert_recovery_pubkey)
@@ -736,6 +787,7 @@ class AlertsInstantTest(BitcoinTestFramework):
         assert sorted(info['pubkeys']) == sorted([pubkey, self.alert_recovery_pubkey, self.alert_instant_pubkey])
 
     def test_atx_from_imported_instant_address(self):
+        # TODO-fork: fails sometimes because of nodes synchronization timing?
         instant_addr0 = self.nodes[0].getnewvaultinstantaddress(self.alert_instant_pubkey, self.alert_recovery_pubkey)
         other_addr = '2N34KyQQj97pAivV59wfTkzksYuPdR2jLfi'  # not owned by test nodes
 

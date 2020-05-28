@@ -42,6 +42,9 @@ class AlertsTest(BitcoinTestFramework):
         for vout in rawtransaction['vout']:
             if vout['value'] == amount: return vout['n']
 
+    def sum_vouts_value(self, rawtransaction):
+        return sum(vout['value'] for vout in rawtransaction['vout'])
+
     def reset_blockchain(self):
         self.stop_nodes(wait=1)
         for i in range(self.num_nodes):
@@ -71,6 +74,10 @@ class AlertsTest(BitcoinTestFramework):
 
         self.COINBASE_MATURITY = 100
         self.COINBASE_AMOUNT = Decimal(175)
+
+        self.reset_blockchain()
+        self.log.info("Test alert tx change is by default sent back to the sender")
+        self.test_alert_tx_change_is_by_default_sent_back_to_the_sender()
 
         self.reset_blockchain()
         self.log.info("Test sendalerttoaddress fails when no coins available on single alert address")
@@ -207,6 +214,25 @@ class AlertsTest(BitcoinTestFramework):
         self.reset_blockchain()
         self.log.info("Test getrawtransaction returns information about unconfirmed atx")
         self.test_getrawtransaction_returns_information_about_unconfirmed_atx()
+
+    def test_alert_tx_change_is_by_default_sent_back_to_the_sender(self):
+        addr0 = self.nodes[0].getnewaddress()
+        alert_addr1 = self.nodes[1].getnewvaultalertaddress(self.alert_recovery_pubkey)
+
+        # mine some coins to alert_addr1
+        self.nodes[1].generatetoaddress(200, alert_addr1['address'])
+
+        # create atx
+        amount = 10
+        atxid = self.nodes[1].sendalerttoaddress(addr0, amount)
+        atx = self.nodes[1].getrawtransaction(atxid, True)
+        fee = self.COINBASE_AMOUNT - self.sum_vouts_value(atx)
+        change = self.COINBASE_AMOUNT - amount - fee
+        change_vout = atx['vout'][self.find_vout_n(atx, change)]
+
+        # assert
+        assert len(change_vout['scriptPubKey']['addresses']) == 1
+        assert alert_addr1['address'] == change_vout['scriptPubKey']['addresses'][0]
 
     def test_sendtoaddress_fails_when_no_coins_available_on_regular_addresses(self):
         alert_addr0 = self.nodes[0].getnewvaultalertaddress(self.alert_recovery_pubkey)
@@ -452,6 +478,7 @@ class AlertsTest(BitcoinTestFramework):
         assert sorted(info['pubkeys']) == sorted([pubkey, self.alert_recovery_pubkey])
 
     def test_atx_from_imported_alert_address(self):
+        # TODO-fork: fails sometimes because of nodes synchronization timing?
         alert_addr0 = self.nodes[0].getnewvaultalertaddress(self.alert_recovery_pubkey)
         other_addr = '2N34KyQQj97pAivV59wfTkzksYuPdR2jLfi'  # not owned by test nodes
 

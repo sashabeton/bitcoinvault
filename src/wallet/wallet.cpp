@@ -2852,6 +2852,7 @@ bool CWallet::CreateTransaction(interfaces::Chain::Lock& locked_chain, const std
                          int& nChangePosInOut, std::string& strFailReason, const CCoinControl& coin_control, bool sign)
 {
     CAmount nValue = 0;
+    nFeeRet = 0;
     int nChangePosRequest = nChangePosInOut;
     unsigned int nSubtractFeeFromAmount = 0;
     for (const auto& recipient : vecSend)
@@ -2908,24 +2909,37 @@ bool CWallet::CreateTransaction(interfaces::Chain::Lock& locked_chain, const std
                 //  rediscover unknown transactions that were written with keys of ours to recover
                 //  post-backup change.
 
-                // Reserve a new key pair from key pool
-                if (!CanGetAddresses(true)) {
-                    strFailReason = _("Can't generate a change-address key. No keys in the internal keypool and can't generate any keys.");
-                    return false;
-                }
-                CPubKey vchPubKey;
-                bool ret;
-                ret = reservekey.GetReservedKey(vchPubKey, true);
-                if (!ret)
-                {
-                    strFailReason = _("Keypool ran out, please call keypoolrefill first");
-                    return false;
-                }
+                if (coin_control.m_tx_type == TX_ALERT || coin_control.m_tx_type == TX_INSTANT || coin_control.m_tx_type == TX_RECOVERY) {
+                    // Send change back to the vault address.
+                    // For vault tx, we are unable to generate new change address without user interaction,
+                    // also, we should send change back to one of the vault addresses.
+                    if (!vAvailableCoins.empty()) {
+                        scriptChange = vAvailableCoins[0].tx->tx->vout[0].scriptPubKey;
+                    } else {
+                        strFailReason = _("Insufficient funds");
+                        return false;
+                    }
+                } else {
+                    // Reserve a new key pair from key pool
+                    if (!CanGetAddresses(true))
+                    {
+                        strFailReason = _("Can't generate a change-address key. No keys in the internal keypool and can't generate any keys.");
+                        return false;
+                    }
+                    CPubKey vchPubKey;
+                    bool ret;
+                    ret = reservekey.GetReservedKey(vchPubKey, true);
+                    if (!ret)
+                    {
+                        strFailReason = _("Keypool ran out, please call keypoolrefill first");
+                        return false;
+                    }
 
-                const OutputType change_type = TransactionChangeType(coin_control.m_change_type ? *coin_control.m_change_type : m_default_change_type, vecSend);
+                    const OutputType change_type = TransactionChangeType(coin_control.m_change_type ? *coin_control.m_change_type : m_default_change_type, vecSend);
 
-                LearnRelatedScripts(vchPubKey, change_type);
-                scriptChange = GetScriptForDestination(GetDestinationForKey(vchPubKey, change_type));
+                    LearnRelatedScripts(vchPubKey, change_type);
+                    scriptChange = GetScriptForDestination(GetDestinationForKey(vchPubKey, change_type));
+                }
             }
             CTxOut change_prototype_txout(0, scriptChange);
             coin_selection_params.change_output_size = GetSerializeSize(change_prototype_txout);
