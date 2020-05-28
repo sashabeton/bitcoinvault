@@ -3,7 +3,10 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
+#include <algorithm>
+
 #include <chain.h>
+#include <primitives/transaction.h>
 
 /**
  * CChain implementation
@@ -168,3 +171,68 @@ const CBlockIndex* LastCommonAncestor(const CBlockIndex* pa, const CBlockIndex* 
     assert(pa == pb);
     return pa;
 }
+
+
+void MinerLicenses::HandleLTx(CLicenseTransaction& tx) {
+	switch (tx.GetType()) {
+	case CLicenseTransaction::ActionType::NEW:
+		AddLicense(tx);
+		break;
+	case CLicenseTransaction::ActionType::MODIFICATION:
+		ModifyLicense(tx);
+		break;
+	case CLicenseTransaction::ActionType::REVOCATION:
+		SuspendLicense(tx);
+		break;
+	}
+}
+
+MinerLicense* MinerLicenses::FindLicense(const std::string& address) const {
+	auto it = std::find_if(std::begin(licenses), std::end(licenses), [&address](const MinerLicense& license) {
+		return license.address == address;
+	});
+
+	return it != std::end(licenses) ? const_cast<MinerLicense*>(&*it) : nullptr;
+}
+
+bool MinerLicenses::IsMinerAllowed(const std::string& address) const {
+	auto license = FindLicense(address);
+	return license != nullptr && (*license).state == MinerLicense::State::ACTIVE;
+}
+
+bool MinerLicenses::Exists(const std::string& address) const {
+	return FindLicense(address) != nullptr;
+}
+
+void MinerLicenses::AddLicense(CLicenseTransaction& tx) {
+	if (Exists(tx.GetAddress()))
+		return;
+
+	MinerLicense license {MinerLicense::State::ACTIVE, tx.GetHashrate(), tx.GetAddress()};
+	licenses.emplace_back(license);
+}
+
+void MinerLicenses::SuspendLicense(CLicenseTransaction& tx) {
+	if (!Exists(tx.GetAddress()) || !IsMinerAllowed(tx.GetAddress()))
+		return;
+
+	auto license = FindLicense(tx.GetAddress());
+	(*license).state = MinerLicense::State::SUSPENDED;
+}
+
+void MinerLicenses::ActivateLicense(CLicenseTransaction& tx) {
+	if (!Exists(tx.GetAddress()) || IsMinerAllowed(tx.GetAddress()))
+		return;
+
+	auto license = FindLicense(tx.GetAddress());
+	(*license).state = MinerLicense::State::ACTIVE;
+}
+
+void MinerLicenses::ModifyLicense(CLicenseTransaction& tx) {
+	if (!Exists(tx.GetAddress()))
+		return;
+
+	auto license = FindLicense(tx.GetAddress());
+	(*license).hashRate = tx.GetHashrate();
+}
+

@@ -375,12 +375,16 @@ public:
 /** TODO implement if needed for miners database, remove otherwise */
 class CLicenseTransaction : public CTransaction
 {
+public:
 	enum class ActionType {
 		NEW, MODIFICATION, REVOCATION
 	};
 
 	using CTransaction::CTransaction;
 
+	ActionType GetType() { return type; }
+	uint16_t GetHashrate() { return assignedHashrate; }
+	std::string GetAddress() { return address; }
 private:
 	ActionType type;
 	uint16_t assignedHashrate;

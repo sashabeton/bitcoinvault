@@ -45,6 +45,7 @@ class CBlockPolicyEstimator;
 class CTxMemPool;
 class CValidationState;
 struct ChainTxData;
+struct MinerLicenses;
 
 struct PrecomputedTransactionData;
 struct LockPoints;
@@ -151,6 +152,7 @@ struct BlockHasher
     size_t operator()(const uint256& hash) const { return ReadLE64(hash.begin()); }
 };
 
+extern MinerLicenses minerLicenses;
 extern CScript COINBASE_FLAGS;
 extern CCriticalSection cs_main;
 extern CBlockPolicyEstimator feeEstimator;
