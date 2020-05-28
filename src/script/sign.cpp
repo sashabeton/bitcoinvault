@@ -150,9 +150,9 @@ static bool SignStep(const SigningProvider& provider, const BaseSignatureCreator
         }
         if (ret.size() == 1) return false;
         if (ret.size() - 1 == 1) { // one signature -> alert
-            ret.push_back({static_cast<unsigned char>(OP_TRUE)});
+            ret.push_back({static_cast<unsigned char>(0x01)}); // TRUE
         } else { // two signatures -> recovery
-            ret.push_back({static_cast<unsigned char>(OP_FALSE)});
+            ret.push_back(valtype()); // FALSE
         }
 
         return true;
@@ -169,13 +169,13 @@ static bool SignStep(const SigningProvider& provider, const BaseSignatureCreator
         }
         if (ret.size() == 1) return false;
         if (ret.size() - 1 == 1) { // one signature -> alert
-            ret.push_back({static_cast<unsigned char>(OP_TRUE)});
+            ret.push_back({static_cast<unsigned char>(0x01)}); // TRUE
         } else if (ret.size() - 1 == 2) { // two signatures -> instant
-            ret.push_back({static_cast<unsigned char>(OP_TRUE)});
-            ret.push_back({static_cast<unsigned char>(OP_FALSE)});
+            ret.push_back({static_cast<unsigned char>(0x01)}); // TRUE
+            ret.push_back(valtype()); // FALSE
         } else { // three signatures -> recovery
-            ret.push_back({static_cast<unsigned char>(OP_FALSE)});
-            ret.push_back({static_cast<unsigned char>(OP_FALSE)});
+            ret.push_back(valtype()); // FALSE
+            ret.push_back(valtype()); // FALSE
         }
 
         return true;

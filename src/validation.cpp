@@ -2128,7 +2128,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     int64_t nSigOpsCost = 0;
     blockundo.vtxundo.reserve(block.vtx.size() - 1);
     std::vector<PrecomputedTransactionData> txdata;
-    txdata.reserve(block.vtx.size()); // Required so that pointers to individual PrecomputedTransactionData don't get invalidated
+    txdata.reserve(block.vtx.size() + block.vatx.size()); // Required so that pointers to individual PrecomputedTransactionData don't get invalidated
 
     auto validateAndProcessTx = [&] (CTransactionRef txRef) -> bool {
         const CTransaction &tx = *txRef;
@@ -2209,9 +2209,6 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     if (fAlertsEnabled) {
         int nAlertTxInputs = 0;
         blockundo.vatxundo.reserve(block.vatx.size());
-        std::vector<PrecomputedTransactionData> atxdata;
-        atxdata.reserve(block.vatx.size()); // Required so that pointers to individual PrecomputedTransactionData don't get invalidated
-
         auto validateAndProcessAlertTx = [&](CAlertTransactionRef atxRef) -> bool {
             const CAlertTransaction &atx = *atxRef;
             nAlertTxInputs += atx.vin.size();
@@ -2250,11 +2247,11 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                 return state.DoS(100, error("ConnectBlock(): too many sigops"),
                                  REJECT_INVALID, "bad-blk-sigops");
 
-            atxdata.emplace_back(atx);
+            txdata.emplace_back(atx);
 
             std::vector<CScriptCheck> vChecks;
             bool fCacheResults = fJustCheck; /* Don't cache results if we're actually connecting blocks (still consult the cache, though) */
-            if (!CheckInputs(atx, state, view, fScriptChecks, flags, fCacheResults, fCacheResults, atxdata.back(),
+            if (!CheckInputs(atx, state, view, fScriptChecks, flags, fCacheResults, fCacheResults, txdata.back(),
                              nScriptCheckThreads ? &vChecks : nullptr))
                 return error("ConnectBlock(): CheckInputs on %s failed with %s",
                              atx.GetHash().ToString(), FormatStateMessage(state));
