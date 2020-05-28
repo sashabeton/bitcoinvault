@@ -172,18 +172,40 @@ const CBlockIndex* LastCommonAncestor(const CBlockIndex* pa, const CBlockIndex* 
     return pa;
 }
 
+LicenseEntry MinerLicenses::ExtractLicenseEntry(CScript scriptPubKey) {
+	LicenseEntry::ActionType type = static_cast<LicenseEntry::ActionType>(scriptPubKey[5]);
+	uint16_t hashRate = scriptPubKey[6] << 8 | scriptPubKey[7];
+	std::string address = "";
 
-void MinerLicenses::HandleLTx(CLicenseTransaction& tx) {
-	switch (tx.GetType()) {
-	case CLicenseTransaction::ActionType::NEW:
-		AddLicense(tx);
-		break;
-	case CLicenseTransaction::ActionType::MODIFICATION:
-		ModifyLicense(tx);
-		break;
-	case CLicenseTransaction::ActionType::REVOCATION:
-		SuspendLicense(tx);
-		break;
+	// TODO make it prettier
+	for( int i = 8; i < scriptPubKey.size(); ++i)
+		address += static_cast<char>(scriptPubKey[i]);
+
+	return LicenseEntry{type, hashRate, address};
+}
+
+std::vector<LicenseEntry> MinerLicenses::ExtractLicenseEntries(const CBaseTransaction& tx) {
+	std::vector<LicenseEntry> entries;
+
+	for (const auto& vout : tx.vout)
+		entries.push_back(ExtractLicenseEntry(vout.scriptPubKey));
+
+	return entries;
+}
+
+void MinerLicenses::HandleTx(const CBaseTransaction& tx) {
+	for (const auto& entry : ExtractLicenseEntries(tx)) {
+		switch (entry.type) {
+		case LicenseEntry::ActionType::NEW:
+			AddLicense(entry);
+			break;
+		case LicenseEntry::ActionType::MODIFICATION:
+			ModifyLicense(entry);
+			break;
+		case LicenseEntry::ActionType::REVOCATION:
+			SuspendLicense(entry);
+			break;
+		}
 	}
 }
 
@@ -204,35 +226,34 @@ bool MinerLicenses::Exists(const std::string& address) const {
 	return FindLicense(address) != nullptr;
 }
 
-void MinerLicenses::AddLicense(CLicenseTransaction& tx) {
-	if (Exists(tx.GetAddress()))
+void MinerLicenses::AddLicense(LicenseEntry entry) {
+	if (Exists(entry.address))
 		return;
 
-	MinerLicense license {MinerLicense::State::ACTIVE, tx.GetHashrate(), tx.GetAddress()};
+	MinerLicense license {MinerLicense::State::ACTIVE, entry.assignedHashrate, entry.address};
 	licenses.emplace_back(license);
 }
 
-void MinerLicenses::SuspendLicense(CLicenseTransaction& tx) {
-	if (!Exists(tx.GetAddress()) || !IsMinerAllowed(tx.GetAddress()))
+void MinerLicenses::SuspendLicense(LicenseEntry entry) {
+	if (!Exists(entry.address) || !IsMinerAllowed(entry.address))
 		return;
 
-	auto license = FindLicense(tx.GetAddress());
+	auto license = FindLicense(entry.address);
 	(*license).state = MinerLicense::State::SUSPENDED;
 }
 
-void MinerLicenses::ActivateLicense(CLicenseTransaction& tx) {
-	if (!Exists(tx.GetAddress()) || IsMinerAllowed(tx.GetAddress()))
+void MinerLicenses::ActivateLicense(LicenseEntry entry) {
+	if (!Exists(entry.address) || IsMinerAllowed(entry.address))
 		return;
 
-	auto license = FindLicense(tx.GetAddress());
+	auto license = FindLicense(entry.address);
 	(*license).state = MinerLicense::State::ACTIVE;
 }
 
-void MinerLicenses::ModifyLicense(CLicenseTransaction& tx) {
-	if (!Exists(tx.GetAddress()))
+void MinerLicenses::ModifyLicense(LicenseEntry entry) {
+	if (!Exists(entry.address))
 		return;
 
-	auto license = FindLicense(tx.GetAddress());
-	(*license).hashRate = tx.GetHashrate();
+	auto license = FindLicense(entry.address);
+	(*license).hashRate = entry.assignedHashrate;
 }
-

@@ -171,6 +171,7 @@ public:
     // Writes do not need similar protection, as failure to write is handled by the caller.
 };
 
+
 static std::unique_ptr<CCoinsViewErrorCatcher> pcoinscatcher;
 static std::unique_ptr<ECCVerifyHandle> globalVerifyHandle;
 
@@ -239,6 +240,8 @@ void Shutdown(InitInterfaces& interfaces)
     if (g_is_mempool_loaded && gArgs.GetArg("-persistmempool", DEFAULT_PERSIST_MEMPOOL)) {
         DumpMempool();
     }
+
+    // TODO DumpMinersDb();
 
     if (fFeeEstimatesInitialized)
     {
@@ -729,6 +732,10 @@ static void ThreadImport(std::vector<fs::path> vImportFiles)
         LoadMempool();
     }
     g_is_mempool_loaded = !ShutdownRequested();
+
+    /** TODO LoadMinersDB();
+     * g_is_miners_db_loaded = !ShutdownRequested();
+     */
 }
 
 /** Sanity checks
@@ -1563,7 +1570,7 @@ bool AppInitMain(InitInterfaces& interfaces)
 
                 	for (const auto& tx : block.vtx)
                 		if (IsLicenseTx(*tx))
-                			; // TODO: update miners database
+                			minerLicenses.HandleTx(*tx);
                 }
             } catch (const std::exception& e) {
                 LogPrintf("%s\n", e.what());

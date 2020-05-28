@@ -2158,7 +2158,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
             }
 
             if (IsLicenseTx(tx))
-            	; // TODO update miners database
+            	minerLicenses.HandleTx(tx);
         }
 
         // GetTransactionSigOpCost counts 3 types of sigops:

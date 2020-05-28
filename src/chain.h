@@ -533,20 +533,30 @@ struct MinerLicense {
 	std::string address;
 };
 
-class CLicenseTransaction;
+struct LicenseEntry {
+	enum class ActionType {
+		NEW, MODIFICATION, REVOCATION
+	};
+
+	ActionType type;
+	uint16_t assignedHashrate;
+	std::string address;
+};
 
 class MinerLicenses {
 public:
-	void HandleLTx(CLicenseTransaction& tx);
-	bool IsMinerAllowed(const std::string & address) const;
+	void HandleTx(const CBaseTransaction& tx);
+	bool IsMinerAllowed(const std::string& address) const;
 
 private:
-	void AddLicense(CLicenseTransaction& tx);
-	void SuspendLicense(CLicenseTransaction& tx);
-	void ActivateLicense(CLicenseTransaction& tx);
-	void ModifyLicense(CLicenseTransaction& tx);
+	void AddLicense(LicenseEntry license);
+	void SuspendLicense(LicenseEntry license);
+	void ActivateLicense(LicenseEntry license);
+	void ModifyLicense(LicenseEntry license);
 	bool Exists(const std::string& address) const;
 	MinerLicense* FindLicense(const std::string& address) const;
+	std::vector<LicenseEntry> ExtractLicenseEntries(const CBaseTransaction& tx);
+	LicenseEntry ExtractLicenseEntry(CScript scriptPubKey);
 
 	std::vector<MinerLicense> licenses;
 };
