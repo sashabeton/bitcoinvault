@@ -211,7 +211,7 @@ bool CheckTransaction(const CBaseTransaction& tx, CValidationState &state, bool 
     return true;
 }
 
-bool Consensus::CheckTxInputs(const CBaseTransaction& tx, CValidationState& state, const CCoinsViewCache& inputs, int nSpendHeight, CAmount& txfee, bool expectSpent)
+bool Consensus::CheckTxInputs(const CBaseTransaction& tx, CValidationState& state, const CCoinsViewCache& inputs, int nSpendHeight, CAmount& txfee, bool expectedToBeSpent)
 {
     // are the actual inputs available?
     if (!inputs.HaveInputs(tx)) {
@@ -223,9 +223,12 @@ bool Consensus::CheckTxInputs(const CBaseTransaction& tx, CValidationState& stat
     for (unsigned int i = 0; i < tx.vin.size(); ++i) {
         const COutPoint &prevout = tx.vin[i].prevout;
         const Coin& coin = inputs.AccessCoin(prevout);
-        if (expectSpent)
-            assert(coin.IsSpent());
         assert(!coin.IsConfirmed());
+
+        if (!expectedToBeSpent && coin.IsSpent())
+            return state.Invalid(false, REJECT_INVALID, "bad-txn-inputs-spent");
+        else if (expectedToBeSpent && !coin.IsSpent())
+            return state.Invalid(false, REJECT_INVALID, "bad-txn-inputs-not-spent");
 
         // If prev is coinbase, check that it's matured
         if (coin.IsCoinBase() && nSpendHeight - coin.nHeight < COINBASE_MATURITY) {

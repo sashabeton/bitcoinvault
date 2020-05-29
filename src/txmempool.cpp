@@ -608,7 +608,8 @@ static void CheckInputsAndUpdateCoins(const CBaseTransaction& tx, CCoinsViewCach
 {
     CValidationState state;
     CAmount txfee = 0;
-    bool fCheckResult = tx.IsCoinBase() || Consensus::CheckTxInputs(tx, state, mempoolDuplicate, spendheight, txfee);
+    vaulttxntype txType = GetVaultTxType(tx, mempoolDuplicate);
+    bool fCheckResult = tx.IsCoinBase() || Consensus::CheckTxInputs(tx, state, mempoolDuplicate, spendheight, txfee, txType == TX_RECOVERY);
     assert(fCheckResult);
     UpdateCoins(tx, mempoolDuplicate, 1000000);
 }

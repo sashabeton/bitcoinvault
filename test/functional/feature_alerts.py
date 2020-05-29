@@ -42,6 +42,9 @@ class AlertsTest(BitcoinTestFramework):
         for vout in rawtransaction['vout']:
             if vout['value'] == amount: return vout['n']
 
+    def sum_vouts_value(self, rawtransaction):
+        return sum(vout['value'] for vout in rawtransaction['vout'])
+
     def reset_blockchain(self):
         self.stop_nodes(wait=1)
         for i in range(self.num_nodes):
@@ -71,6 +74,30 @@ class AlertsTest(BitcoinTestFramework):
 
         self.COINBASE_MATURITY = 100
         self.COINBASE_AMOUNT = Decimal(175)
+
+        self.reset_blockchain()
+        self.log.info("Test alert tx change is by default sent back to the sender")
+        self.test_alert_tx_change_is_by_default_sent_back_to_the_sender()
+
+        self.reset_blockchain()
+        self.log.info("Test sendalerttoaddress fails when no coins available on single alert address")
+        self.test_sendalerttoaddress_fails_when_no_coins_available_on_single_alert_address()
+
+        self.reset_blockchain()
+        self.log.info("Test sendalerttoaddress fails when no coins available on alert addresses")
+        self.test_sendalerttoaddress_fails_when_no_coins_available_on_alert_addresses()
+
+        self.reset_blockchain()
+        self.log.info("Test sendalerttoaddress selects coins on alert addresses only")
+        self.test_sendalerttoaddress_selects_coins_on_alert_addresses_only()
+
+        self.reset_blockchain()
+        self.log.info("Test sendtoaddress fails when no coins available on regular addresses")
+        self.test_sendtoaddress_fails_when_no_coins_available_on_regular_addresses()
+
+        self.reset_blockchain()
+        self.log.info("Test sendtoaddress selects coins on regular addresses only")
+        self.test_sendtoaddress_selects_coins_on_regular_addresses_only()
 
         self.reset_blockchain()
         self.log.info("Test standard signrawtransactionwithwallet flow")
@@ -188,6 +215,119 @@ class AlertsTest(BitcoinTestFramework):
         self.log.info("Test getrawtransaction returns information about unconfirmed atx")
         self.test_getrawtransaction_returns_information_about_unconfirmed_atx()
 
+    def test_alert_tx_change_is_by_default_sent_back_to_the_sender(self):
+        addr0 = self.nodes[0].getnewaddress()
+        alert_addr1 = self.nodes[1].getnewvaultalertaddress(self.alert_recovery_pubkey)
+
+        # mine some coins to alert_addr1
+        self.nodes[1].generatetoaddress(200, alert_addr1['address'])
+
+        # create atx
+        amount = 10
+        atxid = self.nodes[1].sendalerttoaddress(addr0, amount)
+        atx = self.nodes[1].getrawtransaction(atxid, True)
+        fee = self.COINBASE_AMOUNT - self.sum_vouts_value(atx)
+        change = self.COINBASE_AMOUNT - amount - fee
+        change_vout = atx['vout'][self.find_vout_n(atx, change)]
+
+        # assert
+        assert len(change_vout['scriptPubKey']['addresses']) == 1
+        assert alert_addr1['address'] == change_vout['scriptPubKey']['addresses'][0]
+
+    def test_sendtoaddress_fails_when_no_coins_available_on_regular_addresses(self):
+        alert_addr0 = self.nodes[0].getnewvaultalertaddress(self.alert_recovery_pubkey)
+        other_addr = '2N34KyQQj97pAivV59wfTkzksYuPdR2jLfi'
+
+        self.nodes[0].generatetoaddress(200, alert_addr0['address'])  # coins are available only on alert address ...
+        error = None
+        try:
+            self.nodes[0].sendtoaddress(other_addr, 10)  # ... so this call should fail
+        except Exception as e:
+            error = e.error
+
+        # assert
+        self.sync_all()
+        assert error['code'] == -4
+        assert 'Insufficient funds' in error['message']
+
+    def test_sendtoaddress_selects_coins_on_regular_addresses_only(self):
+        alert_addr0 = self.nodes[0].getnewvaultalertaddress(self.alert_recovery_pubkey)
+        addr0 = self.nodes[0].getnewaddress()
+        other_addr = '2N34KyQQj97pAivV59wfTkzksYuPdR2jLfi'
+
+        self.nodes[0].generatetoaddress(200, addr0)
+        self.nodes[0].generatetoaddress(200, alert_addr0['address'])
+
+        coins_to_use = self.nodes[0].listunspent()
+        coins_to_use = [c for c in coins_to_use if c['address'] == addr0]
+        assert len(coins_to_use) == 200
+
+        txid = self.nodes[0].sendtoaddress(other_addr, self.COINBASE_AMOUNT * 200, '', '', True)
+        tx = self.nodes[0].getrawtransaction(txid, True)
+        self.nodes[0].generatetoaddress(1, other_addr)
+
+        # assert
+        self.sync_all()
+        assert len(tx['vin']) == 200
+        assert {v['txid']: v['vout'] for v in tx['vin']} == {c['txid']: c['vout'] for c in coins_to_use}
+        assert txid in self.nodes[0].getbestblock()['tx']
+
+    def test_sendalerttoaddress_fails_when_no_coins_available_on_alert_addresses(self):
+        addr0 = self.nodes[0].getnewaddress()
+        other_addr = '2N34KyQQj97pAivV59wfTkzksYuPdR2jLfi'
+
+        self.nodes[0].generatetoaddress(200, addr0)  # coins are available only on regular address ...
+        error = None
+        try:
+            self.nodes[0].sendalerttoaddress(other_addr, 10)  # ... so this call should fail
+        except Exception as e:
+            error = e.error
+
+        # assert
+        self.sync_all()
+        assert error['code'] == -4
+        assert 'Insufficient funds' in error['message']
+
+    def test_sendalerttoaddress_fails_when_no_coins_available_on_single_alert_address(self):
+        alert_addr0 = self.nodes[0].getnewvaultalertaddress(self.alert_recovery_pubkey)
+        alert_addr1 = self.nodes[0].getnewvaultalertaddress(self.alert_recovery_pubkey)
+        other_addr = '2N34KyQQj97pAivV59wfTkzksYuPdR2jLfi'
+
+        self.nodes[0].generatetoaddress(100, alert_addr0['address'])  # max 100 * COINBASE_AMOUNT on single alert address
+        self.nodes[0].generatetoaddress(100, alert_addr1['address'])  # max 100 * COINBASE_AMOUNT on single alert address
+        self.nodes[0].generatetoaddress(200, other_addr)
+        error = None
+        try:
+            self.nodes[0].sendalerttoaddress(other_addr, 101 * self.COINBASE_AMOUNT)  # ... so this call should fail
+        except Exception as e:
+            error = e.error
+
+        # assert
+        self.sync_all()
+        assert error['code'] == -4
+        assert 'Insufficient funds' in error['message']
+
+    def test_sendalerttoaddress_selects_coins_on_alert_addresses_only(self):
+        alert_addr0 = self.nodes[0].getnewvaultalertaddress(self.alert_recovery_pubkey)
+        addr0 = self.nodes[0].getnewaddress()
+        other_addr = '2N34KyQQj97pAivV59wfTkzksYuPdR2jLfi'
+
+        self.nodes[0].generatetoaddress(200, alert_addr0['address'])
+        self.nodes[0].generatetoaddress(200, addr0)
+
+        coins_to_use = self.nodes[0].listunspent()
+        coins_to_use = [c for c in coins_to_use if c['address'] == alert_addr0['address']]
+        assert len(coins_to_use) == 200
+
+        atxid = self.nodes[0].sendalerttoaddress(other_addr, self.COINBASE_AMOUNT * 200, '', '', True)
+        atx = self.nodes[0].getrawtransaction(atxid, True)
+        self.nodes[0].generatetoaddress(1, other_addr)
+
+        # assert
+        self.sync_all()
+        assert len(atx['vin']) == 200
+        assert {v['txid']: v['vout'] for v in atx['vin']} == {c['txid']: c['vout'] for c in coins_to_use}
+        assert atxid in self.nodes[0].getbestblock()['atx']
 
     def test_recovery_tx_is_rejected_when_missing_recovery_key(self):
         alert_addr0 = self.nodes[0].getnewvaultalertaddress(self.alert_recovery_pubkey)
@@ -197,7 +337,7 @@ class AlertsTest(BitcoinTestFramework):
         self.nodes[0].generatetoaddress(200, alert_addr0['address'])
 
         # send atx and mine block with this atx
-        atxid = self.nodes[0].sendtoaddress(addr1, 10)
+        atxid = self.nodes[0].sendalerttoaddress(addr1, 10)
         self.nodes[0].generatetoaddress(1, alert_addr0['address'])
 
         # recover atx
@@ -211,7 +351,7 @@ class AlertsTest(BitcoinTestFramework):
         # assert
         self.sync_all()
         assert error['code'] == -5
-        assert 'Produced non-recovery tx, possibly missing keys' in error['message']
+        assert 'Produced vaultalert transaction type, possibly missing keys' in error['message']
 
     def test_recovery_tx_when_all_keys_imported(self):
         alert_addr0 = self.nodes[0].getnewvaultalertaddress(self.alert_recovery_pubkey)
@@ -221,7 +361,7 @@ class AlertsTest(BitcoinTestFramework):
         self.nodes[0].generatetoaddress(200, alert_addr0['address'])
 
         # send atx and mine block with this atx
-        atxid = self.nodes[0].sendtoaddress(addr1, 10)
+        atxid = self.nodes[0].sendalerttoaddress(addr1, 10)
         self.nodes[0].generatetoaddress(1, alert_addr0['address'])
 
         # import recovery key into wallet
@@ -273,7 +413,7 @@ class AlertsTest(BitcoinTestFramework):
         # assert
         self.sync_all()
         receivedbyaddress = self.find_address(self.nodes[0].listreceivedbyaddress(), alert_addr1['address'])
-        assert self.nodes[0].getbalance() == 0
+        assert self.nodes[0].getalertbalance() == 0
         assert 'involvesWatchonly' in receivedbyaddress
         assert receivedbyaddress['involvesWatchonly'] is True
         assert receivedbyaddress['amount'] == 10
@@ -338,6 +478,7 @@ class AlertsTest(BitcoinTestFramework):
         assert sorted(info['pubkeys']) == sorted([pubkey, self.alert_recovery_pubkey])
 
     def test_atx_from_imported_alert_address(self):
+        # TODO-fork: fails sometimes because of nodes synchronization timing?
         alert_addr0 = self.nodes[0].getnewvaultalertaddress(self.alert_recovery_pubkey)
         other_addr = '2N34KyQQj97pAivV59wfTkzksYuPdR2jLfi'  # not owned by test nodes
 
@@ -358,7 +499,7 @@ class AlertsTest(BitcoinTestFramework):
         self.nodes[1].importprivkey(privkey)
 
         # send atx from node1 and mine block with this atx
-        atxid = self.nodes[1].sendtoaddress(other_addr, 10)
+        atxid = self.nodes[1].sendalerttoaddress(other_addr, 10)
         self.nodes[1].generatetoaddress(1, alert_addr0['address'])
 
         # assert
@@ -379,7 +520,7 @@ class AlertsTest(BitcoinTestFramework):
 
         # assert
         self.sync_all()
-        assert self.nodes[1].getbalance() == 10
+        assert self.nodes[1].getalertbalance() == 10
         assert txid in self.nodes[0].getbestblock()['tx']
         assert txid not in self.nodes[0].getbestblock()['atx']
         assert txid in self.find_address(self.nodes[1].listreceivedbyaddress(), alert_addr1['address'])['txids']
@@ -392,7 +533,7 @@ class AlertsTest(BitcoinTestFramework):
         self.nodes[1].generatetoaddress(200, alert_addr1['address'])
 
         # send atx from alert_addr1 to addr0 and generate block with this atx
-        atxid = self.nodes[1].sendtoaddress(addr0, 10)
+        atxid = self.nodes[1].sendalerttoaddress(addr0, 10)
         self.nodes[1].generatetoaddress(1, alert_addr1['address'])
 
         # assert
@@ -464,7 +605,7 @@ class AlertsTest(BitcoinTestFramework):
         self.nodes[1].generatetoaddress(200, alert_addr1['address'])
 
         # send atx from alert_addr1 to addr0 and generate block with this atx
-        atxid = self.nodes[1].sendtoaddress(addr0, 10)
+        atxid = self.nodes[1].sendalerttoaddress(addr0, 10)
         self.nodes[1].generatetoaddress(1, alert_addr1['address'])
 
         # assert
@@ -639,10 +780,10 @@ class AlertsTest(BitcoinTestFramework):
         self.nodes[0].sendtoaddress(alert_addr1['address'], amount)
         self.nodes[0].generatetoaddress(1, mine_addr)
 
-        # send coins back as with tx alert and confirm it
+        # send coins back by atx and confirm it
         self.sync_all()
-        assert self.nodes[1].getbalance() == amount
-        txid = self.nodes[1].sendtoaddress(mine_addr, amount - 1)
+        assert self.nodes[1].getalertbalance() == amount
+        txid = self.nodes[1].sendalerttoaddress(mine_addr, amount - 1)
         tx = self.nodes[1].getrawtransaction(txid, 1)
         fee = amount - tx['vout'][0]['value'] - tx['vout'][1]['value']
         self.nodes[1].generatetoaddress(1, mine_addr2)  # mine to separate address
@@ -686,7 +827,7 @@ class AlertsTest(BitcoinTestFramework):
         # assert
         self.sync_all()
         assert error['code'] == -5
-        assert 'Produced invalid alert tx, possibly wrong inputs given' in error['message']
+        assert 'Produced invalid transaction type, possibly missing keys' in error['message']
 
     def test_atx_is_rejected_by_wallet_when_contains_non_alert_inputs(self):
         addr0 = self.nodes[0].getnewaddress()
@@ -716,7 +857,7 @@ class AlertsTest(BitcoinTestFramework):
         # assert
         self.sync_all()
         assert error['code'] == -5
-        assert 'Produced invalid alert tx, possibly wrong inputs given' in error['message']
+        assert 'Produced invalid transaction type, possibly missing keys' in error['message']
 
     def test_atx_is_rejected_by_node_when_inputs_have_different_source(self):
         addr0 = self.nodes[0].getnewaddress()
@@ -887,20 +1028,20 @@ class AlertsTest(BitcoinTestFramework):
 
         # mine some coins to node0
         self.nodes[0].generatetoaddress(200, alert_addr0['address'])  # 200
-        assert self.nodes[0].getbalance() == (200 - self.COINBASE_MATURITY) * self.COINBASE_AMOUNT
+        assert self.nodes[0].getalertbalance() == (200 - self.COINBASE_MATURITY) * self.COINBASE_AMOUNT
 
         # send atx to node1
-        atx_to_recover = self.nodes[0].sendtoaddress(attacker_addr1, 10)
+        atx_to_recover = self.nodes[0].sendalerttoaddress(attacker_addr1, 10)
         atx_to_recover = self.nodes[0].gettransaction(atx_to_recover)['hex']
         atx_to_recover = self.nodes[0].decoderawtransaction(atx_to_recover)
-        atx_fee = (200 - self.COINBASE_MATURITY) * self.COINBASE_AMOUNT - 10 - self.nodes[0].getbalance()
+        atx_fee = (200 - self.COINBASE_MATURITY) * self.COINBASE_AMOUNT - 10 - self.nodes[0].getalertbalance()
 
         # generate block with atx above
         self.nodes[0].generatetoaddress(1, alert_addr0['address'])  # 201
 
         # assert
         self.sync_all()
-        assert self.nodes[0].getbalance() + 10 < (201 - self.COINBASE_MATURITY) * self.COINBASE_AMOUNT
+        assert self.nodes[0].getalertbalance() + 10 < (201 - self.COINBASE_MATURITY) * self.COINBASE_AMOUNT
         assert self.nodes[1].getbalance() == 0
         assert atx_to_recover['hash'] in self.nodes[0].getbestblock()['atx']
 
@@ -917,14 +1058,14 @@ class AlertsTest(BitcoinTestFramework):
         self.sync_all()
         assert recovery_txid in self.nodes[0].getbestblock()['tx']
         assert recovery_txid in self.find_address(self.nodes[0].listreceivedbyaddress(), other_addr0)['txids']
-        assert self.nodes[0].getbalance() == (202 - self.COINBASE_MATURITY) * self.COINBASE_AMOUNT - atx_fee
+        assert self.nodes[0].getalertbalance() + self.nodes[0].getbalance() == (202 - self.COINBASE_MATURITY) * self.COINBASE_AMOUNT - atx_fee
 
         # generate blocks so atx might become tx
         self.nodes[0].generatetoaddress(143, alert_addr0['address'])  # 345
 
         # assert
         self.sync_all()
-        assert self.nodes[0].getbalance() == (345 - self.COINBASE_MATURITY) * self.COINBASE_AMOUNT  # dont subtract atx_fee because node0 takes it as a block miner
+        assert self.nodes[0].getalertbalance() + self.nodes[0].getbalance() == (345 - self.COINBASE_MATURITY) * self.COINBASE_AMOUNT  # dont subtract atx_fee because node0 takes it as a block miner
         assert atx_to_recover['hash'] not in self.nodes[0].getbestblock()['tx']
         assert self.find_address(self.nodes[1].listreceivedbyaddress(), attacker_addr1)['amount'] == 0
         assert self.find_address(self.nodes[1].listreceivedbyaddress(), attacker_addr1)['txids'] == []
@@ -984,7 +1125,7 @@ class AlertsTest(BitcoinTestFramework):
         self.nodes[1].generatetoaddress(200, alert_addr1['address'])
 
         # create atx
-        atxid = self.nodes[1].sendtoaddress(addr0, 10)
+        atxid = self.nodes[1].sendalerttoaddress(addr0, 10)
         self.nodes[1].generatetoaddress(1, alert_addr1['address'])
 
         # getrawtransaction

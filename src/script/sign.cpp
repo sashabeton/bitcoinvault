@@ -10,6 +10,7 @@
 #include <primitives/transaction.h>
 #include <script/standard.h>
 #include <uint256.h>
+#include <keystore.h>
 
 typedef std::vector<unsigned char> valtype;
 
@@ -149,9 +150,9 @@ static bool SignStep(const SigningProvider& provider, const BaseSignatureCreator
         }
         if (ret.size() == 1) return false;
         if (ret.size() - 1 == 1) { // one signature -> alert
-            ret.push_back({static_cast<unsigned char>(OP_TRUE)});
+            ret.push_back({static_cast<unsigned char>(0x01)}); // TRUE
         } else { // two signatures -> recovery
-            ret.push_back({static_cast<unsigned char>(OP_FALSE)});
+            ret.push_back(valtype()); // FALSE
         }
 
         return true;
@@ -168,13 +169,13 @@ static bool SignStep(const SigningProvider& provider, const BaseSignatureCreator
         }
         if (ret.size() == 1) return false;
         if (ret.size() - 1 == 1) { // one signature -> alert
-            ret.push_back({static_cast<unsigned char>(OP_TRUE)});
+            ret.push_back({static_cast<unsigned char>(0x01)}); // TRUE
         } else if (ret.size() - 1 == 2) { // two signatures -> instant
-            ret.push_back({static_cast<unsigned char>(OP_TRUE)});
-            ret.push_back({static_cast<unsigned char>(OP_FALSE)});
+            ret.push_back({static_cast<unsigned char>(0x01)}); // TRUE
+            ret.push_back(valtype()); // FALSE
         } else { // three signatures -> recovery
-            ret.push_back({static_cast<unsigned char>(OP_FALSE)});
-            ret.push_back({static_cast<unsigned char>(OP_FALSE)});
+            ret.push_back(valtype()); // FALSE
+            ret.push_back(valtype()); // FALSE
         }
 
         return true;
@@ -229,7 +230,7 @@ static CScript PushAll(const std::vector<valtype>& values)
     return result;
 }
 
-bool ProduceSignature(const SigningProvider& provider, const BaseSignatureCreator& creator, const CScript& fromPubKey, SignatureData& sigdata)
+bool ProduceSignatureImpl(const SigningProvider& provider, const BaseSignatureCreator& creator, const CScript& fromPubKey, SignatureData& sigdata)
 {
     if (sigdata.complete) return true;
 
@@ -283,6 +284,72 @@ bool ProduceSignature(const SigningProvider& provider, const BaseSignatureCreato
     // Test solution
     sigdata.complete = solved && VerifyScript(sigdata.scriptSig, fromPubKey, &sigdata.scriptWitness, STANDARD_SCRIPT_VERIFY_FLAGS, creator.Checker());
     return sigdata.complete;
+}
+
+bool ProduceSignature(const CBasicKeyStore& provider, const BaseSignatureCreator& creator, const CScript& fromPubKey, SignatureData& sigdata, vaulttxntype txType) {
+    if (txType == TX_NONVAULT || txType == TX_INVALID) {
+        return ProduceSignatureImpl(provider, creator, fromPubKey, sigdata);
+    } if (txType == TX_ALERT) {
+        return ProduceExactlyNSignatures(provider, creator, fromPubKey, sigdata, 1);
+    } if (txType == TX_INSTANT) {
+        return ProduceExactlyNSignatures(provider, creator, fromPubKey, sigdata, 2);
+    } if (txType == TX_RECOVERY) {
+        // produce (2 of 2) or (3 or 3), so always use as many signatures as possible
+        return ProduceSignatureImpl(provider, creator, fromPubKey, sigdata);
+    }
+
+    assert(false);
+}
+
+bool ProduceSignature(const SigningProvider& provider, const BaseSignatureCreator& creator, const CScript& fromPubKey, SignatureData& sigdata) {
+    return ProduceSignatureImpl(provider, creator, fromPubKey, sigdata);
+}
+
+bool ProduceExactlyNSignatures(const CBasicKeyStore& okeystore, const BaseSignatureCreator& creator, const CScript& fromPubKey, SignatureData& osigdata, unsigned int n) {
+    auto keys = okeystore.GetKeys();
+    auto cscripts = okeystore.GetCScripts();
+
+    do {
+        CBasicKeyStore keystore;
+        SignatureData sigdata(osigdata);
+        for (const auto &pkey : keys) {
+            CKey key;
+            okeystore.GetKey(pkey, key);
+            keystore.AddKey(key);
+        }
+        for (const auto& cscriptId : cscripts) {
+            CScript cscript;
+            okeystore.GetCScript(cscriptId, cscript);
+            keystore.AddCScript(cscript);
+        }
+
+        bool complete = ProduceSignatureImpl(keystore, creator, fromPubKey, sigdata);
+        if (complete) {
+            if (sigdata.signatures.size() == n) {
+                osigdata = sigdata;
+                return complete;
+            }
+
+            if (sigdata.signatures.size() > n) {
+                // too much privkeys used, try to remove last one and sign again
+                keys.erase(keys.rend().base());
+            }
+
+            else {
+                // privkeys missing
+                osigdata = sigdata;
+                return complete;
+            }
+        } else {
+            // error signing tx
+            osigdata = sigdata;
+            return complete;
+        }
+
+    } while (keys.size() >= n);
+
+    // unable to sign
+    return false;
 }
 
 class SignatureExtractorChecker final : public BaseSignatureChecker
@@ -492,6 +559,12 @@ const SigningProvider& DUMMY_SIGNING_PROVIDER = SigningProvider();
 
 bool IsSolvable(const SigningProvider& provider, const CScript& script)
 {
+    SignatureData ret;
+    return IsSolvable(provider, script, ret);
+}
+
+bool IsSolvable(const SigningProvider& provider, const CScript& script, SignatureData& ret)
+{
     // This check is to make sure that the script we created can actually be solved for and signed by us
     // if we were to have the private keys. This is just to make sure that the script is valid and that,
     // if found in a transaction, we would still accept and relay that transaction. In particular,
@@ -504,6 +577,7 @@ bool IsSolvable(const SigningProvider& provider, const CScript& script)
         // VerifyScript check is just defensive, and should never fail.
         bool verified = VerifyScript(sigs.scriptSig, script, &sigs.scriptWitness, STANDARD_SCRIPT_VERIFY_FLAGS, DUMMY_CHECKER);
         assert(verified);
+        ret = sigs;
         return true;
     }
     return false;

@@ -791,7 +791,7 @@ static UniValue combinerawtransaction(const JSONRPCRequest& request)
     return EncodeHexTx(CTransaction(mergedTx));
 }
 
-UniValue SignTransaction(interfaces::Chain& chain, CMutableTransaction& mtx, const UniValue& prevTxsUnival, CBasicKeyStore *keystore, bool is_temp_keystore, const UniValue& hashType, bool expectSpent)
+UniValue SignTransaction(interfaces::Chain& chain, CMutableTransaction& mtx, const UniValue& prevTxsUnival, CBasicKeyStore *keystore, bool is_temp_keystore, const UniValue& hashType, bool expectSpent, vaulttxntype txType)
 {
     // Fetch previous transactions (inputs):
     CCoinsView viewDummy;
@@ -913,10 +913,19 @@ UniValue SignTransaction(interfaces::Chain& chain, CMutableTransaction& mtx, con
         SignatureData sigdata = DataFromTransaction(mtx, i, coin.out);
         // Only sign SIGHASH_SINGLE if there's a corresponding output:
         if (!fHashSingle || (i < mtx.vout.size())) {
-            ProduceSignature(*keystore, MutableTransactionSignatureCreator(&mtx, i, amount, nHashType), prevPubKey, sigdata);
+            ProduceSignature(*keystore, MutableTransactionSignatureCreator(&mtx, i, amount, nHashType), prevPubKey, sigdata, txType);
         }
 
         UpdateInput(txin, sigdata);
+
+        // Check for requested transaction type
+        if (txType != TX_INVALID) {  // TX_INVALID means unset
+            auto actualTxType = GetVaultTxType(mtx);
+            if (actualTxType != txType) {
+                std::string txTypeStr = GetTxnOutputType(actualTxType);
+                throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, _("Produced ") + txTypeStr + _(" transaction type, possibly missing keys"));
+            }
+        }
 
         // amount must be specified for valid segwit signature
         if (amount == MAX_MONEY && !txin.scriptWitness.IsNull()) {
