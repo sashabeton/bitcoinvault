@@ -1999,7 +1999,7 @@ CAmount CWalletTx::GetImmatureCredit(interfaces::Chain::Lock& locked_chain, bool
     return 0;
 }
 
-CAmount CWalletTx::GetAvailableCredit(interfaces::Chain::Lock& locked_chain, bool fUseCache, const isminefilter& filter) const
+CAmount CWalletTx::GetAvailableCredit(interfaces::Chain::Lock& locked_chain, bool fUseCache, const isminefilter& filter, vaulttxntype txType) const
 {
     if (pwallet == nullptr)
         return 0;
@@ -2019,7 +2019,7 @@ CAmount CWalletTx::GetAvailableCredit(interfaces::Chain::Lock& locked_chain, boo
         cache_used = &fAvailableWatchCreditCached;
     }
 
-    if (fUseCache && cache_used && *cache_used) {
+    if (txType == TX_INVALID && fUseCache && cache_used && *cache_used) {
         return *cache;
     }
 
@@ -2030,13 +2030,37 @@ CAmount CWalletTx::GetAvailableCredit(interfaces::Chain::Lock& locked_chain, boo
         if (!pwallet->IsSpent(locked_chain, hashTx, i))
         {
             const CTxOut &txout = tx->vout[i];
+
+            if (txType != TX_INVALID) { // TX_INVALID means unset
+                SignatureData data;
+                IsSolvable(*this->pwallet, txout.scriptPubKey, data);
+                Stacks stack(data);
+                txnouttype scriptType = ExtractDataFromIncompleteScript(data, stack, BaseSignatureChecker(), txout);
+
+                if (txType == TX_NONVAULT) {
+                    if (scriptType == TX_VAULT_ALERTADDRESS || scriptType == TX_VAULT_INSTANTADDRESS) {
+                        continue;
+                    }
+                } else if (txType == TX_ALERT) {
+                    if (scriptType != TX_VAULT_ALERTADDRESS && scriptType != TX_VAULT_INSTANTADDRESS) {
+                        continue;
+                    }
+                } else if (txType == TX_INSTANT) {
+                    if (scriptType != TX_VAULT_INSTANTADDRESS) {
+                        continue;
+                    }
+                } else {
+                    assert(false);
+                }
+            }
+
             nCredit += pwallet->GetCredit(txout, filter);
             if (!MoneyRange(nCredit))
                 throw std::runtime_error(std::string(__func__) + " : value out of range");
         }
     }
 
-    if (cache) {
+    if (txType == TX_INVALID && cache) {
         *cache = nCredit;
         assert(cache_used);
         *cache_used = true;
@@ -2173,7 +2197,7 @@ void CWallet::ResendWalletTransactions(int64_t nBestBlockTime, CConnman* connman
  */
 
 
-CAmount CWallet::GetBalance(const isminefilter& filter, const int min_depth) const
+CAmount CWallet::GetBalance(const isminefilter& filter, const int min_depth, vaulttxntype txType) const
 {
     CAmount nTotal = 0;
     {
@@ -2183,7 +2207,7 @@ CAmount CWallet::GetBalance(const isminefilter& filter, const int min_depth) con
         {
             const CWalletTx* pcoin = &entry.second;
             if (pcoin->IsTrusted(*locked_chain) && pcoin->GetDepthInMainChain(*locked_chain) >= min_depth) {
-                nTotal += pcoin->GetAvailableCredit(*locked_chain, true, filter);
+                nTotal += pcoin->GetAvailableCredit(*locked_chain, true, filter, txType);
             }
         }
     }

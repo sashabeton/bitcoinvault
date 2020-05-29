@@ -716,7 +716,7 @@ class AlertsInstantTest(BitcoinTestFramework):
         # assert
         self.sync_all()
         receivedbyaddress = self.find_address(self.nodes[0].listreceivedbyaddress(), instant_addr0['address'])
-        assert self.nodes[0].getbalance() == 0
+        assert self.nodes[0].getinstantbalance() == 0
         assert 'involvesWatchonly' in receivedbyaddress
         assert receivedbyaddress['involvesWatchonly'] is True
         assert receivedbyaddress['amount'] == 10
@@ -825,7 +825,7 @@ class AlertsInstantTest(BitcoinTestFramework):
 
         # assert
         self.sync_all()
-        assert self.nodes[1].getbalance() == 10
+        assert self.nodes[1].getinstantbalance() == 10
         assert txid in self.nodes[0].getbestblock()['tx']
         assert txid not in self.nodes[0].getbestblock()['atx']
         assert txid in self.find_address(self.nodes[1].listreceivedbyaddress(), instant_addr1['address'])['txids']
@@ -1057,7 +1057,7 @@ class AlertsInstantTest(BitcoinTestFramework):
 
         # send coins back by atx and confirm it
         self.sync_all()
-        assert self.nodes[1].getbalance() == amount
+        assert self.nodes[1].getalertbalance() == amount
         txid = self.nodes[1].sendalerttoaddress(mine_addr, amount - 1)
         tx = self.nodes[1].getrawtransaction(txid, 1)
         fee = amount - tx['vout'][0]['value'] - tx['vout'][1]['value']
@@ -1442,20 +1442,20 @@ class AlertsInstantTest(BitcoinTestFramework):
 
         # mine some coins to node0
         self.nodes[0].generatetoaddress(200, instant_addr0['address'])  # 200
-        assert self.nodes[0].getbalance() == (200 - self.COINBASE_MATURITY) * self.COINBASE_AMOUNT
+        assert self.nodes[0].getinstantbalance() == (200 - self.COINBASE_MATURITY) * self.COINBASE_AMOUNT
 
         # send atx to node1
         atx_to_recover = self.nodes[0].sendalerttoaddress(attacker_addr1, 10)
         atx_to_recover = self.nodes[0].gettransaction(atx_to_recover)['hex']
         atx_to_recover = self.nodes[0].decoderawtransaction(atx_to_recover)
-        atx_fee = (200 - self.COINBASE_MATURITY) * self.COINBASE_AMOUNT - 10 - self.nodes[0].getbalance()
+        atx_fee = (200 - self.COINBASE_MATURITY) * self.COINBASE_AMOUNT - 10 - self.nodes[0].getalertbalance()
 
         # generate block with atx above
         self.nodes[0].generatetoaddress(1, instant_addr0['address'])  # 201
 
         # assert
         self.sync_all()
-        assert self.nodes[0].getbalance() + 10 < (201 - self.COINBASE_MATURITY) * self.COINBASE_AMOUNT
+        assert self.nodes[0].getalertbalance() + 10 < (201 - self.COINBASE_MATURITY) * self.COINBASE_AMOUNT
         assert self.nodes[1].getbalance() == 0
         assert atx_to_recover['hash'] in self.nodes[0].getbestblock()['atx']
 
@@ -1472,14 +1472,14 @@ class AlertsInstantTest(BitcoinTestFramework):
         self.sync_all()
         assert recovery_txid in self.nodes[0].getbestblock()['tx']
         assert recovery_txid in self.find_address(self.nodes[0].listreceivedbyaddress(), other_addr0)['txids']
-        assert self.nodes[0].getbalance() == (202 - self.COINBASE_MATURITY) * self.COINBASE_AMOUNT - atx_fee
+        assert self.nodes[0].getbalance() + self.nodes[0].getalertbalance() == (202 - self.COINBASE_MATURITY) * self.COINBASE_AMOUNT - atx_fee
 
         # generate blocks so atx might become tx
         self.nodes[0].generatetoaddress(143, instant_addr0['address'])  # 345
 
         # assert
         self.sync_all()
-        assert self.nodes[0].getbalance() == (345 - self.COINBASE_MATURITY) * self.COINBASE_AMOUNT  # dont subtract atx_fee because node0 takes it as a block miner
+        assert self.nodes[0].getbalance() + self.nodes[0].getalertbalance() == (345 - self.COINBASE_MATURITY) * self.COINBASE_AMOUNT  # dont subtract atx_fee because node0 takes it as a block miner
         assert atx_to_recover['hash'] not in self.nodes[0].getbestblock()['tx']
         assert self.find_address(self.nodes[1].listreceivedbyaddress(), attacker_addr1)['amount'] == 0
         assert self.find_address(self.nodes[1].listreceivedbyaddress(), attacker_addr1)['txids'] == []

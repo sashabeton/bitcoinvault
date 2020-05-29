@@ -62,6 +62,15 @@ New bvaultd RPC commands:
 - `sendinstanttoaddress "address" amount ( ["privatekey",...] "comment" "comment_to" subtractfeefromamount replaceable conf_target "estimate_mode" )`
   Send an amount to a given address as instant transaction.
 
+- `getalertbalance ( "dummy" minconf include_watchonly )`
+  Returns the total available balance on alert and instant addresses.
+  The available balance is what the wallet considers currently spendable, and is
+  thus affected by options which limit spendability such as -spendzeroconfchange.
+
+- `getinstantbalance ( "dummy" minconf include_watchonly )`
+  Returns the total available balance on instant addresses.
+  The available balance is what the wallet considers currently spendable, and is
+  thus affected by options which limit spendability such as -spendzeroconfchange.
 
 Basic end-user flow:
 ```bash
