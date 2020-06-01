@@ -683,7 +683,8 @@ class AlertsInstantTest(BitcoinTestFramework):
         instant_addr0 = self.nodes[0].getnewvaultinstantaddress(self.alert_instant_pubkey, self.alert_recovery_pubkey)
 
         # get pubkey
-        pubkey = self.nodes[0].getaddressinfo(instant_addr0['address'])['pubkeys']
+        info = self.nodes[0].getaddressinfo(instant_addr0['address'])
+        pubkey = info['embedded']['pubkeys'] if 'embedded' in info else info['pubkeys']
         pubkey.remove(self.alert_recovery_pubkey)
         pubkey = pubkey[0]
 
@@ -700,6 +701,7 @@ class AlertsInstantTest(BitcoinTestFramework):
         self.sync_all()
         assert info['ismine'] is True
         assert info['iswatchonly'] is False
+        if 'embedded' in info: info = info['embedded']
         assert sorted(info['pubkeys']) == sorted([pubkey, self.alert_recovery_pubkey, self.alert_instant_pubkey])
 
     def test_add_watchonly_instant_address(self):
@@ -732,6 +734,7 @@ class AlertsInstantTest(BitcoinTestFramework):
         assert info['solvable'] is True
         assert info['iswatchonly'] is False
         assert info['isscript'] is True
+        if 'embedded' in info: info = info['embedded']
         assert info['script'] == 'vaultinstant'
         assert info['sigsrequired'] == 1
         assert len(info['pubkeys']) == 3
@@ -752,6 +755,7 @@ class AlertsInstantTest(BitcoinTestFramework):
         assert info['solvable'] is True  # Whether we know how to spend coins sent to this address, ignoring the possible lack of private keys
         assert info['iswatchonly'] is True
         assert info['isscript'] is True
+        if 'embedded' in info: info = info['embedded']
         assert info['script'] == 'vaultinstant'
         assert info['sigsrequired'] == 1
         assert len(info['pubkeys']) == 3
@@ -762,7 +766,8 @@ class AlertsInstantTest(BitcoinTestFramework):
         instant_addr0 = self.nodes[0].getnewvaultinstantaddress(self.alert_instant_pubkey, self.alert_recovery_pubkey)
 
         # get pubkey
-        pubkey = self.nodes[0].getaddressinfo(instant_addr0['address'])['pubkeys']
+        info = self.nodes[0].getaddressinfo(instant_addr0['address'])
+        pubkey = info['embedded']['pubkeys'] if 'embedded' in info else info['pubkeys']
         pubkey.remove(self.alert_recovery_pubkey)
         pubkey = pubkey[0]
 
@@ -780,6 +785,7 @@ class AlertsInstantTest(BitcoinTestFramework):
         self.sync_all()
         assert info['ismine'] is True
         assert info['iswatchonly'] is False
+        if 'embedded' in info: info = info['embedded']
         assert sorted(info['pubkeys']) == sorted([pubkey, self.alert_recovery_pubkey, self.alert_instant_pubkey])
 
     def test_atx_from_imported_instant_address(self):
@@ -791,7 +797,8 @@ class AlertsInstantTest(BitcoinTestFramework):
         self.nodes[0].generatetoaddress(200, instant_addr0['address'])
 
         # get pubkey
-        pubkey = self.nodes[0].getaddressinfo(instant_addr0['address'])['pubkeys']
+        info = self.nodes[0].getaddressinfo(instant_addr0['address'])
+        pubkey = info['embedded']['pubkeys'] if 'embedded' in info else info['pubkeys']
         pubkey.remove(self.alert_recovery_pubkey)
         pubkey = pubkey[0]
 
@@ -874,8 +881,8 @@ class AlertsInstantTest(BitcoinTestFramework):
         # create atx
         atxtosend = self.nodes[1].createrawtransaction([{'txid': txtospendhash, 'vout': vouttospend}, {'txid': txtospendhash2, 'vout': vouttospend2}], {addr0: 349.99})
         atxtosend = self.nodes[1].signrawtransactionwithkey(atxtosend, [self.alert_recovery_privkey], [
-            {'txid': txtospendhash, 'vout': vouttospend, 'scriptPubKey': txtospend['vout'][vouttospend]['scriptPubKey']['hex'], 'redeemScript': alert_addr1['redeemScript']},
-            {'txid': txtospendhash2, 'vout': vouttospend2, 'scriptPubKey': txtospend2['vout'][vouttospend2]['scriptPubKey']['hex'], 'redeemScript': alert_addr1['redeemScript']}
+            {'txid': txtospendhash, 'vout': vouttospend, 'scriptPubKey': txtospend['vout'][vouttospend]['scriptPubKey']['hex'], 'redeemScript': alert_addr1['redeemScript'], 'amount': 175},
+            {'txid': txtospendhash2, 'vout': vouttospend2, 'scriptPubKey': txtospend2['vout'][vouttospend2]['scriptPubKey']['hex'], 'redeemScript': alert_addr1['redeemScript'], 'amount': 175}
         ])
 
         # send atx
@@ -928,7 +935,7 @@ class AlertsInstantTest(BitcoinTestFramework):
         atxtosend = self.nodes[1].createrawtransaction([{'txid': txtospendhash, 'vout': vouttospend}], {addr0: 174.99})
         error = None
         try:
-            self.nodes[1].signrawtransactionwithwallet(atxtosend, [{'txid': txtospendhash, 'vout': vouttospend, 'scriptPubKey': txtospend['vout'][vouttospend]['scriptPubKey']['hex'], 'redeemScript': instant_addr1['redeemScript'], 'amount': 174.99}])
+            self.nodes[1].signrawtransactionwithwallet(atxtosend, [{'txid': txtospendhash, 'vout': vouttospend, 'scriptPubKey': txtospend['vout'][vouttospend]['scriptPubKey']['hex'], 'redeemScript': instant_addr1['redeemScript'], 'amount': 175}])
         except Exception as e:
             error = e.error
 
@@ -956,7 +963,7 @@ class AlertsInstantTest(BitcoinTestFramework):
         atxtosend = self.nodes[1].createrawtransaction([{'txid': txtospendhash, 'vout': vouttospend}], {addr0: 174.99})
         error = None
         try:
-            self.nodes[1].signrawtransactionwithwallet(atxtosend, [{'txid': txtospendhash, 'vout': vouttospend, 'scriptPubKey': txtospend['vout'][vouttospend]['scriptPubKey']['hex'], 'redeemScript': instant_addr1['redeemScript'], 'amount': 174.99}])
+            self.nodes[1].signrawtransactionwithwallet(atxtosend, [{'txid': txtospendhash, 'vout': vouttospend, 'scriptPubKey': txtospend['vout'][vouttospend]['scriptPubKey']['hex'], 'redeemScript': instant_addr1['redeemScript'], 'amount': 175}])
         except Exception as e:
             error = e.error
 
@@ -979,7 +986,7 @@ class AlertsInstantTest(BitcoinTestFramework):
 
         # create and sign atx from instant_addr1 to addr0
         atxtosend = self.nodes[1].createrawtransaction([{'txid': txtospendhash, 'vout': vouttospend}], {addr0: 174.99})
-        atxtosend = self.nodes[1].signrawtransactionwithkey(atxtosend, [self.alert_recovery_privkey], [{'txid': txtospendhash, 'vout': vouttospend, 'scriptPubKey': txtospend['vout'][vouttospend]['scriptPubKey']['hex'], 'redeemScript': instant_addr1['redeemScript'], 'amount': 174.99}])
+        atxtosend = self.nodes[1].signrawtransactionwithkey(atxtosend, [self.alert_recovery_privkey], [{'txid': txtospendhash, 'vout': vouttospend, 'scriptPubKey': txtospend['vout'][vouttospend]['scriptPubKey']['hex'], 'redeemScript': instant_addr1['redeemScript'], 'amount': 175}])
         atxsent = self.nodes[1].decoderawtransaction(atxtosend['hex'])
 
         # broadcast atx and mine block with this atx
@@ -1008,7 +1015,7 @@ class AlertsInstantTest(BitcoinTestFramework):
 
         # create and sign atx from alert_addr1 to addr0
         atxtosend = self.nodes[1].createrawtransaction([{'txid': txtospendhash, 'vout': vouttospend}], {addr0: 174.99})
-        atxtosend = self.nodes[1].signalerttransaction(atxtosend, [{'txid': txtospendhash, 'vout': vouttospend, 'scriptPubKey': txtospend['vout'][vouttospend]['scriptPubKey']['hex'], 'redeemScript': alert_addr1['redeemScript'], 'amount': 174.99}])
+        atxtosend = self.nodes[1].signalerttransaction(atxtosend, [{'txid': txtospendhash, 'vout': vouttospend, 'scriptPubKey': txtospend['vout'][vouttospend]['scriptPubKey']['hex'], 'redeemScript': alert_addr1['redeemScript'], 'amount': 175}])
         atxsent = self.nodes[1].decoderawtransaction(atxtosend['hex'])
 
         # broadcast atx and mine block with this atx
@@ -1033,7 +1040,7 @@ class AlertsInstantTest(BitcoinTestFramework):
 
         # create and sign atx from alert_addr1 to addr0
         atxtosend = self.nodes[1].createrawtransaction([{'txid': txtospendhash, 'vout': vouttospend}], {addr0: 174.99})
-        atxtosend = self.nodes[1].signalerttransaction(atxtosend, [{'txid': txtospendhash, 'vout': vouttospend, 'scriptPubKey': txtospend['vout'][vouttospend]['scriptPubKey']['hex'], 'redeemScript': alert_addr1['redeemScript'], 'amount': 174.99}])
+        atxtosend = self.nodes[1].signalerttransaction(atxtosend, [{'txid': txtospendhash, 'vout': vouttospend, 'scriptPubKey': txtospend['vout'][vouttospend]['scriptPubKey']['hex'], 'redeemScript': alert_addr1['redeemScript'], 'amount': 175}])
         atxsent = self.nodes[1].decoderawtransaction(atxtosend['hex'])
 
         # broadcast atx and mine block with this atx
@@ -1093,8 +1100,8 @@ class AlertsInstantTest(BitcoinTestFramework):
         error = ''
         try:
             self.nodes[1].signalerttransaction(txtosend, [
-                {'txid': txtospendhash, 'vout': vouttospend, 'scriptPubKey': txtospend['vout'][vouttospend]['scriptPubKey']['hex'], 'redeemScript': instant_addr1['redeemScript']},
-                {'txid': txtospendhash2, 'vout': vouttospend2, 'scriptPubKey': txtospend2['vout'][vouttospend2]['scriptPubKey']['hex'], 'redeemScript': instant_addr2['redeemScript']}
+                {'txid': txtospendhash, 'vout': vouttospend, 'scriptPubKey': txtospend['vout'][vouttospend]['scriptPubKey']['hex'], 'redeemScript': instant_addr1['redeemScript'], 'amount': 175},
+                {'txid': txtospendhash2, 'vout': vouttospend2, 'scriptPubKey': txtospend2['vout'][vouttospend2]['scriptPubKey']['hex'], 'redeemScript': instant_addr2['redeemScript'], 'amount': 175}
             ])
         except Exception as e:
             error = e.error
@@ -1125,7 +1132,7 @@ class AlertsInstantTest(BitcoinTestFramework):
         # create and sign atx from instant_addr1 and alert_addr2 to addr0
         txtosend = self.nodes[1].createrawtransaction([{'txid': txtospendhash, 'vout': vouttospend}, {'txid': txtospendhash2, 'vout': vouttospend2}], {addr0: 349.99})
         try:
-            self.nodes[1].signalerttransaction(txtosend, [{'txid': txtospendhash, 'vout': vouttospend, 'scriptPubKey': txtospend['vout'][vouttospend]['scriptPubKey']['hex'], 'redeemScript': instant_addr1['redeemScript']}])
+            self.nodes[1].signalerttransaction(txtosend, [{'txid': txtospendhash, 'vout': vouttospend, 'scriptPubKey': txtospend['vout'][vouttospend]['scriptPubKey']['hex'], 'redeemScript': instant_addr1['redeemScript'], 'amount': 175}])
         except Exception as e:
             error = e.error
 
@@ -1160,8 +1167,8 @@ class AlertsInstantTest(BitcoinTestFramework):
         # create atx
         atxtosend = self.nodes[1].createrawtransaction([{'txid': txtospendhash, 'vout': vouttospend}, {'txid': txtospendhash2, 'vout': vouttospend2}], {addr0: 349.99})
         atxtosend = self.nodes[1].signrawtransactionwithkey(atxtosend, [addr0_prvkey, addr1_prvkey], [
-            {'txid': txtospendhash, 'vout': vouttospend, 'scriptPubKey': txtospend['vout'][vouttospend]['scriptPubKey']['hex'], 'redeemScript': alert_addr1['redeemScript']},
-            {'txid': txtospendhash2, 'vout': vouttospend2, 'scriptPubKey': txtospend2['vout'][vouttospend2]['scriptPubKey']['hex'], 'redeemScript': alert_addr2['redeemScript']}
+            {'txid': txtospendhash, 'vout': vouttospend, 'scriptPubKey': txtospend['vout'][vouttospend]['scriptPubKey']['hex'], 'redeemScript': alert_addr1['redeemScript'], 'amount': 175},
+            {'txid': txtospendhash2, 'vout': vouttospend2, 'scriptPubKey': txtospend2['vout'][vouttospend2]['scriptPubKey']['hex'], 'redeemScript': alert_addr2['redeemScript'], 'amount': 175}
         ])
 
         # send atx
@@ -1200,7 +1207,7 @@ class AlertsInstantTest(BitcoinTestFramework):
 
         # create atx
         atxtosend = self.nodes[1].createrawtransaction([{'txid': txtospendhash, 'vout': vouttospend}, {'txid': txtospendhash2, 'vout': vouttospend2}], {addr0: 349.99})
-        atxtosend = self.nodes[1].signrawtransactionwithkey(atxtosend, [addr0_prvkey, addr1_prvkey], [{'txid': txtospendhash, 'vout': vouttospend, 'scriptPubKey': txtospend['vout'][vouttospend]['scriptPubKey']['hex'], 'redeemScript': alert_addr1['redeemScript']}])
+        atxtosend = self.nodes[1].signrawtransactionwithkey(atxtosend, [addr0_prvkey, addr1_prvkey], [{'txid': txtospendhash, 'vout': vouttospend, 'scriptPubKey': txtospend['vout'][vouttospend]['scriptPubKey']['hex'], 'redeemScript': alert_addr1['redeemScript'], 'amount': 175}])
 
         # send atx
         self.nodes[1].sendrawtransaction(atxtosend['hex'])
@@ -1229,7 +1236,7 @@ class AlertsInstantTest(BitcoinTestFramework):
         txtospend = self.nodes[0].getrawtransaction(txtospendhash, True)
         vouttospend = self.find_vout_n(txtospend, 175)
         instant_tx = self.nodes[0].createrawtransaction([{'txid': txtospendhash, 'vout': vouttospend}], {addr1: 174.99})
-        instant_tx = self.nodes[0].signinstanttransaction(instant_tx, [], [{'txid': txtospendhash, 'vout': vouttospend, 'scriptPubKey': txtospend['vout'][vouttospend]['scriptPubKey']['hex'], 'redeemScript': instant_addr0['redeemScript']}])
+        instant_tx = self.nodes[0].signinstanttransaction(instant_tx, [], [{'txid': txtospendhash, 'vout': vouttospend, 'scriptPubKey': txtospend['vout'][vouttospend]['scriptPubKey']['hex'], 'redeemScript': instant_addr0['redeemScript'], 'amount': 175}])
         instant_txid = self.nodes[0].sendrawtransaction(instant_tx['hex'])
         self.nodes[0].generatetoaddress(1, instant_addr0['address'])
 
@@ -1252,7 +1259,7 @@ class AlertsInstantTest(BitcoinTestFramework):
         txtospend = self.nodes[0].getrawtransaction(txtospendhash, True)
         vouttospend = self.find_vout_n(txtospend, 175)
         instant_tx = self.nodes[0].createrawtransaction([{'txid': txtospendhash, 'vout': vouttospend}], {addr1: 174.99})
-        instant_tx = self.nodes[0].signinstanttransaction(instant_tx, [], [{'txid': txtospendhash, 'vout': vouttospend, 'scriptPubKey': txtospend['vout'][vouttospend]['scriptPubKey']['hex'], 'redeemScript': instant_addr0['redeemScript']}])
+        instant_tx = self.nodes[0].signinstanttransaction(instant_tx, [], [{'txid': txtospendhash, 'vout': vouttospend, 'scriptPubKey': txtospend['vout'][vouttospend]['scriptPubKey']['hex'], 'redeemScript': instant_addr0['redeemScript'], 'amount': 175}])
         instant_txid = self.nodes[0].sendrawtransaction(instant_tx['hex'])
         self.nodes[0].generatetoaddress(1, instant_addr0['address'])
 
@@ -1272,7 +1279,7 @@ class AlertsInstantTest(BitcoinTestFramework):
         txtospend = self.nodes[0].getrawtransaction(txtospendhash, True)
         vouttospend = self.find_vout_n(txtospend, 175)
         instant_tx = self.nodes[0].createrawtransaction([{'txid': txtospendhash, 'vout': vouttospend}], {addr1: 174.99})
-        instant_tx = self.nodes[0].signinstanttransaction(instant_tx, [self.alert_recovery_privkey, self.alert_instant_privkey], [{'txid': txtospendhash, 'vout': vouttospend, 'scriptPubKey': txtospend['vout'][vouttospend]['scriptPubKey']['hex'], 'redeemScript': instant_addr0['redeemScript']}])
+        instant_tx = self.nodes[0].signinstanttransaction(instant_tx, [self.alert_recovery_privkey, self.alert_instant_privkey], [{'txid': txtospendhash, 'vout': vouttospend, 'scriptPubKey': txtospend['vout'][vouttospend]['scriptPubKey']['hex'], 'redeemScript': instant_addr0['redeemScript'], 'amount': 175}])
         instant_txid = self.nodes[0].sendrawtransaction(instant_tx['hex'])
         self.nodes[0].generatetoaddress(1, instant_addr0['address'])
 
@@ -1296,7 +1303,7 @@ class AlertsInstantTest(BitcoinTestFramework):
         txtospend = self.nodes[0].getrawtransaction(txtospendhash, True)
         vouttospend = self.find_vout_n(txtospend, 175)
         instant_tx = self.nodes[0].createrawtransaction([{'txid': txtospendhash, 'vout': vouttospend}], {addr1: 174.99})
-        instant_tx = self.nodes[0].signinstanttransaction(instant_tx, [], [{'txid': txtospendhash, 'vout': vouttospend, 'scriptPubKey': txtospend['vout'][vouttospend]['scriptPubKey']['hex'], 'redeemScript': instant_addr0['redeemScript']}])
+        instant_tx = self.nodes[0].signinstanttransaction(instant_tx, [], [{'txid': txtospendhash, 'vout': vouttospend, 'scriptPubKey': txtospend['vout'][vouttospend]['scriptPubKey']['hex'], 'redeemScript': instant_addr0['redeemScript'], 'amount': 175}])
         instant_txid = self.nodes[0].sendrawtransaction(instant_tx['hex'])
         self.nodes[0].generatetoaddress(1, instant_addr0['address'])
 
@@ -1319,7 +1326,7 @@ class AlertsInstantTest(BitcoinTestFramework):
 
         error = None
         try:
-            self.nodes[0].signinstanttransaction(instant_tx, [], [{'txid': txtospendhash, 'vout': vouttospend, 'scriptPubKey': txtospend['vout'][vouttospend]['scriptPubKey']['hex'], 'redeemScript': instant_addr0['redeemScript']}])
+            self.nodes[0].signinstanttransaction(instant_tx, [], [{'txid': txtospendhash, 'vout': vouttospend, 'scriptPubKey': txtospend['vout'][vouttospend]['scriptPubKey']['hex'], 'redeemScript': instant_addr0['redeemScript'], 'amount': 175}])
         except Exception as e:
             error = e.error
 
@@ -1339,7 +1346,7 @@ class AlertsInstantTest(BitcoinTestFramework):
         txtospend = self.nodes[0].getrawtransaction(txtospendhash, True)
         vouttospend = self.find_vout_n(txtospend, 175)
         instant_tx = self.nodes[0].createrawtransaction([{'txid': txtospendhash, 'vout': vouttospend}], {addr1: 174.99})
-        instant_tx = self.nodes[0].signinstanttransaction(instant_tx, [self.alert_instant_privkey], [{'txid': txtospendhash, 'vout': vouttospend, 'scriptPubKey': txtospend['vout'][vouttospend]['scriptPubKey']['hex'], 'redeemScript': instant_addr0['redeemScript']}])
+        instant_tx = self.nodes[0].signinstanttransaction(instant_tx, [self.alert_instant_privkey], [{'txid': txtospendhash, 'vout': vouttospend, 'scriptPubKey': txtospend['vout'][vouttospend]['scriptPubKey']['hex'], 'redeemScript': instant_addr0['redeemScript'], 'amount': 175}])
         instant_txid = self.nodes[0].sendrawtransaction(instant_tx['hex'])
         self.nodes[0].generatetoaddress(1, instant_addr0['address'])
 
@@ -1413,7 +1420,7 @@ class AlertsInstantTest(BitcoinTestFramework):
         amount = 174.99
         atxtosend = self.nodes[1].createrawtransaction([{'txid': txtospendhash, 'vout': vouttospend}], {addr0: amount})
         atxtosend = self.nodes[1].signrawtransactionwithkey(atxtosend, [addr0_prvkey], [
-            {'txid': txtospendhash, 'vout': vouttospend, 'scriptPubKey': txtospend['vout'][vouttospend]['scriptPubKey']['hex'], 'redeemScript': alert_addr1['redeemScript']},
+            {'txid': txtospendhash, 'vout': vouttospend, 'scriptPubKey': txtospend['vout'][vouttospend]['scriptPubKey']['hex'], 'redeemScript': alert_addr1['redeemScript'], 'amount': 175},
         ])
         self.nodes[1].sendrawtransaction(atxtosend['hex'])
 
@@ -1421,7 +1428,7 @@ class AlertsInstantTest(BitcoinTestFramework):
         amount = 174.69
         atxtosend = self.nodes[1].createrawtransaction([{'txid': txtospendhash, 'vout': vouttospend}], {addr0: amount})
         atxtosend = self.nodes[1].signrawtransactionwithkey(atxtosend, [addr0_prvkey], [
-            {'txid': txtospendhash, 'vout': vouttospend, 'scriptPubKey': txtospend['vout'][vouttospend]['scriptPubKey']['hex'], 'redeemScript': alert_addr1['redeemScript']},
+            {'txid': txtospendhash, 'vout': vouttospend, 'scriptPubKey': txtospend['vout'][vouttospend]['scriptPubKey']['hex'], 'redeemScript': alert_addr1['redeemScript'], 'amount': 175},
         ])
 
         error = ''
@@ -1498,7 +1505,7 @@ class AlertsInstantTest(BitcoinTestFramework):
         txtospend = self.nodes[1].getrawtransaction(txtospendhash, True)
         vouttospend = self.find_vout_n(txtospend, 175)
         tx_alert1 = self.nodes[1].createrawtransaction([{'txid': txtospendhash, 'vout': vouttospend}], {addr0: 174.99})
-        tx_alert1 = self.nodes[1].signalerttransaction(tx_alert1, [{'txid': txtospendhash, 'vout': vouttospend, 'scriptPubKey': txtospend['vout'][vouttospend]['scriptPubKey']['hex'], 'redeemScript': instant_addr1['redeemScript']}])
+        tx_alert1 = self.nodes[1].signalerttransaction(tx_alert1, [{'txid': txtospendhash, 'vout': vouttospend, 'scriptPubKey': txtospend['vout'][vouttospend]['scriptPubKey']['hex'], 'redeemScript': instant_addr1['redeemScript'], 'amount': 175}])
         self.nodes[1].sendrawtransaction(tx_alert1['hex'])
         self.nodes[1].generatetoaddress(1, instant_addr1['address'])
 
@@ -1508,7 +1515,7 @@ class AlertsInstantTest(BitcoinTestFramework):
         txtospend2 = self.nodes[1].getrawtransaction(txtospendhash2, True)
         vouttospend2 = self.find_vout_n(txtospend2, 175)
         tx_alert2 = self.nodes[1].createrawtransaction([{'txid': txtospendhash2, 'vout': vouttospend2}], {addr0: 174.99})
-        tx_alert2 = self.nodes[1].signalerttransaction(tx_alert2, [{'txid': txtospendhash2, 'vout': vouttospend2, 'scriptPubKey': txtospend2['vout'][vouttospend2]['scriptPubKey']['hex'], 'redeemScript': instant_addr1['redeemScript']}])
+        tx_alert2 = self.nodes[1].signalerttransaction(tx_alert2, [{'txid': txtospendhash2, 'vout': vouttospend2, 'scriptPubKey': txtospend2['vout'][vouttospend2]['scriptPubKey']['hex'], 'redeemScript': instant_addr1['redeemScript'], 'amount': 175}])
         self.nodes[1].sendrawtransaction(tx_alert2['hex'])
         self.nodes[1].generatetoaddress(10, instant_addr1['address'])
         self.sync_all()
