@@ -918,15 +918,6 @@ UniValue SignTransaction(interfaces::Chain& chain, CMutableTransaction& mtx, con
 
         UpdateInput(txin, sigdata);
 
-        // Check for requested transaction type
-        if (txType != TX_INVALID) {  // TX_INVALID means unset
-            auto actualTxType = GetVaultTxType(mtx);
-            if (actualTxType != txType) {
-                std::string txTypeStr = GetTxnOutputType(actualTxType);
-                throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, _("Produced ") + txTypeStr + _(" transaction type, possibly missing keys"));
-            }
-        }
-
         // amount must be specified for valid segwit signature
         if (amount == MAX_MONEY && !txin.scriptWitness.IsNull()) {
             throw JSONRPCError(RPC_TYPE_ERROR, strprintf("Missing amount for %s", coin.out.ToString()));
@@ -942,6 +933,16 @@ UniValue SignTransaction(interfaces::Chain& chain, CMutableTransaction& mtx, con
             }
         }
     }
+
+    // Check for requested transaction type
+    if (txType != TX_INVALID) {  // TX_INVALID means unset
+        auto actualTxType = GetVaultTxType(mtx);
+        if (actualTxType != txType) {
+            std::string txTypeStr = GetTxnOutputType(actualTxType);
+            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, _("Produced ") + txTypeStr + _(" transaction type, possibly missing keys"));
+        }
+    }
+
     bool fComplete = vErrors.empty();
 
     UniValue result(UniValue::VOBJ);
