@@ -4917,17 +4917,19 @@ static UniValue signrecoverytransaction(const JSONRPCRequest& request)
             throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "TX decode failed");
         }
         const CScript& scriptPubKey = ptx.vout[vin.prevout.n].scriptPubKey;
+        const CAmount amount = wtx.tx->GetValueOut();
 
         prevTx.pushKV("txid", vin.prevout.hash.GetHex());
         prevTx.pushKV("vout", uint64_t(vin.prevout.n));
         prevTx.pushKV("scriptPubKey", HexStr(scriptPubKey.begin(), scriptPubKey.end()));
         prevTx.pushKV("redeemScript", request.params[2]);
         prevTx.pushKV("witnessScript", request.params[3]);
+        prevTx.pushKV("amount", ValueFromAmount(amount).getValStr());
 
         recovery_data.push_back(prevTx);
     }
 
-    return SignTransaction(pwallet->chain(), mtx, recovery_data, &keystore, true, request.params[4], /*expectSpent = */true, TX_RECOVERY);
+    return SignTransaction(pwallet->chain(), mtx, recovery_data, &keystore, false, request.params[4], /*expectSpent = */true, TX_RECOVERY);
 }
 
 static UniValue signinstanttransaction(const JSONRPCRequest& request)
@@ -5084,7 +5086,7 @@ static UniValue signalerttransaction(const JSONRPCRequest& request)
     auto locked_chain = pwallet->chain().lock();
     LOCK(pwallet->cs_wallet);
     EnsureWalletIsUnlocked(pwallet);
-    return SignTransaction(pwallet->chain(), mtx, request.params[1], pwallet, true, request.params[2], false, TX_ALERT);
+    return SignTransaction(pwallet->chain(), mtx, request.params[1], pwallet, false, request.params[2], false, TX_ALERT);
 }
 
 UniValue abortrescan(const JSONRPCRequest& request); // in rpcdump.cpp
