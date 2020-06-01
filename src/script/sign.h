@@ -233,10 +233,7 @@ void SerializeHDKeypaths(Stream& s, const std::map<CPubKey, KeyOriginInfo>& hd_k
 }
 
 /** Produce a script signature using a generic signature creator. */
-bool ProduceSignature(const CBasicKeyStore& provider, const BaseSignatureCreator& creator, const CScript& fromPubKey, SignatureData& sigdata, vaulttxntype txType = TX_INVALID);
-bool ProduceSignature(const SigningProvider& provider, const BaseSignatureCreator& creator, const CScript& fromPubKey, SignatureData& sigdata);
-bool ProduceSignatureImpl(const SigningProvider& provider, const BaseSignatureCreator& creator, const CScript& fromPubKey, SignatureData& sigdata);
-bool ProduceExactlyNSignatures(const CBasicKeyStore& okeystore, const BaseSignatureCreator& creator, const CScript& fromPubKey, SignatureData& sigdata, unsigned int n);
+bool ProduceSignature(const SigningProvider& provider, const BaseSignatureCreator& creator, const CScript& fromPubKey, SignatureData& sigdata, vaulttxntype txType = TX_INVALID);
 
 /** Produce a script signature for a transaction. */
 bool SignSignature(const SigningProvider &provider, const CScript& fromPubKey, CMutableTransaction& txTo, unsigned int nIn, const CAmount& amount, int nHashType);

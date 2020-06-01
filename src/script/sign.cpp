@@ -96,7 +96,8 @@ static bool CreateSig(const BaseSignatureCreator& creator, SignatureData& sigdat
  * Returns false if scriptPubKey could not be completely satisfied.
  */
 static bool SignStep(const SigningProvider& provider, const BaseSignatureCreator& creator, const CScript& scriptPubKey,
-                     std::vector<valtype>& ret, txnouttype& whichTypeRet, SigVersion sigversion, SignatureData& sigdata)
+                     std::vector<valtype>& ret, txnouttype& whichTypeRet, SigVersion sigversion, SignatureData& sigdata,
+                     vaulttxntype txType = TX_INVALID)
 {
     CScript scriptRet;
     uint160 h160;
@@ -140,45 +141,49 @@ static bool SignStep(const SigningProvider& provider, const BaseSignatureCreator
         return false;
 
     case TX_VAULT_ALERTADDRESS: {
-        size_t maxSigCount = 2;
+        size_t required = txType == TX_ALERT ? 1 : 2;
         ret.push_back(valtype()); // workaround CHECKMULTISIG bug
         for (size_t i = 0; i < vSolutions.size(); i++) {
             CPubKey pubkey = CPubKey(vSolutions[i]);
-            if (ret.size() - 1 < maxSigCount && CreateSig(creator, sigdata, provider, sig, pubkey, scriptPubKey, sigversion)) {
+            if (ret.size() < required + 1 && CreateSig(creator, sigdata, provider, sig, pubkey, scriptPubKey, sigversion)) {
                 ret.push_back(std::move(sig));
             }
         }
-        if (ret.size() == 1) return false;
-        if (ret.size() - 1 == 1) { // one signature -> alert
+        bool ok = ret.size() == required + 1;
+        for (size_t i = 0; i + ret.size() < required + 1; i++) {
+            ret.push_back(valtype());
+        }
+        if (txType == TX_ALERT) {
             ret.push_back({static_cast<unsigned char>(0x01)}); // TRUE
-        } else { // two signatures -> recovery
+        } else { // recovery
             ret.push_back(valtype()); // FALSE
         }
-
-        return true;
+        return ok;
     }
 
     case TX_VAULT_INSTANTADDRESS: {
-        size_t maxSigCount = 3;
+        size_t required = txType == TX_ALERT ? 1 : txType == TX_INSTANT ? 2 : 3;
         ret.push_back(valtype()); // workaround CHECKMULTISIG bug
         for (size_t i = 0; i < vSolutions.size(); i++) {
             CPubKey pubkey = CPubKey(vSolutions[i]);
-            if (ret.size() - 1 < maxSigCount && CreateSig(creator, sigdata, provider, sig, pubkey, scriptPubKey, sigversion)) {
+            if (ret.size() < required + 1 && CreateSig(creator, sigdata, provider, sig, pubkey, scriptPubKey, sigversion)) {
                 ret.push_back(std::move(sig));
             }
         }
-        if (ret.size() == 1) return false;
-        if (ret.size() - 1 == 1) { // one signature -> alert
+        bool ok = ret.size() == required + 1;
+        for (size_t i = 0; i + ret.size() < required + 1; i++) {
+            ret.push_back(valtype());
+        }
+        if (txType == TX_ALERT) {
             ret.push_back({static_cast<unsigned char>(0x01)}); // TRUE
-        } else if (ret.size() - 1 == 2) { // two signatures -> instant
+        } else if (txType == TX_INSTANT) {
             ret.push_back({static_cast<unsigned char>(0x01)}); // TRUE
             ret.push_back(valtype()); // FALSE
-        } else { // three signatures -> recovery
+        } else { // recovery
             ret.push_back(valtype()); // FALSE
             ret.push_back(valtype()); // FALSE
         }
-
-        return true;
+        return ok;
     }
 
     case TX_MULTISIG: {
@@ -230,13 +235,13 @@ static CScript PushAll(const std::vector<valtype>& values)
     return result;
 }
 
-bool ProduceSignatureImpl(const SigningProvider& provider, const BaseSignatureCreator& creator, const CScript& fromPubKey, SignatureData& sigdata)
+bool ProduceSignature(const SigningProvider& provider, const BaseSignatureCreator& creator, const CScript& fromPubKey, SignatureData& sigdata, vaulttxntype txType)
 {
     if (sigdata.complete) return true;
 
     std::vector<valtype> result;
     txnouttype whichType;
-    bool solved = SignStep(provider, creator, fromPubKey, result, whichType, SigVersion::BASE, sigdata);
+    bool solved = SignStep(provider, creator, fromPubKey, result, whichType, SigVersion::BASE, sigdata, txType);
     bool P2SH = false;
     CScript subscript;
     sigdata.scriptWitness.stack.clear();
@@ -248,7 +253,7 @@ bool ProduceSignatureImpl(const SigningProvider& provider, const BaseSignatureCr
         // and then the serialized subscript:
         subscript = CScript(result[0].begin(), result[0].end());
         sigdata.redeem_script = subscript;
-        solved = solved && SignStep(provider, creator, subscript, result, whichType, SigVersion::BASE, sigdata) && whichType != TX_SCRIPTHASH;
+        solved = solved && SignStep(provider, creator, subscript, result, whichType, SigVersion::BASE, sigdata, txType) && whichType != TX_SCRIPTHASH;
         P2SH = true;
     }
 
@@ -257,7 +262,7 @@ bool ProduceSignatureImpl(const SigningProvider& provider, const BaseSignatureCr
         CScript witnessscript;
         witnessscript << OP_DUP << OP_HASH160 << ToByteVector(result[0]) << OP_EQUALVERIFY << OP_CHECKSIG;
         txnouttype subType;
-        solved = solved && SignStep(provider, creator, witnessscript, result, subType, SigVersion::WITNESS_V0, sigdata);
+        solved = solved && SignStep(provider, creator, witnessscript, result, subType, SigVersion::WITNESS_V0, sigdata, txType);
         sigdata.scriptWitness.stack = result;
         sigdata.witness = true;
         result.clear();
@@ -267,7 +272,7 @@ bool ProduceSignatureImpl(const SigningProvider& provider, const BaseSignatureCr
         CScript witnessscript(result[0].begin(), result[0].end());
         sigdata.witness_script = witnessscript;
         txnouttype subType;
-        solved = solved && SignStep(provider, creator, witnessscript, result, subType, SigVersion::WITNESS_V0, sigdata) && subType != TX_SCRIPTHASH && subType != TX_WITNESS_V0_SCRIPTHASH && subType != TX_WITNESS_V0_KEYHASH;
+        solved = solved && SignStep(provider, creator, witnessscript, result, subType, SigVersion::WITNESS_V0, sigdata, txType) && subType != TX_SCRIPTHASH && subType != TX_WITNESS_V0_SCRIPTHASH && subType != TX_WITNESS_V0_KEYHASH;
         result.push_back(std::vector<unsigned char>(witnessscript.begin(), witnessscript.end()));
         sigdata.scriptWitness.stack = result;
         sigdata.witness = true;
@@ -284,72 +289,6 @@ bool ProduceSignatureImpl(const SigningProvider& provider, const BaseSignatureCr
     // Test solution
     sigdata.complete = solved && VerifyScript(sigdata.scriptSig, fromPubKey, &sigdata.scriptWitness, STANDARD_SCRIPT_VERIFY_FLAGS, creator.Checker());
     return sigdata.complete;
-}
-
-bool ProduceSignature(const CBasicKeyStore& provider, const BaseSignatureCreator& creator, const CScript& fromPubKey, SignatureData& sigdata, vaulttxntype txType) {
-    if (txType == TX_NONVAULT || txType == TX_INVALID) {
-        return ProduceSignatureImpl(provider, creator, fromPubKey, sigdata);
-    } if (txType == TX_ALERT) {
-        return ProduceExactlyNSignatures(provider, creator, fromPubKey, sigdata, 1);
-    } if (txType == TX_INSTANT) {
-        return ProduceExactlyNSignatures(provider, creator, fromPubKey, sigdata, 2);
-    } if (txType == TX_RECOVERY) {
-        // produce (2 of 2) or (3 or 3), so always use as many signatures as possible
-        return ProduceSignatureImpl(provider, creator, fromPubKey, sigdata);
-    }
-
-    assert(false);
-}
-
-bool ProduceSignature(const SigningProvider& provider, const BaseSignatureCreator& creator, const CScript& fromPubKey, SignatureData& sigdata) {
-    return ProduceSignatureImpl(provider, creator, fromPubKey, sigdata);
-}
-
-bool ProduceExactlyNSignatures(const CBasicKeyStore& okeystore, const BaseSignatureCreator& creator, const CScript& fromPubKey, SignatureData& osigdata, unsigned int n) {
-    auto keys = okeystore.GetKeys();
-    auto cscripts = okeystore.GetCScripts();
-
-    do {
-        CBasicKeyStore keystore;
-        SignatureData sigdata(osigdata);
-        for (const auto &pkey : keys) {
-            CKey key;
-            okeystore.GetKey(pkey, key);
-            keystore.AddKey(key);
-        }
-        for (const auto& cscriptId : cscripts) {
-            CScript cscript;
-            okeystore.GetCScript(cscriptId, cscript);
-            keystore.AddCScript(cscript);
-        }
-
-        bool complete = ProduceSignatureImpl(keystore, creator, fromPubKey, sigdata);
-        if (complete) {
-            if (sigdata.signatures.size() == n) {
-                osigdata = sigdata;
-                return complete;
-            }
-
-            if (sigdata.signatures.size() > n) {
-                // too much privkeys used, try to remove last one and sign again
-                keys.erase(keys.rend().base());
-            }
-
-            else {
-                // privkeys missing
-                osigdata = sigdata;
-                return complete;
-            }
-        } else {
-            // error signing tx
-            osigdata = sigdata;
-            return complete;
-        }
-
-    } while (keys.size() >= n);
-
-    // unable to sign
-    return false;
 }
 
 class SignatureExtractorChecker final : public BaseSignatureChecker

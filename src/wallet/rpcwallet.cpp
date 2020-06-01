@@ -306,7 +306,7 @@ static UniValue getnewvaultalertaddress(const JSONRPCRequest& request)
 
     CPubKey recoveryKey = HexToPubKey(request.params[0].get_str());
 
-    OutputType output_type = OutputType::LEGACY; // TODO-fork: get back to pwallet->m_default_address_type;
+    OutputType output_type = pwallet->m_default_address_type;
     if (!request.params[2].isNull()) {
         if (!ParseOutputType(request.params[2].get_str(), output_type)) {
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, strprintf("Unknown address type '%s'", request.params[2].get_str()));
@@ -403,7 +403,7 @@ static UniValue getnewvaultinstantaddress(const JSONRPCRequest& request)
     CPubKey instantKey = HexToPubKey(request.params[0].get_str());
     CPubKey recoveryKey = HexToPubKey(request.params[1].get_str());
 
-    OutputType output_type = OutputType::LEGACY; // TODO-fork: get back to pwallet->m_default_address_type;
+    OutputType output_type = pwallet->m_default_address_type;
     if (!request.params[3].isNull()) {
         if (!ParseOutputType(request.params[3].get_str(), output_type)) {
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, strprintf("Unknown address type '%s'", request.params[3].get_str()));
