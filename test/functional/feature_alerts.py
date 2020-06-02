@@ -351,7 +351,7 @@ class AlertsTest(BitcoinTestFramework):
         # assert
         self.sync_all()
         assert error['code'] == -5
-        assert 'Produced vaultalert transaction type, possibly missing keys' in error['message']
+        assert 'Produced nonvault transaction type, possibly missing keys' in error['message']
 
     def test_recovery_tx_when_all_keys_imported(self):
         alert_addr0 = self.nodes[0].getnewvaultalertaddress(self.alert_recovery_pubkey)
@@ -1053,13 +1053,13 @@ class AlertsTest(BitcoinTestFramework):
         self.sync_all()
         assert self.nodes[0].getalertbalance() + 10 < (201 - self.COINBASE_MATURITY) * self.COINBASE_AMOUNT
         assert self.nodes[1].getbalance() == 0
-        assert atx_to_recover['hash'] in self.nodes[0].getbestblock()['atx']
+        assert atx_to_recover['txid'] in self.nodes[0].getbestblock()['atx']
 
         # recover atx
         amount_to_recover = sum([vout['value'] for vout in atx_to_recover['vout']])
         assert atx_fee == self.COINBASE_AMOUNT - amount_to_recover
 
-        recovery_tx = self.nodes[0].createrecoverytransaction(atx_to_recover['hash'], {other_addr0: amount_to_recover})
+        recovery_tx = self.nodes[0].createrecoverytransaction(atx_to_recover['txid'], {other_addr0: amount_to_recover})
         recovery_tx = self.nodes[0].signrecoverytransaction(recovery_tx, [self.alert_recovery_privkey], alert_addr0['redeemScript'])
         recovery_txid = self.nodes[0].sendrawtransaction(recovery_tx['hex'])
         self.nodes[0].generatetoaddress(1, alert_addr0['address'])  # 202
@@ -1076,7 +1076,7 @@ class AlertsTest(BitcoinTestFramework):
         # assert
         self.sync_all()
         assert self.nodes[0].getalertbalance() + self.nodes[0].getbalance() == (345 - self.COINBASE_MATURITY) * self.COINBASE_AMOUNT  # dont subtract atx_fee because node0 takes it as a block miner
-        assert atx_to_recover['hash'] not in self.nodes[0].getbestblock()['tx']
+        assert atx_to_recover['txid'] not in self.nodes[0].getbestblock()['tx']
         assert self.find_address(self.nodes[1].listreceivedbyaddress(), attacker_addr1)['amount'] == 0
         assert self.find_address(self.nodes[1].listreceivedbyaddress(), attacker_addr1)['txids'] == []
         assert self.find_address(self.nodes[0].listreceivedbyaddress(), other_addr0)['amount'] == self.COINBASE_AMOUNT - atx_fee
@@ -1104,7 +1104,7 @@ class AlertsTest(BitcoinTestFramework):
         txtospend2 = self.nodes[1].getrawtransaction(txtospendhash2, True)
         vouttospend2 = self.find_vout_n(txtospend2, 175)
         tx_alert2 = self.nodes[1].createrawtransaction([{'txid': txtospendhash2, 'vout': vouttospend2}], {addr0: 174.99})
-        tx_alert2 = self.nodes[1].signalerttransaction(tx_alert2, [{'txid': txtospendhash2, 'vout': vouttospend2, 'scriptPubKey': txtospend2['vout'][vouttospend2]['scriptPubKey']['hex'], 'redeemScript': alert_addr1['redeemScript']}])
+        tx_alert2 = self.nodes[1].signalerttransaction(tx_alert2, [{'txid': txtospendhash2, 'vout': vouttospend2, 'scriptPubKey': txtospend2['vout'][vouttospend2]['scriptPubKey']['hex'], 'redeemScript': alert_addr1['redeemScript'], 'amount': 175}])
         self.nodes[1].sendrawtransaction(tx_alert2['hex'])
         self.nodes[1].generatetoaddress(10, alert_addr1['address'])
         self.sync_all()
