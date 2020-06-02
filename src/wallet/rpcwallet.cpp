@@ -85,19 +85,21 @@ vaulttxntype GetVaultTxType(const std::string& txHex) {
 }
 
 void CreateTempKeystoreFrom(CWallet* pwallet, const UniValue& privkeys, CBasicKeyStore& result) {
-    // Get the keys from wallet
-    auto locked_chain = pwallet->chain().lock();
-    LOCK(pwallet->cs_wallet);
-    EnsureWalletIsUnlocked(pwallet);
-    for (const auto &pkey : pwallet->GetKeys()) {
-        CKey key;
-        pwallet->GetKey(pkey, key);
-        result.AddKey(key);
-    }
-    for (const auto& cscriptId : pwallet->GetCScripts()) {
-        CScript cscript;
-        pwallet->GetCScript(cscriptId, cscript);
-        result.AddCScript(cscript);
+    {
+        // Get the keys from wallet
+        auto locked_chain = pwallet->chain().lock();
+        LOCK(pwallet->cs_wallet);
+        EnsureWalletIsUnlocked(pwallet);
+        for (const auto &pkey : pwallet->GetKeys()) {
+            CKey key;
+            pwallet->GetKey(pkey, key);
+            result.AddKey(key);
+        }
+        for (const auto &cscriptId : pwallet->GetCScripts()) {
+            CScript cscript;
+            pwallet->GetCScript(cscriptId, cscript);
+            result.AddCScript(cscript);
+        }
     }
 
     if (!privkeys.isNull()) {
@@ -4929,7 +4931,7 @@ static UniValue signrecoverytransaction(const JSONRPCRequest& request)
         recovery_data.push_back(prevTx);
     }
 
-    return SignTransaction(pwallet->chain(), mtx, recovery_data, &keystore, false, request.params[4], /*expectSpent = */true, TX_RECOVERY);
+    return SignTransaction(pwallet->chain(), mtx, recovery_data, &keystore, true, request.params[4], /*expectSpent = */true, TX_RECOVERY);
 }
 
 static UniValue signinstanttransaction(const JSONRPCRequest& request)
