@@ -901,10 +901,9 @@ UniValue SignTransaction(interfaces::Chain& chain, CMutableTransaction& mtx, con
         if (!expectSpent && coin.IsSpent()) {
             TxInErrorToJSON(txin, vErrors, "Input not found or already spent");
             continue;
-        } else if (expectSpent && !coin.IsSpent()) {
-            TxInErrorToJSON(txin, vErrors, "Input not spent as expected");
-            continue;
         }
+        // TODO-form: check if coin isSpent when expected
+        // information about spentHeight are missing right now
         if (coin.IsConfirmed()) {
             TxInErrorToJSON(txin, vErrors, "Input not found or already spent and confirmed");
             continue;
