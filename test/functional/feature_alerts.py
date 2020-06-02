@@ -351,10 +351,11 @@ class AlertsTest(BitcoinTestFramework):
         # assert
         self.sync_all()
         assert error['code'] == -5
-        assert 'Produced nonvault transaction type, possibly missing keys' in error['message']
+        assert 'Produced vaultalert transaction type, possibly missing keys' in error['message']
 
     def test_recovery_tx_when_all_keys_imported(self):
         alert_addr0 = self.nodes[0].getnewvaultalertaddress(self.alert_recovery_pubkey)
+        info = self.nodes[0].getaddressinfo(alert_addr0['address'])
         addr0 = self.nodes[0].getnewaddress()
         addr1 = self.nodes[1].getnewaddress()
 
@@ -369,7 +370,7 @@ class AlertsTest(BitcoinTestFramework):
 
         # recover atx
         recoverytx = self.nodes[0].createrecoverytransaction(atxid, [{addr0: 174.99}])
-        recoverytx = self.nodes[0].signrecoverytransaction(recoverytx, [], alert_addr0['redeemScript'])
+        recoverytx = self.nodes[0].signrecoverytransaction(recoverytx, [], info['hex'], alert_addr0['redeemScript'])
 
         # assert
         self.sync_all()
@@ -403,9 +404,11 @@ class AlertsTest(BitcoinTestFramework):
 
     def test_add_watchonly_alert_address(self):
         alert_addr1 = self.nodes[1].getnewvaultalertaddress(self.alert_recovery_pubkey)
+        info = self.nodes[1].getaddressinfo(alert_addr1['address'])
 
         # import alert_addr1 to node0 as watch-only
         self.nodes[0].importaddress(alert_addr1['redeemScript'], '', True, True)
+        self.nodes[0].importaddress(info['hex'], '', True, True)
 
         # mine some coins to node2 and send tx to alert_address1
         self.nodes[2].generate(200)
@@ -439,9 +442,11 @@ class AlertsTest(BitcoinTestFramework):
 
     def test_getaddressinfo_on_imported_alert_address(self):
         alert_addr0 = self.nodes[0].getnewvaultalertaddress(self.alert_recovery_pubkey)
+        info = self.nodes[0].getaddressinfo(alert_addr0['address'])
 
         # import alert_addr0 to node0 as watch-only
         self.nodes[1].importaddress(alert_addr0['redeemScript'], '', True, True)
+        self.nodes[1].importaddress(info['hex'], '', True, True)
 
         info = self.nodes[1].getaddressinfo(alert_addr0['address'])
 
@@ -472,6 +477,7 @@ class AlertsTest(BitcoinTestFramework):
 
         # import address and privkey on node1
         self.nodes[1].importaddress(alert_addr0['redeemScript'], '', True, True)
+        self.nodes[1].importaddress(info['hex'], '', True, True)
         self.nodes[1].importprivkey(privkey)
 
         info = self.nodes[1].getaddressinfo(alert_addr0['address'])
@@ -503,6 +509,7 @@ class AlertsTest(BitcoinTestFramework):
 
         # import address and privkey on node1
         self.nodes[1].importaddress(alert_addr0['redeemScript'], '', True, True)
+        self.nodes[1].importaddress(info['hex'], '', True, True)
         self.nodes[1].importprivkey(privkey)
 
         # send atx from node1 and mine block with this atx
@@ -633,6 +640,7 @@ class AlertsTest(BitcoinTestFramework):
     def test_signalerttransaction_when_no_key(self):
         addr0 = self.nodes[0].getnewaddress()
         alert_addr1 = self.nodes[1].getnewvaultalertaddress(self.alert_recovery_pubkey)
+        info = self.nodes[1].getaddressinfo(alert_addr1['address'])
 
         # mine some coins to alert_addr1
         self.nodes[1].generatetoaddress(200, alert_addr1['address'])
@@ -646,7 +654,7 @@ class AlertsTest(BitcoinTestFramework):
         atxtosend = self.nodes[0].createrawtransaction([{'txid': txtospendhash, 'vout': vouttospend}], {addr0: 174.99})
         error = None
         try:
-            self.nodes[0].signalerttransaction(atxtosend, [{'txid': txtospendhash, 'vout': vouttospend, 'scriptPubKey': txtospend['vout'][vouttospend]['scriptPubKey']['hex'], 'redeemScript': alert_addr1['redeemScript'], 'amount': 175}])
+            self.nodes[0].signalerttransaction(atxtosend, [{'txid': txtospendhash, 'vout': vouttospend, 'scriptPubKey': txtospend['vout'][vouttospend]['scriptPubKey']['hex'], 'witnessScript': alert_addr1['redeemScript'], 'redeemScript': info['hex'], 'amount': 175}])
         except Exception as e:
             error = e.error
 
@@ -732,6 +740,7 @@ class AlertsTest(BitcoinTestFramework):
     def test_signrawtransactionwithwallet_should_reject_alert_transaction(self):
         addr0 = self.nodes[0].getnewaddress()
         alert_addr1 = self.nodes[1].getnewvaultalertaddress(self.alert_recovery_pubkey)
+        info = self.nodes[1].getaddressinfo(alert_addr1['address'])
 
         # mine some coins to alert_addr1
         self.nodes[1].generatetoaddress(200, alert_addr1['address'])
@@ -745,7 +754,9 @@ class AlertsTest(BitcoinTestFramework):
         atxtosend = self.nodes[1].createrawtransaction([{'txid': txtospendhash, 'vout': vouttospend}], {addr0: 174.99})
         error = None
         try:
-            self.nodes[1].signrawtransactionwithwallet(atxtosend, [{'txid': txtospendhash, 'vout': vouttospend, 'scriptPubKey': txtospend['vout'][vouttospend]['scriptPubKey']['hex'], 'redeemScript': alert_addr1['redeemScript'], 'amount': 175}])
+            self.nodes[1].signrawtransactionwithwallet(atxtosend, [
+                {'txid': txtospendhash, 'vout': vouttospend, 'scriptPubKey': txtospend['vout'][vouttospend]['scriptPubKey']['hex'], 'witnessScript': alert_addr1['redeemScript'], 'redeemScript': info['hex'], 'amount': 175}
+            ])
         except Exception as e:
             error = e.error
 
@@ -759,6 +770,7 @@ class AlertsTest(BitcoinTestFramework):
 
         # mine some coins to alert_addr1
         alert_addr1 = self.nodes[1].getnewvaultalertaddress(self.alert_recovery_pubkey)
+        info = self.nodes[1].getaddressinfo(alert_addr1['address'])
         self.nodes[1].generatetoaddress(200, alert_addr1['address'])
 
         # find vout to spend
@@ -768,7 +780,7 @@ class AlertsTest(BitcoinTestFramework):
 
         # create and sign atx from alert_addr1 to addr0
         atxtosend = self.nodes[1].createrawtransaction([{'txid': txtospendhash, 'vout': vouttospend}], {addr0: 174.99})
-        atxtosend = self.nodes[1].signrawtransactionwithkey(atxtosend, [self.alert_recovery_privkey], [{'txid': txtospendhash, 'vout': vouttospend, 'scriptPubKey': txtospend['vout'][vouttospend]['scriptPubKey']['hex'], 'redeemScript': alert_addr1['redeemScript'], 'amount': 175}])
+        atxtosend = self.nodes[1].signrawtransactionwithkey(atxtosend, [self.alert_recovery_privkey], [{'txid': txtospendhash, 'vout': vouttospend, 'scriptPubKey': txtospend['vout'][vouttospend]['scriptPubKey']['hex'], 'witnessScript': alert_addr1['redeemScript'], 'redeemScript': info['hex'], 'amount': 175}])
         atxsent = self.nodes[1].decoderawtransaction(atxtosend['hex'])
 
         # broadcast atx and mine block with this atx
