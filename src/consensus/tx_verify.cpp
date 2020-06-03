@@ -29,30 +29,30 @@ bool IsFinalTx(const CBaseTransaction &tx, int nBlockHeight, int64_t nBlockTime)
     return true;
 }
 
+bool IsLicenseTxHeader(const CScript& scriptPubKey) {
+	return scriptPubKey[0] == OP_RETURN && scriptPubKey[2] == 0x03
+			&& scriptPubKey[3] == 0x4C /*L*/ && scriptPubKey[4] == 0x54 /*T*/ && scriptPubKey[5] == 0x78 /*x*/;
+}
+
 bool IsLicenseTx(const CBaseTransaction& tx) {
 	if (tx.IsNull() || tx.IsCoinBase())
 		return false;
 
-	auto ComesFromWDMO = [&](CTxIn vin, CScript wdmoScript) {
+	auto ComesFromWDMO = [&](CTxIn vin) {
 		COutPoint prevout = vin.prevout;
 		CBaseTransactionRef txOut;
 		uint256 hashBlock;
 
 		if (GetTransaction(prevout.hash, txOut, Params().GetConsensus(), hashBlock))
-			return txOut.get()->vout[prevout.n].scriptPubKey == wdmoScript;
+			return txOut.get()->vout[prevout.n].scriptPubKey == WDMO_SCRIPT;
 
-		return false;
+	    const Coin& coin =  pcoinsTip->AccessCoin(prevout);
+		return coin.out.scriptPubKey == WDMO_SCRIPT;
 	};
 
-	CScript wdmoScript; // TODO hardcode script
 	for (const auto& vin : tx.vin)
-		if (!ComesFromWDMO(vin, wdmoScript))
+		if (!ComesFromWDMO(vin))
 			return false;
-
-	auto IsLicenseTxHeader = [&](CScript scriptPubKey) {
-		return scriptPubKey[0] == OP_RETURN && scriptPubKey[2] == 0x4C /*L*/
-				&& scriptPubKey[3] == 0x54 /*T*/ && scriptPubKey[4] == 0x78 /*x*/;
-	};
 
 	for (const auto& vout : tx.vout)
 		if (IsLicenseTxHeader(vout.scriptPubKey))

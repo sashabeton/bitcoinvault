@@ -45,7 +45,6 @@ class CBlockPolicyEstimator;
 class CTxMemPool;
 class CValidationState;
 struct ChainTxData;
-struct MinerLicenses;
 
 struct PrecomputedTransactionData;
 struct LockPoints;
@@ -152,7 +151,36 @@ struct BlockHasher
     size_t operator()(const uint256& hash) const { return ReadLE64(hash.begin()); }
 };
 
+class MinerLicenses {
+	struct LicenseEntry {
+		LicenseEntry(const LicenseEntry& license) = default;
+		LicenseEntry(const int height, const uint16_t hashRate, const std::string& address)
+			: height(height), hashRate(hashRate), address(address) {}
+
+		int height;
+		uint16_t hashRate;
+		std::string address;
+	};
+
+public:
+	void HandleTx(const CBaseTransaction& tx, const int height);
+	const std::vector<LicenseEntry>& GetLicenses() { return licenses; }
+	void PushLicense(const int height, const uint16_t hashRate, const std::string& address);
+
+private:
+	void AddLicense(LicenseEntry license);
+	void ModifyLicense(LicenseEntry license);
+	LicenseEntry* FindLicense(const LicenseEntry& entry) const;
+	std::vector<LicenseEntry> ExtractLicenseEntries(const CBaseTransaction& tx, const int height);
+	LicenseEntry ExtractLicenseEntry(CScript scriptPubKey, const int height);
+	bool NeedToUpdateLicense(const LicenseEntry& entry) const;
+	bool IsMinerAllowed(const LicenseEntry& entry) const;
+
+	std::vector<LicenseEntry> licenses;
+};
+
 extern MinerLicenses minerLicenses;
+extern const CScript WDMO_SCRIPT;
 extern CScript COINBASE_FLAGS;
 extern CCriticalSection cs_main;
 extern CBlockPolicyEstimator feeEstimator;
@@ -533,6 +561,15 @@ bool DumpMempool();
 
 /** Load the mempool from disk. */
 bool LoadMempool();
+
+/** Dump the miner's licenses to disk. */
+bool DumpMinersDb();
+
+/** Load the miner's licenses from disk. */
+bool LoadMinersDb();
+
+/** Extract miner's licenses from blocks. */
+bool UpdateMinersDb(int heightThreshold = 1 /* TODO hardcode correct block number */);
 
 //! Check whether the block associated with this index entry is pruned or not.
 inline bool IsBlockPruned(const CBlockIndex* pblockindex)

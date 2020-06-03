@@ -14,6 +14,7 @@ class CBlockIndex;
 class CCoinsViewCache;
 class CBaseTransaction;
 class CValidationState;
+class CScript;
 
 /** Transaction validation functions */
 
@@ -63,10 +64,13 @@ int64_t GetTransactionSigOpCost(const CBaseTransaction& tx, const CCoinsViewCach
  * Check if transaction is final and can be included in a block with the
  * specified height and time. Consensus critical.
  */
-bool IsFinalTx(const CBaseTransaction &tx, int nBlockHeight, int64_t nBlockTime);
+bool IsFinalTx(const CBaseTransaction& tx, int nBlockHeight, int64_t nBlockTime);
 
 /** Check if transaction is a license */
-bool IsLicenseTx(const CBaseTransaction &tx);
+bool IsLicenseTx(const CBaseTransaction& tx);
+
+/** Check if output regards a license */
+bool IsLicenseTxHeader(const CScript& scriptPubKey);
 
 /**
  * Calculates the block height and previous block's median time past at

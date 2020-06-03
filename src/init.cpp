@@ -241,7 +241,7 @@ void Shutdown(InitInterfaces& interfaces)
         DumpMempool();
     }
 
-    // TODO DumpMinersDb();
+    DumpMinersDb();
 
     if (fFeeEstimatesInitialized)
     {
@@ -733,9 +733,7 @@ static void ThreadImport(std::vector<fs::path> vImportFiles)
     }
     g_is_mempool_loaded = !ShutdownRequested();
 
-    /** TODO LoadMinersDB();
-     * g_is_miners_db_loaded = !ShutdownRequested();
-     */
+    LoadMinersDb();
 }
 
 /** Sanity checks
@@ -1560,17 +1558,6 @@ bool AppInitMain(InitInterfaces& interfaces)
                         break;
                     }
                     assert(chainActive.Tip() != nullptr);
-                }
-
-                // Prepare miners database
-                for (const auto& mapBlockIndexPair : mapBlockIndex) {
-                	auto blockIndex = mapBlockIndexPair.second;
-                	CBlock block;
-                	ReadBlockFromDisk(block, blockIndex, Params().GetConsensus());
-
-                	for (const auto& tx : block.vtx)
-                		if (IsLicenseTx(*tx))
-                			minerLicenses.HandleTx(*tx);
                 }
             } catch (const std::exception& e) {
                 LogPrintf("%s\n", e.what());

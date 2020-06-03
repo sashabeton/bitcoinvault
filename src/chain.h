@@ -516,49 +516,4 @@ public:
     CBlockIndex* FindEarliestAtLeast(int64_t nTime) const;
 };
 
-
-
-// TODO move to proper place
-struct MinerLicense {
-	enum class State {
-		ACTIVE, SUSPENDED
-	};
-
-	MinerLicense(const MinerLicense& license) = default;
-	MinerLicense(const State state, const uint16_t hashRate, const std::string& address)
-		: state(state), hashRate(hashRate), address(address) {}
-
-	State state{ State::ACTIVE };
-	uint16_t hashRate;
-	std::string address;
-};
-
-struct LicenseEntry {
-	enum class ActionType {
-		NEW, MODIFICATION, REVOCATION
-	};
-
-	ActionType type;
-	uint16_t assignedHashrate;
-	std::string address;
-};
-
-class MinerLicenses {
-public:
-	void HandleTx(const CBaseTransaction& tx);
-	bool IsMinerAllowed(const std::string& address) const;
-
-private:
-	void AddLicense(LicenseEntry license);
-	void SuspendLicense(LicenseEntry license);
-	void ActivateLicense(LicenseEntry license);
-	void ModifyLicense(LicenseEntry license);
-	bool Exists(const std::string& address) const;
-	MinerLicense* FindLicense(const std::string& address) const;
-	std::vector<LicenseEntry> ExtractLicenseEntries(const CBaseTransaction& tx);
-	LicenseEntry ExtractLicenseEntry(CScript scriptPubKey);
-
-	std::vector<MinerLicense> licenses;
-};
-
 #endif // BITCOIN_CHAIN_H
