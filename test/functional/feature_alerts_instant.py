@@ -247,12 +247,12 @@ class AlertsInstantTest(BitcoinTestFramework):
         self.test_atx_is_rejected_by_wallet_when_contains_non_alert_inputs()
 
         self.reset_blockchain()
-        self.log.info("Test atx is rejected by node when inputs have different source")
-        self.test_atx_is_rejected_by_node_when_inputs_have_different_source()
+        self.log.info("Test atx is rejected by signrawtransactionwithkey when inputs have different source")
+        self.test_atx_is_rejected_by_signrawtransactionwithkey_when_inputs_have_different_source()
 
         self.reset_blockchain()
-        self.log.info("Test atx is rejected by node when contains non-alert type inputs")
-        self.test_atx_is_rejected_by_node_when_contains_non_alert_inputs()
+        self.log.info("Test atx is rejected by signrawtransactionwithkey when contains non-alert type inputs")
+        self.test_atx_is_rejected_by_signrawtransactionwithkey_when_contains_non_alert_inputs()
 
         self.reset_blockchain()
         self.log.info("Test atx is rejected by node when inputs are spent")
@@ -828,6 +828,8 @@ class AlertsInstantTest(BitcoinTestFramework):
         self.sync_all()
         assert atxid is not None
         assert atxid != ''
+        
+        self.sync_all()
         assert atxid in self.nodes[1].getbestblock()['atx']
 
     def test_tx_from_normal_addr_to_instant_addr(self):
@@ -875,10 +877,15 @@ class AlertsInstantTest(BitcoinTestFramework):
     def test_atx_with_multiple_inputs_from_alert_addr_to_normal_addr(self):
         addr0 = self.nodes[0].getnewaddress()
         addr0_pubkey = self.nodes[0].getaddressinfo(addr0)['pubkey']
+        addr0_p2pkh = key_to_p2pkh(addr0_pubkey)
+        addr0_prvkey = self.nodes[0].dumpprivkey(addr0_p2pkh)
 
         # mine some coins to alert_addr1
         alert_addr1 = self.nodes[1].createvaultinstantaddress(addr0_pubkey, self.alert_instant_pubkey, self.alert_recovery_pubkey)
         self.nodes[1].generatetoaddress(300, alert_addr1['address'])
+
+        # import key
+        self.nodes[1].importprivkey(addr0_prvkey)
 
         # find vout to spend
         txtospendhash = self.nodes[1].getblockbyheight(10)['tx'][0]
@@ -890,7 +897,7 @@ class AlertsInstantTest(BitcoinTestFramework):
 
         # create atx
         atxtosend = self.nodes[1].createrawtransaction([{'txid': txtospendhash, 'vout': vouttospend}, {'txid': txtospendhash2, 'vout': vouttospend2}], {addr0: 349.99})
-        atxtosend = self.nodes[1].signrawtransactionwithkey(atxtosend, [self.alert_recovery_privkey], [
+        atxtosend = self.nodes[1].signrawtransactionwithkey(atxtosend, [addr0_prvkey], [
             {'txid': txtospendhash, 'vout': vouttospend, 'scriptPubKey': txtospend['vout'][vouttospend]['scriptPubKey']['hex'], 'redeemScript': alert_addr1['redeemScript'], 'amount': 175},
             {'txid': txtospendhash2, 'vout': vouttospend2, 'scriptPubKey': txtospend2['vout'][vouttospend2]['scriptPubKey']['hex'], 'redeemScript': alert_addr1['redeemScript'], 'amount': 175}
         ])
@@ -1157,7 +1164,7 @@ class AlertsInstantTest(BitcoinTestFramework):
         assert error['code'] == -5
         assert 'Produced invalid transaction type, possibly missing keys' in error['message']
 
-    def test_atx_is_rejected_by_node_when_inputs_have_different_source(self):
+    def test_atx_is_rejected_by_signrawtransactionwithkey_when_inputs_have_different_source(self):
         addr0 = self.nodes[0].getnewaddress()
         addr0_prvkey = self.nodes[0].dumpprivkey(addr0)
         addr0_pubkey = self.nodes[0].getaddressinfo(addr0)['pubkey']
@@ -1182,25 +1189,22 @@ class AlertsInstantTest(BitcoinTestFramework):
 
         # create atx
         atxtosend = self.nodes[1].createrawtransaction([{'txid': txtospendhash, 'vout': vouttospend}, {'txid': txtospendhash2, 'vout': vouttospend2}], {addr0: 349.99})
-        atxtosend = self.nodes[1].signrawtransactionwithkey(atxtosend, [addr0_prvkey, addr1_prvkey], [
-            {'txid': txtospendhash, 'vout': vouttospend, 'scriptPubKey': txtospend['vout'][vouttospend]['scriptPubKey']['hex'], 'redeemScript': alert_addr1['redeemScript'], 'amount': 175},
-            {'txid': txtospendhash2, 'vout': vouttospend2, 'scriptPubKey': txtospend2['vout'][vouttospend2]['scriptPubKey']['hex'], 'redeemScript': alert_addr2['redeemScript'], 'amount': 175}
-        ])
 
-        # send atx
-        self.nodes[1].sendrawtransaction(atxtosend['hex'])
         error = ''
         try:
-            self.nodes[1].generatetoaddress(1, alert_addr1['address'])
+            self.nodes[1].signrawtransactionwithkey(atxtosend, [addr0_prvkey, addr1_prvkey], [
+                {'txid': txtospendhash, 'vout': vouttospend, 'scriptPubKey': txtospend['vout'][vouttospend]['scriptPubKey']['hex'], 'redeemScript': alert_addr1['redeemScript'], 'amount': 175},
+                {'txid': txtospendhash2, 'vout': vouttospend2, 'scriptPubKey': txtospend2['vout'][vouttospend2]['scriptPubKey']['hex'], 'redeemScript': alert_addr2['redeemScript'], 'amount': 175}
+            ])
         except Exception as e:
             error = e.error
 
         # assert
         self.sync_all()
-        assert error['code'] == -1
-        assert 'bad-tx-alert-type' in error['message']
+        assert error['code'] == -5
+        assert 'Produced invalid transaction type, possibly missing keys' in error['message']
 
-    def test_atx_is_rejected_by_node_when_contains_non_alert_inputs(self):
+    def test_atx_is_rejected_by_signrawtransactionwithkey_when_contains_non_alert_inputs(self):
         addr0 = self.nodes[0].getnewaddress()
         addr0_prvkey = self.nodes[0].dumpprivkey(addr0)
         addr0_pubkey = self.nodes[0].getaddressinfo(addr0)['pubkey']
@@ -1223,20 +1227,21 @@ class AlertsInstantTest(BitcoinTestFramework):
 
         # create atx
         atxtosend = self.nodes[1].createrawtransaction([{'txid': txtospendhash, 'vout': vouttospend}, {'txid': txtospendhash2, 'vout': vouttospend2}], {addr0: 349.99})
-        atxtosend = self.nodes[1].signrawtransactionwithkey(atxtosend, [addr0_prvkey, addr1_prvkey], [{'txid': txtospendhash, 'vout': vouttospend, 'scriptPubKey': txtospend['vout'][vouttospend]['scriptPubKey']['hex'], 'redeemScript': alert_addr1['redeemScript'], 'amount': 175}])
 
         # send atx
-        self.nodes[1].sendrawtransaction(atxtosend['hex'])
         error = ''
         try:
-            self.nodes[1].generatetoaddress(1, alert_addr1['address'])
+            atxtosend = self.nodes[1].signrawtransactionwithkey(atxtosend, [addr0_prvkey, addr1_prvkey], [
+                {'txid': txtospendhash, 'vout': vouttospend, 'scriptPubKey': txtospend['vout'][vouttospend]['scriptPubKey']['hex'], 'redeemScript': alert_addr1['redeemScript'], 'amount': 175},
+                {'txid': txtospendhash2, 'vout': vouttospend2, 'scriptPubKey': txtospend2['vout'][vouttospend2]['scriptPubKey']['hex'], 'amount': 175}
+            ])
         except Exception as e:
             error = e.error
 
         # assert
         self.sync_all()
-        assert error['code'] == -1
-        assert 'bad-tx-alert-type' in error['message']
+        assert error['code'] == -5
+        assert 'Produced invalid transaction type, possibly missing keys' in error['message']
 
     def test_signinstanttransaction_when_instant_key_imported(self):
         instant_addr0 = self.nodes[0].getnewvaultinstantaddress(self.alert_instant_pubkey, self.alert_recovery_pubkey)
