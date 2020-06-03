@@ -1037,7 +1037,38 @@ static UniValue signrawtransactionwithkey(const JSONRPCRequest& request)
         keystore.AddKey(key);
     }
 
-    return SignTransaction(*g_rpc_interfaces->chain, mtx, request.params[2], &keystore, true, request.params[3]);
+    vaulttxntype txType = TX_INVALID;
+    bool expectToBeSpent = false;
+    CScript redeemScript;
+    UniValue rs = find_value(request.params[2].get_array()[0].get_obj(), "redeemScript");
+    if (!rs.isNull()) {
+        std::vector<unsigned char> rsData(ParseHexV(rs, "redeemScript"));
+        redeemScript = CScript(rsData.begin(), rsData.end());
+    }
+    CScript witnessScript;
+    UniValue ws = find_value(request.params[2].get_array()[0].get_obj(), "witnessScript");
+    if (!ws.isNull()) {
+        std::vector<unsigned char> wsData(ParseHexV(ws, "witnessScript"));
+        witnessScript = CScript(wsData.begin(), wsData.end());
+    }
+
+    std::vector<valtype> pubkeys;
+    if (MatchAlertAddress(redeemScript, pubkeys) || MatchAlertAddress(witnessScript, pubkeys)) {
+        if (keys.size() == 1) txType = TX_ALERT;
+        else if (keys.size() > 1) {
+            txType = TX_RECOVERY;
+            expectToBeSpent = true;
+        }
+    } else if (MatchInstantAlertAddress(redeemScript, pubkeys) || MatchInstantAlertAddress(witnessScript, pubkeys)) {
+        if (keys.size() == 1) txType = TX_ALERT;
+        else if (keys.size() == 2) txType = TX_INSTANT;
+        else if (keys.size() > 2) {
+            txType = TX_RECOVERY;
+            expectToBeSpent = true;
+        }
+    }
+
+    return SignTransaction(*g_rpc_interfaces->chain, mtx, request.params[2], &keystore, true, request.params[3], expectToBeSpent, txType);
 }
 
 UniValue signrawtransaction(const JSONRPCRequest& request)
