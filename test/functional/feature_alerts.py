@@ -568,19 +568,10 @@ class AlertsTest(BitcoinTestFramework):
 
     def test_atx_with_multiple_inputs_from_alert_addr_to_normal_addr(self):
         addr0 = self.nodes[0].getnewaddress()
-        addr0_pubkey = self.nodes[0].getaddressinfo(addr0)['pubkey']
-        addr0_p2pkh = key_to_p2pkh(addr0_pubkey)
+        alert_addr1 = self.nodes[1].getnewvaultalertaddress(self.alert_recovery_pubkey)
 
         # mine some coins to alert_addr1
-        alert_addr1 = self.nodes[1].createvaultalertaddress(addr0_pubkey, self.alert_recovery_pubkey)
         self.nodes[1].generatetoaddress(300, alert_addr1['address'])
-
-        # import key
-        addr0_prvkey = self.nodes[0].dumpprivkey(addr0)
-        self.nodes[1].importprivkey(addr0_prvkey)
-
-        addr0_prvkey = self.nodes[0].dumpprivkey(addr0_p2pkh)
-        self.nodes[1].importprivkey(addr0_prvkey)
 
         # find vout to spend
         txtospendhash = self.nodes[1].getblockbyheight(10)['tx'][0]
