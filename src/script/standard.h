@@ -13,6 +13,8 @@
 
 #include <stdint.h>
 
+typedef std::vector<unsigned char> valtype;
+
 static const bool DEFAULT_ACCEPT_DATACARRIER = true;
 
 class CKeyID;
@@ -200,5 +202,9 @@ CScript GetScriptForVaultAddress(const std::vector<CPubKey>& keys, bool instant 
  * the various witness-specific CTxDestination subtypes.
  */
 CScript GetScriptForWitness(const CScript& redeemscript);
+
+bool MatchAlertAddress(const CScript& script, std::vector<valtype>& pubkeys);
+
+bool MatchInstantAlertAddress(const CScript& script, std::vector<valtype>& pubkeys);
 
 #endif // BITCOIN_SCRIPT_STANDARD_H

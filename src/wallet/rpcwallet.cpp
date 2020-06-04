@@ -85,19 +85,21 @@ vaulttxntype GetVaultTxType(const std::string& txHex) {
 }
 
 void CreateTempKeystoreFrom(CWallet* pwallet, const UniValue& privkeys, CBasicKeyStore& result) {
-    // Get the keys from wallet
-    auto locked_chain = pwallet->chain().lock();
-    LOCK(pwallet->cs_wallet);
-    EnsureWalletIsUnlocked(pwallet);
-    for (const auto &pkey : pwallet->GetKeys()) {
-        CKey key;
-        pwallet->GetKey(pkey, key);
-        result.AddKey(key);
-    }
-    for (const auto& cscriptId : pwallet->GetCScripts()) {
-        CScript cscript;
-        pwallet->GetCScript(cscriptId, cscript);
-        result.AddCScript(cscript);
+    {
+        // Get the keys from wallet
+        auto locked_chain = pwallet->chain().lock();
+        LOCK(pwallet->cs_wallet);
+        EnsureWalletIsUnlocked(pwallet);
+        for (const auto &pkey : pwallet->GetKeys()) {
+            CKey key;
+            pwallet->GetKey(pkey, key);
+            result.AddKey(key);
+        }
+        for (const auto &cscriptId : pwallet->GetCScripts()) {
+            CScript cscript;
+            pwallet->GetCScript(cscriptId, cscript);
+            result.AddCScript(cscript);
+        }
     }
 
     if (!privkeys.isNull()) {
@@ -306,7 +308,7 @@ static UniValue getnewvaultalertaddress(const JSONRPCRequest& request)
 
     CPubKey recoveryKey = HexToPubKey(request.params[0].get_str());
 
-    OutputType output_type = OutputType::LEGACY; // TODO-fork: get back to pwallet->m_default_address_type;
+    OutputType output_type = pwallet->m_default_address_type;
     if (!request.params[2].isNull()) {
         if (!ParseOutputType(request.params[2].get_str(), output_type)) {
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, strprintf("Unknown address type '%s'", request.params[2].get_str()));
@@ -403,7 +405,7 @@ static UniValue getnewvaultinstantaddress(const JSONRPCRequest& request)
     CPubKey instantKey = HexToPubKey(request.params[0].get_str());
     CPubKey recoveryKey = HexToPubKey(request.params[1].get_str());
 
-    OutputType output_type = OutputType::LEGACY; // TODO-fork: get back to pwallet->m_default_address_type;
+    OutputType output_type = pwallet->m_default_address_type;
     if (!request.params[3].isNull()) {
         if (!ParseOutputType(request.params[3].get_str(), output_type)) {
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, strprintf("Unknown address type '%s'", request.params[3].get_str()));
@@ -4917,12 +4919,14 @@ static UniValue signrecoverytransaction(const JSONRPCRequest& request)
             throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "TX decode failed");
         }
         const CScript& scriptPubKey = ptx.vout[vin.prevout.n].scriptPubKey;
+        const CAmount amount = wtx.tx->GetValueOut();
 
         prevTx.pushKV("txid", vin.prevout.hash.GetHex());
         prevTx.pushKV("vout", uint64_t(vin.prevout.n));
         prevTx.pushKV("scriptPubKey", HexStr(scriptPubKey.begin(), scriptPubKey.end()));
         prevTx.pushKV("redeemScript", request.params[2]);
         prevTx.pushKV("witnessScript", request.params[3]);
+        prevTx.pushKV("amount", ValueFromAmount(amount).getValStr());
 
         recovery_data.push_back(prevTx);
     }
@@ -5084,7 +5088,7 @@ static UniValue signalerttransaction(const JSONRPCRequest& request)
     auto locked_chain = pwallet->chain().lock();
     LOCK(pwallet->cs_wallet);
     EnsureWalletIsUnlocked(pwallet);
-    return SignTransaction(pwallet->chain(), mtx, request.params[1], pwallet, true, request.params[2], false, TX_ALERT);
+    return SignTransaction(pwallet->chain(), mtx, request.params[1], pwallet, false, request.params[2], false, TX_ALERT);
 }
 
 UniValue abortrescan(const JSONRPCRequest& request); // in rpcdump.cpp

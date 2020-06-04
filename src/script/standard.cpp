@@ -85,7 +85,7 @@ static constexpr bool IsSmallInteger(opcodetype opcode)
     return opcode >= OP_1 && opcode <= OP_16;
 }
 
-static bool MatchAlertAddress(const CScript& script, std::vector<valtype>& pubkeys)
+bool MatchAlertAddress(const CScript& script, std::vector<valtype>& pubkeys)
 {
     opcodetype opcode;
     valtype data;
@@ -104,7 +104,7 @@ static bool MatchAlertAddress(const CScript& script, std::vector<valtype>& pubke
     return (it + 1 == script.end());
 }
 
-static bool MatchInstantAlertAddress(const CScript& script, std::vector<valtype>& pubkeys)
+bool MatchInstantAlertAddress(const CScript& script, std::vector<valtype>& pubkeys)
 {
     opcodetype opcode;
     valtype data;

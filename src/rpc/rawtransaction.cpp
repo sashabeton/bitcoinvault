@@ -902,6 +902,8 @@ UniValue SignTransaction(interfaces::Chain& chain, CMutableTransaction& mtx, con
             TxInErrorToJSON(txin, vErrors, "Input not found or already spent");
             continue;
         }
+        // TODO-form: check if coin isSpent when expected
+        // information about spentHeight are missing right now
         if (coin.IsConfirmed()) {
             TxInErrorToJSON(txin, vErrors, "Input not found or already spent and confirmed");
             continue;
@@ -918,15 +920,6 @@ UniValue SignTransaction(interfaces::Chain& chain, CMutableTransaction& mtx, con
 
         UpdateInput(txin, sigdata);
 
-        // Check for requested transaction type
-        if (txType != TX_INVALID) {  // TX_INVALID means unset
-            auto actualTxType = GetVaultTxType(mtx);
-            if (actualTxType != txType) {
-                std::string txTypeStr = GetTxnOutputType(actualTxType);
-                throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, _("Produced ") + txTypeStr + _(" transaction type, possibly missing keys"));
-            }
-        }
-
         // amount must be specified for valid segwit signature
         if (amount == MAX_MONEY && !txin.scriptWitness.IsNull()) {
             throw JSONRPCError(RPC_TYPE_ERROR, strprintf("Missing amount for %s", coin.out.ToString()));
@@ -942,6 +935,16 @@ UniValue SignTransaction(interfaces::Chain& chain, CMutableTransaction& mtx, con
             }
         }
     }
+
+    // Check for requested transaction type
+    if (txType != TX_INVALID) {  // TX_INVALID means unset
+        auto actualTxType = GetVaultTxType(mtx);
+        if (actualTxType != txType) {
+            std::string txTypeStr = GetTxnOutputType(actualTxType);
+            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, _("Produced ") + txTypeStr + _(" transaction type, possibly missing keys"));
+        }
+    }
+
     bool fComplete = vErrors.empty();
 
     UniValue result(UniValue::VOBJ);
@@ -1034,7 +1037,38 @@ static UniValue signrawtransactionwithkey(const JSONRPCRequest& request)
         keystore.AddKey(key);
     }
 
-    return SignTransaction(*g_rpc_interfaces->chain, mtx, request.params[2], &keystore, true, request.params[3]);
+    vaulttxntype txType = TX_INVALID;
+    bool expectToBeSpent = false;
+    CScript redeemScript;
+    UniValue rs = find_value(request.params[2].get_array()[0].get_obj(), "redeemScript");
+    if (!rs.isNull()) {
+        std::vector<unsigned char> rsData(ParseHexV(rs, "redeemScript"));
+        redeemScript = CScript(rsData.begin(), rsData.end());
+    }
+    CScript witnessScript;
+    UniValue ws = find_value(request.params[2].get_array()[0].get_obj(), "witnessScript");
+    if (!ws.isNull()) {
+        std::vector<unsigned char> wsData(ParseHexV(ws, "witnessScript"));
+        witnessScript = CScript(wsData.begin(), wsData.end());
+    }
+
+    std::vector<valtype> pubkeys;
+    if (MatchAlertAddress(redeemScript, pubkeys) || MatchAlertAddress(witnessScript, pubkeys)) {
+        if (keys.size() == 1) txType = TX_ALERT;
+        else if (keys.size() > 1) {
+            txType = TX_RECOVERY;
+            expectToBeSpent = true;
+        }
+    } else if (MatchInstantAlertAddress(redeemScript, pubkeys) || MatchInstantAlertAddress(witnessScript, pubkeys)) {
+        if (keys.size() == 1) txType = TX_ALERT;
+        else if (keys.size() == 2) txType = TX_INSTANT;
+        else if (keys.size() > 2) {
+            txType = TX_RECOVERY;
+            expectToBeSpent = true;
+        }
+    }
+
+    return SignTransaction(*g_rpc_interfaces->chain, mtx, request.params[2], &keystore, true, request.params[3], expectToBeSpent, txType);
 }
 
 UniValue signrawtransaction(const JSONRPCRequest& request)
