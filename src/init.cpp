@@ -171,7 +171,6 @@ public:
     // Writes do not need similar protection, as failure to write is handled by the caller.
 };
 
-
 static std::unique_ptr<CCoinsViewErrorCatcher> pcoinscatcher;
 static std::unique_ptr<ECCVerifyHandle> globalVerifyHandle;
 

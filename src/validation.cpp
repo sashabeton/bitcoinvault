@@ -212,7 +212,6 @@ private:
     void EraseBlockData(CBlockIndex* index) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 } g_chainstate;
 
-
 /**
  * Mutex to guard access to validation specific variables, such as reading
  * or changing the chainstate.
@@ -224,7 +223,6 @@ private:
  * chainstate at the same time.
  */
 RecursiveMutex cs_main;
-
 
 const CScript WDMO_SCRIPT = CScript() << OP_HASH160 << std::vector<unsigned char>{11, 182, 127, 3, 232, 176, 211, 69, 45, 165, 222, 55, 211, 47, 198, 174, 240, 165, 160, 160} << OP_EQUAL; // TODO: replace with actual wdmo script; use ParseHex
 MinerLicenses minerLicenses{};
@@ -5516,8 +5514,10 @@ bool LoadMinersDb()
 {
 	/* force using txindex here to make sure that we are able to find corresponding
 	output transactions for inputs of processed license transactions */
-	g_txindex = MakeUnique<TxIndex>(nDefaultDbCache << 20, false, true);
-	g_txindex->Start();
+	if (!gArgs.GetBoolArg("-txindex", DEFAULT_TXINDEX)) {
+		g_txindex = MakeUnique<TxIndex>(nDefaultDbCache << 20, false, true);
+		g_txindex->Start();
+	}
     FILE* filestr = fsbridge::fopen(GetDataDir() / "licenses.dat", "rb");
     CAutoFile file(filestr, SER_DISK, CLIENT_VERSION);
     if (file.IsNull()) {
@@ -5543,12 +5543,16 @@ bool LoadMinersDb()
         }
 
         UpdateMinersDb(height);
-    	g_txindex->Stop();
-    	g_txindex.reset();
+        if (!gArgs.GetBoolArg("-txindex", DEFAULT_TXINDEX)) {
+			g_txindex->Stop();
+			g_txindex.reset();
+        }
     } catch (const std::exception& e) {
         LogPrintf("Failed to deserialize miner's licenses data on disk: %s. Continuing anyway.\n", e.what());
-    	g_txindex->Stop();
-    	g_txindex.reset();
+        if (gArgs.GetBoolArg("-txindex", DEFAULT_TXINDEX)) {
+			g_txindex->Stop();
+			g_txindex.reset();
+        }
         return false;
     }
 

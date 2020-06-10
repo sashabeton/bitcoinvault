@@ -1,11 +1,9 @@
-#include <init.h>
 #include <validation.h>
 #include <consensus/tx_verify.h>
 #include <consensus/validation.h>
 #include <index/txindex.h>
 #include <script/script.h>
 #include <test/test_bitcoin.h>
-#include <txmempool.h>
 #include <util/memory.h>
 
 #include <memory>
