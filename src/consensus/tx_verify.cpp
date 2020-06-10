@@ -46,7 +46,7 @@ bool IsLicenseTx(const CBaseTransaction& tx) {
 		if (GetTransaction(prevout.hash, txOut, Params().GetConsensus(), hashBlock))
 			return txOut.get()->vout[prevout.n].scriptPubKey == WDMO_SCRIPT;
 
-	    const Coin& coin =  pcoinsTip->AccessCoin(prevout);
+	    const Coin& coin = pcoinsTip->AccessCoin(prevout);
 		return coin.out.scriptPubKey == WDMO_SCRIPT;
 	};
 

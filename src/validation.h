@@ -174,7 +174,6 @@ private:
 	std::vector<LicenseEntry> ExtractLicenseEntries(const CBaseTransaction& tx, const int height);
 	LicenseEntry ExtractLicenseEntry(CScript scriptPubKey, const int height);
 	bool NeedToUpdateLicense(const LicenseEntry& entry) const;
-	bool IsMinerAllowed(const LicenseEntry& entry) const;
 
 	std::vector<LicenseEntry> licenses;
 };
@@ -569,7 +568,7 @@ bool DumpMinersDb();
 bool LoadMinersDb();
 
 /** Extract miner's licenses from blocks. */
-bool UpdateMinersDb(int heightThreshold = 1 /* TODO hardcode correct block number */);
+void UpdateMinersDb(const int heightThreshold = 30000 /* TODO hardcode correct block number */);
 
 //! Check whether the block associated with this index entry is pruned or not.
 inline bool IsBlockPruned(const CBlockIndex* pblockindex)

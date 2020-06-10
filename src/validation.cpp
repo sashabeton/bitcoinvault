@@ -374,11 +374,6 @@ MinerLicenses::LicenseEntry* MinerLicenses::FindLicense(const MinerLicenses::Lic
 	return it != std::end(licenses) ? const_cast<MinerLicenses::LicenseEntry*>(&*it) : nullptr;
 }
 
-bool MinerLicenses::IsMinerAllowed(const MinerLicenses::LicenseEntry& entry) const {
-	auto license = FindLicense(entry);
-	return license != nullptr && license->hashRate > 0;
-}
-
 bool MinerLicenses::NeedToUpdateLicense(const MinerLicenses::LicenseEntry& entry) const {
 	auto license = FindLicense(entry);
 	return license != nullptr && license->height < entry.height;
@@ -5501,7 +5496,7 @@ bool LoadMempool()
     return true;
 }
 
-bool UpdateMinersDb(int heightThreshold) {
+void UpdateMinersDb(const int heightThreshold) {
 	while (!g_txindex->BlockUntilSyncedToCurrentChain())
 		MilliSleep(10);
 
@@ -5515,14 +5510,12 @@ bool UpdateMinersDb(int heightThreshold) {
 				minerLicenses.HandleTx(*tx, height);
 		blockIndex = blockIndex->pprev;
 	}
-
-	return true;
 }
 
 bool LoadMinersDb()
 {
 	/* force using txindex here to make sure that we are able to find corresponding
-	output transactions for processed license transactions */
+	output transactions for inputs of processed license transactions */
 	g_txindex = MakeUnique<TxIndex>(nDefaultDbCache << 20, false, true);
 	g_txindex->Start();
     FILE* filestr = fsbridge::fopen(GetDataDir() / "licenses.dat", "rb");
