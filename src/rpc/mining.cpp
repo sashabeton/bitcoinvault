@@ -701,8 +701,7 @@ static UniValue getblocktemplate(const JSONRPCRequest& request)
     result.pushKV("transactions", transactions);
     if (fAlertsEnabled) {
         result.pushKV("transactionalerts", transactionAlerts);
-        if (transactionAlerts.size() > 0)
-            result.pushKV("transactionalertsmerkleroot", pblocktemplate->hashAlertsMerkleRoot.GetHex());
+        result.pushKV("transactionalertsmerkleroot", pblocktemplate->hashAlertsMerkleRoot.GetHex());
     }
     result.pushKV("coinbaseaux", aux);
     result.pushKV("coinbasevalue", (int64_t)pblock->vtx[0]->vout[0].nValue);
