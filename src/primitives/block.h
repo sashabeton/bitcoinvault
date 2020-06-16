@@ -101,6 +101,11 @@ public:
             READWRITE(vatx);
     }
 
+    template <typename Stream>
+    void UnserializeAlerts(Stream& s, CSerActionUnserialize ser_action = CSerActionUnserialize()) {
+        READWRITE(vatx);
+    }
+
     void SetNull()
     {
         CBlockHeader::SetNull();

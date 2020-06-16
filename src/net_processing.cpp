@@ -2750,8 +2750,13 @@ bool static ProcessMessage(CNode* pfrom, const std::string& strCommand, CDataStr
     if (strCommand == NetMsgType::BLOCK && !fImporting && !fReindex) // Ignore blocks received while importing
     {
         std::shared_ptr<CBlock> pblock = std::make_shared<CBlock>();
-        pblock->fAlertsSerialization = true;
         vRecv >> *pblock;
+        // If block height is over AlertsHeight unserialize alerts
+        int nHeight = pblock->GetHash() != chainparams.GetConsensus().hashGenesisBlock ? GetCoinbaseHeight(*pblock) : 0;
+        pblock->fAlertsSerialization = AreAlertsEnabled(nHeight, chainparams.GetConsensus().AlertsHeight);
+        if (pblock->fAlertsSerialization) {
+            pblock->UnserializeAlerts(vRecv);
+        }
 
         LogPrint(BCLog::NET, "received block %s peer=%d\n", pblock->GetHash().ToString(), pfrom->GetId());
 
