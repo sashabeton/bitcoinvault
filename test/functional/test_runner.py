@@ -206,7 +206,7 @@ EXTENDED_SCRIPTS = [
 VAULT_SCRIPTS = [
     'feature_alerts.py',
     'feature_alerts_instant.py',
-    'feature_vault_reorg.py'
+    'feature_alerts_reorg.py'
 ]
 
 # Place EXTENDED_SCRIPTS first since it has the 3 longest running tests
@@ -232,6 +232,7 @@ def main():
     parser.add_argument('--ci', action='store_true', help='Run checks and code that are usually only enabled in a continuous integration environment')
     parser.add_argument('--exclude', '-x', help='specify a comma-separated-list of scripts to exclude.')
     parser.add_argument('--extended', action='store_true', help='run the extended test suite in addition to the basic tests')
+    parser.add_argument('--vault', action='store_true', help='run the vault test suite only')
     parser.add_argument('--help', '-h', '-?', action='store_true', help='print help text and exit')
     parser.add_argument('--jobs', '-j', type=int, default=4, help='how many test scripts to run in parallel. Default=4.')
     parser.add_argument('--keepcache', '-k', action='store_true', help='the default behavior is to flush the cache directory on startup. --keepcache retains the cache from the previous testrun.')
@@ -283,6 +284,9 @@ def main():
     elif args.extended:
         # Include extended tests
         test_list += ALL_SCRIPTS
+    elif args.vault:
+        # Run vault tests only
+        test_list += VAULT_SCRIPTS
     else:
         # Run base tests only
         test_list += BASE_SCRIPTS
