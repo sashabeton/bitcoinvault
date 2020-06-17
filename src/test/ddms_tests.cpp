@@ -1,7 +1,7 @@
-#include <validation.h>
 #include <consensus/tx_verify.h>
 #include <consensus/validation.h>
 #include <index/txindex.h>
+#include <policy/ddms.h>
 #include <script/script.h>
 #include <test/test_bitcoin.h>
 #include <util/memory.h>
@@ -24,6 +24,22 @@ static CMutableTransaction createCoinbase() {
 	return coinbaseTx;
 }
 
+static CScript createLicenseScript() {
+	std::vector<unsigned char> data;
+	data.push_back(0x03); // size of license header
+	data.insert(std::end(data), {0x4C, 0x54, 0x78}); // license header
+	data.push_back(0x14); // miner license script size
+	data.insert(std::end(data), {0xA9, 0x14, 0xE6, 0x35, 0xF7, 0x6A, 0x0F, 0xBD, 0xB1, 0x70, 0x56, 0x58, 0xA1, 0xE3, 0xB0, 0x56, 0x73, 0x78, 0x07, 0x4A}); // miner license script
+	data.insert(std::end(data), {0x00, 0x05}); // hashrate
+
+	CScript licenseScript;
+
+	licenseScript << OP_RETURN;
+	licenseScript << data;
+
+	return licenseScript;
+}
+
 static CMutableTransaction createLicenseTransaction(const uint256 parentHash) {
 	CMutableTransaction tx;
 	tx.vin.resize(1);
@@ -33,7 +49,7 @@ static CMutableTransaction createLicenseTransaction(const uint256 parentHash) {
 	tx.vout.resize(2);
 	tx.vout[0].scriptPubKey = CScript();
 	tx.vout[0].nValue = 49000;
-	tx.vout[1].scriptPubKey = CScript() << OP_RETURN << std::vector<unsigned char>{3, 76, 84, 120, 20, 169, 20, 230, 53, 247, 106, 15, 189, 177, 112, 86, 88, 161, 227, 176, 86, 115, 120, 7, 74, 0, 5};
+	tx.vout[1].scriptPubKey = createLicenseScript();
 	tx.vout[1].nValue = 0;
 
 	return tx;
@@ -51,14 +67,15 @@ BOOST_FIXTURE_TEST_SUITE(ddms_tests, DdmsSetup)
 
 BOOST_AUTO_TEST_CASE(shouldIsLicenseTxHeaderReturnTrueWhenProcessingLTxScriptPubKey)
 {
-	CScript ltxScriptPubKey = CScript() << OP_RETURN << std::vector<unsigned char>{3, 76, 84, 120, 20, 169, 20, 230, 53, 247, 106, 15, 189, 177, 112, 86, 88, 161, 227, 176, 86, 115, 120, 7, 74, 0, 5};
+	CScript ltxScriptPubKey = createLicenseScript();
 	BOOST_CHECK(IsLicenseTxHeader(ltxScriptPubKey));
 }
 
 BOOST_AUTO_TEST_CASE(shouldIsLicenseTxHeaderReturnFalseWhenNotProcessingLTxScriptPubKey)
 {
-	CScript notLtxScriptPubKey = CScript() << OP_RETURN << std::vector<unsigned char>{2, 31, 72, 20, 169, 20, 230, 53, 247, 106, 15, 189, 177, 112, 86, 88, 161, 227, 176, 86, 115, 120, 7, 74, 0, 5};
-	BOOST_CHECK(!IsLicenseTxHeader(notLtxScriptPubKey));
+	CScript fakeLtxScriptPubKey = createLicenseScript();
+	--fakeLtxScriptPubKey[3]; // changing first byte of license header
+	BOOST_CHECK(!IsLicenseTxHeader(fakeLtxScriptPubKey));
 }
 
 BOOST_AUTO_TEST_CASE(shouldIsLicenseTxReturnFalseWhenTxNullOrCoinbase)
@@ -75,7 +92,7 @@ BOOST_AUTO_TEST_CASE(shouldIsLicenseTxReturnFalseWhenTxWasNotSentByWDMO)
 	g_txindex = MakeUnique<TxIndex>(1 << 20, true);
 	g_txindex->Start();
 
-	CScript fakeWdmoScript = WDMO_SCRIPT; --fakeWdmoScript[1];
+	CScript fakeWdmoScript = WDMO_SCRIPT; --fakeWdmoScript[2]; // change the first byte of script hash
 	auto blk = CreateAndProcessBlock({}, fakeWdmoScript);
 	CMutableTransaction lTx = createLicenseTransaction(blk.vtx[0]->GetHash());
 
@@ -194,6 +211,21 @@ BOOST_AUTO_TEST_CASE(shouldModifyLicenseIfAlreadyExists)
 	minerLicenses.HandleTx(CTransaction(lTx), 2);
 	licenses = minerLicenses.GetLicenses();
 	BOOST_CHECK_EQUAL(3, licenses[0].hashRate);
+}
+
+BOOST_AUTO_TEST_CASE(shouldRemoveLicenseIfNoHashrateAssigned)
+{
+	auto coinbaseTx = createCoinbase();
+	auto lTx = createLicenseTransaction(coinbaseTx.GetHash());
+
+	minerLicenses.HandleTx(CTransaction(lTx), 1);
+	auto licenses = minerLicenses.GetLicenses();
+	BOOST_CHECK_EQUAL(5, licenses[0].hashRate);
+
+	lTx.vout[1].scriptPubKey[28] = 0; // modyfing hashrate
+	minerLicenses.HandleTx(CTransaction(lTx), 2);
+	licenses = minerLicenses.GetLicenses();
+	BOOST_CHECK(licenses.empty());
 }
 
 BOOST_AUTO_TEST_CASE(shouldNotModifyLicenseIfProvidedOlderEntry)

@@ -17,6 +17,7 @@
 #include <cuckoocache.h>
 #include <hash.h>
 #include <index/txindex.h>
+#include <policy/ddms.h>
 #include <policy/fees.h>
 #include <policy/policy.h>
 #include <policy/rbf.h>
@@ -224,8 +225,6 @@ private:
  */
 RecursiveMutex cs_main;
 
-const CScript WDMO_SCRIPT = CScript() << OP_HASH160 << std::vector<unsigned char>{11, 182, 127, 3, 232, 176, 211, 69, 45, 165, 222, 55, 211, 47, 198, 174, 240, 165, 160, 160} << OP_EQUAL; // TODO: replace with actual wdmo script; use ParseHex
-MinerLicenses minerLicenses{};
 BlockMap& mapBlockIndex = g_chainstate.mapBlockIndex;
 CChain& chainActive = g_chainstate.chainActive;
 CBlockIndex *pindexBestHeader = nullptr;
@@ -323,83 +322,7 @@ static void FindFilesToPrune(std::set<int>& setFilesToPrune, uint64_t nPruneAfte
 bool CheckInputs(const CBaseTransaction& tx, CValidationState &state, const CCoinsViewCache &inputs, bool fScriptChecks, unsigned int flags, bool cacheSigStore, bool cacheFullScriptStore, PrecomputedTransactionData& txdata, std::vector<CScriptCheck> *pvChecks = nullptr, bool acceptSpent = false);
 static FILE* OpenUndoFile(const CDiskBlockPos &pos, bool fReadOnly = false);
 
-void MinerLicenses::HandleTx(const CBaseTransaction& tx, const int height) {
-	for (const auto& entry : ExtractLicenseEntries(tx, height)) {
-		if (!FindLicense(entry))
-			AddLicense(entry);
-		else
-			ModifyLicense(entry);
-	}
-}
 
-std::vector<MinerLicenses::LicenseEntry> MinerLicenses::ExtractLicenseEntries(const CBaseTransaction& tx, const int height) {
-	std::vector<MinerLicenses::LicenseEntry> entries;
-
-	for (const auto& vout : tx.vout)
-		if (IsLicenseTxHeader(vout.scriptPubKey))
-			entries.push_back(ExtractLicenseEntry(vout.scriptPubKey, height));
-
-	return entries;
-}
-
-/**
- * License TX consists of:
- * OP_RETURN - 1 byte
- * data size - 1 byte
- * size of license header - 1 byte
- * license header - 3 bytes by default
- * size of script - 1 byte
- * script - 20-32 bytes
- * hashrate in PH - 2 bytes
- */
-MinerLicenses::LicenseEntry MinerLicenses::ExtractLicenseEntry(CScript scriptPubKey, const int height) {
-	const int size = scriptPubKey.size();
-	uint16_t hashRate = scriptPubKey[size - 2] << 8 | scriptPubKey[size - 1];
-	std::string address = "";
-
-	// TODO make it prettier
-	for( int i = 7; i < 7 + scriptPubKey[6] /* size of script */; ++i)
-		address += static_cast<char>(scriptPubKey[i]);
-
-	return MinerLicenses::LicenseEntry{height, hashRate, address};
-}
-
-MinerLicenses::LicenseEntry* MinerLicenses::FindLicense(const MinerLicenses::LicenseEntry& entry) const {
-	auto it = std::find_if(std::begin(licenses), std::end(licenses), [&entry](const MinerLicenses::LicenseEntry& license) {
-		return license.address == entry.address;
-	});
-
-	return it != std::end(licenses) ? const_cast<MinerLicenses::LicenseEntry*>(&*it) : nullptr;
-}
-
-bool MinerLicenses::NeedToUpdateLicense(const MinerLicenses::LicenseEntry& entry) const {
-	auto license = FindLicense(entry);
-	return license != nullptr && license->height < entry.height;
-}
-
-void MinerLicenses::PushLicense(const int height, const uint16_t hashRate, const std::string& address) {
-	auto it = std::find_if(std::begin(licenses), std::end(licenses), [&address](const MinerLicenses::LicenseEntry& obj) {
-		return obj.address == address;
-	});
-
-	if (it == std::end(licenses))
-		licenses.emplace_back(height, hashRate, address);
-}
-
-void MinerLicenses::AddLicense(MinerLicenses::LicenseEntry entry) {
-	if (FindLicense(entry))
-		return;
-
-	licenses.emplace_back(entry.height, entry.hashRate, entry.address);
-}
-
-void MinerLicenses::ModifyLicense(MinerLicenses::LicenseEntry entry) {
-	auto license = FindLicense(entry);
-	if (!license || !NeedToUpdateLicense(entry))
-		return;
-
-	license->hashRate = entry.hashRate;
-}
 
 bool CheckFinalTx(const CTransaction &tx, int flags)
 {

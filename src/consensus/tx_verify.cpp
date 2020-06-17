@@ -10,6 +10,7 @@
 #include <consensus/validation.h>
 #include <chainparams.h>
 #include <validation.h>
+#include <policy/ddms.h>
 
 // TODO remove the following dependencies
 #include <chain.h>
