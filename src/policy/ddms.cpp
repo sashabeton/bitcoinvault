@@ -29,9 +29,7 @@ std::vector<MinerLicenses::LicenseEntry> MinerLicenses::ExtractLicenseEntries(co
  * License TX consists of:
  * OP_RETURN - 1 byte
  * data size - 1 byte
- * size of license header - 1 byte
  * license header - 3 bytes by default
- * size of script - 1 byte
  * script - 20-32 bytes
  * hashrate in PH - 2 bytes
  */
@@ -41,10 +39,18 @@ MinerLicenses::LicenseEntry MinerLicenses::ExtractLicenseEntry(const CScript& sc
 	std::string address = "";
 
 	// TODO make it prettier
-	for( int i = 7; i < 7 + scriptPubKey[6] /* size of script */; ++i)
+	for( int i = 5; i < 5 + MinerScriptSize(scriptPubKey); ++i)
 		address += static_cast<char>(scriptPubKey[i]);
 
 	return MinerLicenses::LicenseEntry{height, hashRate, address};
+}
+
+uint32_t MinerLicenses::MinerScriptSize(const CScript& scriptPubKey) const {
+	const int OPCODE_SIZE = 1;
+	const int DATALENGTH_SIZE = 1;
+	const int HEADER_SIZE = 3;
+	const int HASHRATE_SIZE = 2;
+	return scriptPubKey.size() - OPCODE_SIZE - DATALENGTH_SIZE - HEADER_SIZE - HASHRATE_SIZE;
 }
 
 MinerLicenses::LicenseEntry* MinerLicenses::FindLicense(const MinerLicenses::LicenseEntry& entry) const {

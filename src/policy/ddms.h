@@ -32,6 +32,7 @@ private:
 	std::vector<LicenseEntry> ExtractLicenseEntries(const CBaseTransaction& tx, const int height);
 	LicenseEntry ExtractLicenseEntry(const CScript& scriptPubKey, const int height);
 	bool NeedToUpdateLicense(const LicenseEntry& entry) const;
+	uint32_t MinerScriptSize(const CScript& scriptPubKey) const;
 
 	std::vector<LicenseEntry> licenses;
 };

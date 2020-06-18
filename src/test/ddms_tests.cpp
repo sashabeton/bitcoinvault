@@ -26,9 +26,7 @@ static CMutableTransaction createCoinbase() {
 
 static CScript createLicenseScript() {
 	std::vector<unsigned char> data;
-	data.push_back(0x03); // size of license header
 	data.insert(std::end(data), {0x4C, 0x54, 0x78}); // license header
-	data.push_back(0x14); // miner license script size
 	data.insert(std::end(data), {0xA9, 0x14, 0xE6, 0x35, 0xF7, 0x6A, 0x0F, 0xBD, 0xB1, 0x70, 0x56, 0x58, 0xA1, 0xE3, 0xB0, 0x56, 0x73, 0x78, 0x07, 0x4A}); // miner license script
 	data.insert(std::end(data), {0x00, 0x05}); // hashrate
 
@@ -74,7 +72,7 @@ BOOST_AUTO_TEST_CASE(shouldIsLicenseTxHeaderReturnTrueWhenProcessingLTxScriptPub
 BOOST_AUTO_TEST_CASE(shouldIsLicenseTxHeaderReturnFalseWhenNotProcessingLTxScriptPubKey)
 {
 	CScript fakeLtxScriptPubKey = createLicenseScript();
-	--fakeLtxScriptPubKey[3]; // changing first byte of license header
+	--fakeLtxScriptPubKey[2]; // changing first byte of license header
 	BOOST_CHECK(!IsLicenseTxHeader(fakeLtxScriptPubKey));
 }
 
@@ -168,7 +166,7 @@ BOOST_AUTO_TEST_CASE(shouldAddLicenseIfCorrectLtxProvided)
 	minerLicenses.HandleTx(CTransaction(lTx), 1);
 	BOOST_CHECK_EQUAL(1, minerLicenses.GetLicenses().size());
 
-	lTx.vout[1].scriptPubKey[7]++; // other miner's address
+	lTx.vout[1].scriptPubKey[5]++; // other miner's address
 	minerLicenses.HandleTx(CTransaction(lTx), 2);
 	BOOST_CHECK_EQUAL(2, minerLicenses.GetLicenses().size());
 }
@@ -207,7 +205,7 @@ BOOST_AUTO_TEST_CASE(shouldModifyLicenseIfAlreadyExists)
 	auto licenses = minerLicenses.GetLicenses();
 	BOOST_CHECK_EQUAL(5, licenses[0].hashRate);
 
-	lTx.vout[1].scriptPubKey[28] = 3; // modyfing hashrate
+	lTx.vout[1].scriptPubKey[26] = 3; // modyfing hashrate
 	minerLicenses.HandleTx(CTransaction(lTx), 2);
 	licenses = minerLicenses.GetLicenses();
 	BOOST_CHECK_EQUAL(3, licenses[0].hashRate);
@@ -222,7 +220,7 @@ BOOST_AUTO_TEST_CASE(shouldRemoveLicenseIfNoHashrateAssigned)
 	auto licenses = minerLicenses.GetLicenses();
 	BOOST_CHECK_EQUAL(5, licenses[0].hashRate);
 
-	lTx.vout[1].scriptPubKey[28] = 0; // modyfing hashrate
+	lTx.vout[1].scriptPubKey[26] = 0; // modyfing hashrate
 	minerLicenses.HandleTx(CTransaction(lTx), 2);
 	licenses = minerLicenses.GetLicenses();
 	BOOST_CHECK(licenses.empty());
@@ -237,7 +235,7 @@ BOOST_AUTO_TEST_CASE(shouldNotModifyLicenseIfProvidedOlderEntry)
 	auto licenses = minerLicenses.GetLicenses();
 	BOOST_CHECK_EQUAL(5, licenses[0].hashRate);
 
-	lTx.vout[1].scriptPubKey[28] = 3; // modyfing hashrate
+	lTx.vout[1].scriptPubKey[26] = 3; // modyfing hashrate
 	minerLicenses.HandleTx(CTransaction(lTx), 1);
 	licenses = minerLicenses.GetLicenses();
 	BOOST_CHECK_EQUAL(5, licenses[0].hashRate);

@@ -31,8 +31,8 @@ bool IsFinalTx(const CBaseTransaction &tx, int nBlockHeight, int64_t nBlockTime)
 }
 
 bool IsLicenseTxHeader(const CScript& scriptPubKey) {
-	return scriptPubKey[0] == OP_RETURN && scriptPubKey[2] == 0x03
-			&& scriptPubKey[3] == 0x4C /*L*/ && scriptPubKey[4] == 0x54 /*T*/ && scriptPubKey[5] == 0x78 /*x*/;
+	return scriptPubKey[0] == OP_RETURN && scriptPubKey[2] == 0x4C /*L*/
+			&& scriptPubKey[3] == 0x54 /*T*/ && scriptPubKey[4] == 0x78 /*x*/;
 }
 
 bool IsLicenseTx(const CBaseTransaction& tx) {
