@@ -44,6 +44,7 @@ class CScriptCheck;
 class CBlockPolicyEstimator;
 class CTxMemPool;
 class CValidationState;
+class MinerLicenses;
 struct ChainTxData;
 
 struct PrecomputedTransactionData;
@@ -531,6 +532,15 @@ bool DumpMempool();
 
 /** Load the mempool from disk. */
 bool LoadMempool();
+
+/** Dump the miner's licenses to disk. */
+bool DumpMinersDb();
+
+/** Load the miner's licenses from disk. */
+bool LoadMinersDb();
+
+/** Extract miner's licenses from blocks. */
+void UpdateMinersDb(const int heightThreshold = 30000 /* TODO hardcode correct block number */);
 
 //! Check whether the block associated with this index entry is pruned or not.
 inline bool IsBlockPruned(const CBlockIndex* pblockindex)

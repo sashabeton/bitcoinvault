@@ -17,6 +17,7 @@
 #include <cuckoocache.h>
 #include <hash.h>
 #include <index/txindex.h>
+#include <policy/ddms.h>
 #include <policy/fees.h>
 #include <policy/policy.h>
 #include <policy/rbf.h>
@@ -188,7 +189,6 @@ public:
     void PruneBlockIndexCandidates();
 
     void UnloadBlockIndex();
-
 private:
     bool ActivateBestChainStep(CValidationState& state, const CChainParams& chainparams, CBlockIndex* pindexMostWork, const std::shared_ptr<const CBlock>& pblock, bool& fInvalidFound, ConnectTrace& connectTrace) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
     bool ConnectTip(CValidationState& state, const CChainParams& chainparams, CBlockIndex* pindexNew, const std::shared_ptr<const CBlock>& pblock, ConnectTrace& connectTrace, DisconnectedBlockTransactions &disconnectpool) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
@@ -321,6 +321,8 @@ static void FindFilesToPruneManual(std::set<int>& setFilesToPrune, int nManualPr
 static void FindFilesToPrune(std::set<int>& setFilesToPrune, uint64_t nPruneAfterHeight);
 bool CheckInputs(const CBaseTransaction& tx, CValidationState &state, const CCoinsViewCache &inputs, bool fScriptChecks, unsigned int flags, bool cacheSigStore, bool cacheFullScriptStore, PrecomputedTransactionData& txdata, std::vector<CScriptCheck> *pvChecks = nullptr, bool acceptSpent = false);
 static FILE* OpenUndoFile(const CDiskBlockPos &pos, bool fReadOnly = false);
+
+
 
 bool CheckFinalTx(const CTransaction &tx, int flags)
 {
@@ -2157,8 +2159,8 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                                  REJECT_INVALID, "bad-txns-nonfinal");
             }
 
-            if (IsLicenseTx(tx))
-            	; // TODO update miners database
+            if (!fJustCheck && IsLicenseTx(tx))
+            	minerLicenses.HandleTx(tx, pindex->nHeight);
         }
 
         // GetTransactionSigOpCost counts 3 types of sigops:
@@ -5413,6 +5415,109 @@ bool LoadMempool()
 
     LogPrintf("Imported mempool transactions from disk: %i succeeded, %i failed, %i expired, %i already there\n", count, failed, expired, already_there);
     return true;
+}
+
+void UpdateMinersDb(const int heightThreshold) {
+	while (!g_txindex->BlockUntilSyncedToCurrentChain())
+		MilliSleep(10);
+
+	auto blockIndex = chainActive.Tip();
+	for (int height = blockIndex->nHeight; height > heightThreshold; --height) {
+		CBlock block;
+		ReadBlockFromDisk(block, blockIndex, Params().GetConsensus());
+
+		for (const auto& tx : block.vtx)
+			if (IsLicenseTx(*tx))
+				minerLicenses.HandleTx(*tx, height);
+		blockIndex = blockIndex->pprev;
+	}
+}
+
+bool LoadMinersDb()
+{
+	/* force using txindex here to make sure that we are able to find corresponding
+	output transactions for inputs of processed license transactions */
+	if (!gArgs.GetBoolArg("-txindex", DEFAULT_TXINDEX)) {
+		g_txindex = MakeUnique<TxIndex>(nDefaultDbCache << 20, false, true);
+		g_txindex->Start();
+	}
+    FILE* filestr = fsbridge::fopen(GetDataDir() / "licenses.dat", "rb");
+    CAutoFile file(filestr, SER_DISK, CLIENT_VERSION);
+    if (file.IsNull()) {
+        LogPrintf("Failed to open miner's licenses file from disk. Processing block index.\n");
+        UpdateMinersDb();
+        return false;
+    }
+
+    try {
+        uint32_t height, size;
+        file >> height >> size;
+
+        while (size--) {
+            int licenseHeight;
+            uint16_t hashRate;
+            std::string address;
+            file >> licenseHeight >> hashRate >> address;
+
+            minerLicenses.PushLicense(licenseHeight, hashRate, address);
+
+            if (ShutdownRequested())
+                return false;
+        }
+
+        UpdateMinersDb(height);
+        if (!gArgs.GetBoolArg("-txindex", DEFAULT_TXINDEX)) {
+			g_txindex->Stop();
+			g_txindex.reset();
+        }
+    } catch (const std::exception& e) {
+        LogPrintf("Failed to deserialize miner's licenses data on disk: %s. Continuing anyway.\n", e.what());
+        if (gArgs.GetBoolArg("-txindex", DEFAULT_TXINDEX)) {
+			g_txindex->Stop();
+			g_txindex.reset();
+        }
+        return false;
+    }
+
+    LogPrintf("Imported miner's licenses from disk.\n");
+    return true;
+}
+
+bool DumpMinersDb() {
+	int64_t start = GetTimeMicros();
+
+	static Mutex dump_mutex;
+	LOCK(dump_mutex);
+
+	int64_t mid = GetTimeMicros();
+
+	try {
+		FILE* filestr = fsbridge::fopen(GetDataDir() / "licenses.dat.new", "wb");
+		if (!filestr)
+			return false;
+
+		CAutoFile file(filestr, SER_DISK, CLIENT_VERSION);
+
+		file << (uint32_t)g_chainstate.chainActive.Height();
+
+		file << (uint32_t)minerLicenses.GetLicenses().size();
+		for (const auto& license : minerLicenses.GetLicenses()) {
+			file << (int)license.height;
+			file << (uint16_t)license.hashRate;
+			file << license.address;
+		}
+
+		if (!FileCommit(file.Get()))
+			throw std::runtime_error("FileCommit failed");
+		file.fclose();
+		RenameOver(GetDataDir() / "licenses.dat.new", GetDataDir() / "licenses.dat");
+		int64_t last = GetTimeMicros();
+		LogPrintf("Dumped miner's licenses: %gs to copy, %gs to dump\n", (mid-start)*MICRO, (last-mid)*MICRO);
+	} catch (const std::exception& e) {
+		LogPrintf("Failed to dump miner's licenses: %s. Continuing anyway.\n", e.what());
+		return false;
+	}
+	return true;
 }
 
 bool DumpMempool()

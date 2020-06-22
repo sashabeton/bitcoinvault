@@ -372,20 +372,6 @@ public:
     std::string ToString() const;
 };
 
-/** TODO implement if needed for miners database, remove otherwise */
-class CLicenseTransaction : public CTransaction
-{
-	enum class ActionType {
-		NEW, MODIFICATION, REVOCATION
-	};
-
-	using CTransaction::CTransaction;
-
-private:
-	ActionType type;
-	uint16_t assignedHashrate;
-	std::string address;
-};
 
 /** A mutable version of CBaseTransaction. */
 struct CMutableTransaction
@@ -437,9 +423,5 @@ template <typename Tx> static inline CTransactionRef MakeTransactionRef(Tx&& txI
 typedef std::shared_ptr<const CAlertTransaction> CAlertTransactionRef;
 static inline CAlertTransactionRef MakeAlertTransactionRef() { return std::make_shared<const CAlertTransaction>(); }
 template <typename Tx> static inline CAlertTransactionRef MakeAlertTransactionRef(Tx&& txIn) { return std::make_shared<const CAlertTransaction>(std::forward<Tx>(txIn)); }
-
-typedef std::shared_ptr<const CLicenseTransaction> CLicenseTransactionRef;
-static inline CLicenseTransactionRef MakeLicenseTransactionRef() { return std::make_shared<const CLicenseTransaction>(); }
-template <typename Tx> static inline CLicenseTransactionRef MakeLicenseTransactionRef(Tx&& txIn) { return std::make_shared<const CLicenseTransaction>(std::forward<Tx>(txIn)); }
 
 #endif // BITCOIN_PRIMITIVES_TRANSACTION_H

@@ -240,6 +240,8 @@ void Shutdown(InitInterfaces& interfaces)
         DumpMempool();
     }
 
+    DumpMinersDb();
+
     if (fFeeEstimatesInitialized)
     {
         ::feeEstimator.FlushUnconfirmed();
@@ -729,6 +731,8 @@ static void ThreadImport(std::vector<fs::path> vImportFiles)
         LoadMempool();
     }
     g_is_mempool_loaded = !ShutdownRequested();
+
+    LoadMinersDb();
 }
 
 /** Sanity checks
@@ -1553,17 +1557,6 @@ bool AppInitMain(InitInterfaces& interfaces)
                         break;
                     }
                     assert(chainActive.Tip() != nullptr);
-                }
-
-                // Prepare miners database
-                for (const auto& mapBlockIndexPair : mapBlockIndex) {
-                	auto blockIndex = mapBlockIndexPair.second;
-                	CBlock block;
-                	ReadBlockFromDisk(block, blockIndex, Params().GetConsensus());
-
-                	for (const auto& tx : block.vtx)
-                		if (IsLicenseTx(*tx))
-                			; // TODO: update miners database
                 }
             } catch (const std::exception& e) {
                 LogPrintf("%s\n", e.what());
