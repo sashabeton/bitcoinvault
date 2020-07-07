@@ -2139,7 +2139,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         if (vaultTxType == TX_INVALID) {
             return state.DoS(100, error("ConnectBlock(): invalid tx alert"), REJECT_INVALID, "bad-tx-alert-type");
         }
-        bool expectedToBeSpent = vaultTxType == TX_ALERT || vaultTxType == TX_RECOVERY;
+        bool expectedToBeSpent = fAlertsEnabled && (vaultTxType == TX_ALERT || vaultTxType == TX_RECOVERY);
 
         if (!isCoinBase)
         {
