@@ -16,6 +16,7 @@
 #include <hash.h>
 #include <index/txindex.h>
 #include <key_io.h>
+#include <policy/ddms.h>
 #include <policy/feerate.h>
 #include <policy/policy.h>
 #include <policy/rbf.h>
@@ -2319,6 +2320,41 @@ UniValue scantxoutset(const JSONRPCRequest& request)
     return result;
 }
 
+static UniValue getlicensedminers(const JSONRPCRequest& request)
+{
+    if (request.fHelp || request.params.size() != 0)
+        throw std::runtime_error(
+            RPCHelpMan{"getlicensedminers",
+                "\nReturns the list of licensed miners.\n",
+                {},
+				RPCResult{
+				            "\"licenses\": [\n"
+				            "    {\n"
+				            "      \"height\": n,                  (numeric) Height of the last modification of a given license\n"
+				            "      \"hashrate_ph\": n,             (numeric) Hashrate assigned to miner (PH/s)\n"
+				            "      \"scriptPubKey\": \"script\"      (string) The script key of a licensed miner\n"
+				            "    },\n"
+				            "    ... \n"
+				            "]\n"
+				                },
+                RPCExamples{
+                    HelpExampleCli("getlicensedminers", "")
+            + HelpExampleRpc("getlicensedminers", "")
+                },
+            }.ToString());
+
+    UniValue result(UniValue::VARR);
+    for (const auto& license : minerLicenses.GetLicenses()) {
+    	UniValue licenseObj(UniValue::VOBJ);
+    	licenseObj.pushKV("height", license.height);
+    	licenseObj.pushKV("hashrate", license.hashRate);
+    	licenseObj.pushKV("scriptPubKey", license.address);
+    	result.push_back(licenseObj);
+    }
+
+    return result;
+}
+
 // clang-format off
 static const CRPCCommand commands[] =
 { //  category              name                      actor (function)         argNames
@@ -2333,6 +2369,7 @@ static const CRPCCommand commands[] =
     { "blockchain",         "getblockheader",         &getblockheader,         {"blockhash","verbose"} },
     { "blockchain",         "getchaintips",           &getchaintips,           {} },
     { "blockchain",         "getdifficulty",          &getdifficulty,          {} },
+	{ "blockchain", 		"getlicensedminers",	  &getlicensedminers,	   {} },
     { "blockchain",         "getmempoolancestors",    &getmempoolancestors,    {"txid","verbose"} },
     { "blockchain",         "getmempooldescendants",  &getmempooldescendants,  {"txid","verbose"} },
     { "blockchain",         "getmempoolentry",        &getmempoolentry,        {"txid"} },
