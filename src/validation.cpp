@@ -3594,6 +3594,43 @@ CAmount GetTxFee(const CBaseTransaction &tx, const CCoinsViewCache &inputs)
 }
 
 
+
+vaulttxntype GetVaultTxTypeFromStackScript(const std::vector<valtype>& script, txnouttype scriptType) {
+    auto isOne = [] (std::vector<unsigned char> flagBytes) -> bool {
+        return flagBytes.size() == 1 && (flagBytes[0] == 0x01 || flagBytes[0] == opcodetype::OP_1);
+    };
+
+    auto isZero = [] (std::vector<unsigned char> flagBytes) -> bool {
+        return flagBytes.size() == 0 || (flagBytes.size() == 1 && flagBytes[0] == opcodetype::OP_0);
+    };
+
+    if (scriptType == TX_VAULT_ALERTADDRESS) {
+        if (script.size() > 1 && isZero(script[0])) {
+            std::vector<unsigned char> alertFlagBytes = script[script.size() - 1];
+            if (isOne(alertFlagBytes) && script.size() == 3)
+                return TX_ALERT;
+            else if (isZero(alertFlagBytes) && script.size() == 4)
+                return TX_RECOVERY;
+        }
+        return TX_INVALID;
+    } else if (scriptType == TX_VAULT_INSTANTADDRESS) {
+        if (script.size() > 2 && isZero(script[0])) {
+            std::vector<unsigned char> alertFlagBytes = script[script.size() - 1];
+            std::vector<unsigned char> instantFlagBytes = script[script.size() - 2];
+            if (isOne(alertFlagBytes) && script.size() == 3)
+                return TX_ALERT;
+            else if (isZero(alertFlagBytes) && isOne(instantFlagBytes) && script.size() == 5)
+                return TX_INSTANT;
+            else if (isZero(alertFlagBytes) && isZero(instantFlagBytes) && script.size() == 6)
+                return TX_RECOVERY;
+        }
+        return TX_INVALID;
+    }
+
+    return TX_NONVAULT;
+};
+
+
 vaulttxntype GetVaultTxType(const CBaseTransaction& btx) {
     // Fetch previous transactions (inputs):
     CCoinsView viewDummy;
@@ -3630,7 +3667,6 @@ vaulttxntype GetVaultTxType(const CBaseTransaction& tx, const CCoinsViewCache& v
     bool hasInstantTxCoin = false;
     bool hasRecoveryTxCoin = false;
     bool allAlertTxCoin = true;
-    CScript alertsRedeemScript;
     for (unsigned int i = 0; i < mutableTx.vin.size(); i++) {
         const Coin &coin = view.AccessCoin(mutableTx.vin[i].prevout);
         SignatureData incompleteData;
@@ -3639,20 +3675,17 @@ vaulttxntype GetVaultTxType(const CBaseTransaction& tx, const CCoinsViewCache& v
         Stacks stack(incompleteData);
         txnouttype scriptType = ExtractDataFromIncompleteScript(incompleteData, stack, BaseSignatureChecker(), coin.out);
         if (scriptType == TX_VAULT_ALERTADDRESS || scriptType == TX_VAULT_INSTANTADDRESS) {
-            SignatureData completeData = DataFromTransaction(mutableTx, i, coin.out);
-            size_t signaturesCount = completeData.signatures.size();
-            if (signaturesCount == 1) { // is alert
+            vaulttxntype stackVaultTxType = GetVaultTxTypeFromStackScript(stack.script, scriptType);
+            if (stackVaultTxType == TX_ALERT) {
                 hasAlertTxCoin = true;
-                // check if all inputs have the same source
-                if (i == 0) alertsRedeemScript = incompleteData.redeem_script;
-                else if (alertsRedeemScript != incompleteData.redeem_script)
-                    return TX_INVALID;
-            } else if (signaturesCount == 3 || (scriptType == TX_VAULT_ALERTADDRESS && signaturesCount == 2)) { // is recovery
+            } else if (stackVaultTxType == TX_RECOVERY) {
                 hasRecoveryTxCoin = true;
                 allAlertTxCoin = false;
-            } else if (scriptType == TX_VAULT_INSTANTADDRESS && signaturesCount == 2) { // is instant
+            } else if (stackVaultTxType == TX_INSTANT) {
                 hasInstantTxCoin = true;
                 allAlertTxCoin = false;
+            } else {
+                return TX_INVALID; // invalid stack
             }
         } else {
             allAlertTxCoin = false;

@@ -930,6 +930,9 @@ UniValue SignTransaction(interfaces::Chain& chain, CMutableTransaction& mtx, con
             if (serror == SCRIPT_ERR_INVALID_STACK_OPERATION) {
                 // Unable to sign input and verification failed (possible attempt to partially sign).
                 TxInErrorToJSON(txin, vErrors, "Unable to sign input, invalid stack size (possibly missing key)");
+            } else if (serror == SCRIPT_ERR_SIG_NULLFAIL) {
+                // Unable to sign input and verification failed (possible attempt to partially sign).
+                TxInErrorToJSON(txin, vErrors, "Unable to sign input, zero signature (possibly missing key)");
             } else {
                 TxInErrorToJSON(txin, vErrors, ScriptErrorString(serror));
             }
@@ -939,9 +942,9 @@ UniValue SignTransaction(interfaces::Chain& chain, CMutableTransaction& mtx, con
     // Check for requested transaction type
     if (txType != TX_INVALID) {  // TX_INVALID means unset
         auto actualTxType = GetVaultTxType(mtx);
-        if (actualTxType != txType) {
-            std::string txTypeStr = GetTxnOutputType(actualTxType);
-            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, _("Produced ") + txTypeStr + _(" transaction type, possibly missing keys"));
+        if (actualTxType == TX_INVALID) {
+            std::string expectedTxTypeStr = GetTxnOutputType(txType);
+            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, _("Produced invalid transaction type, type ") + expectedTxTypeStr + _(" was expected"));
         }
     }
 

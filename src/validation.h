@@ -33,6 +33,7 @@
 #include <vector>
 
 #include <atomic>
+#include <script/sign.h>
 
 class CBlockIndex;
 class CBlockTreeDB;
@@ -437,6 +438,7 @@ bool GetAncestorBlock(CBlockIndex* pindexPrev, const Consensus::Params& params, 
 CAmount GetTxFee(const CBaseTransaction& tx, const CCoinsViewCache& inputs);
 
 /** Check what VaultTxType tx has **/
+vaulttxntype GetVaultTxTypeFromStackScript(const std::vector<valtype>& script, txnouttype scriptType = TX_VAULT_ALERTADDRESS);
 vaulttxntype GetVaultTxType(const CBaseTransaction& tx, const CCoinsViewCache& view);
 vaulttxntype GetVaultTxType(const CBaseTransaction& btx);
 vaulttxntype GetVaultTxType(const CMutableTransaction& mtx);
