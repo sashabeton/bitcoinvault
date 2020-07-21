@@ -3457,40 +3457,42 @@ bool CheckBlock(const CBlock& block, CValidationState& state, const Consensus::P
 
         if (recoveryTxs.size() > 0) {
             for (const auto &tx : recoveryTxs) {
-                // check if all inputs are spent at the same height
-                auto spentHeightNotEqual = [&](const CTxIn &lhVin, const CTxIn &rhVin) -> bool {
-                    const Coin &lhCoin = view.AccessCoin(lhVin.prevout);
-                    const Coin &rhCoin = view.AccessCoin(rhVin.prevout);
-                    return lhCoin.nSpentHeight != rhCoin.nSpentHeight;
-                };
-                if (std::adjacent_find(tx->vin.begin(), tx->vin.end(), spentHeightNotEqual) != tx->vin.end())
-                    return state.Invalid(false, state.GetRejectCode(), state.GetRejectReason(),
-                                         strprintf("Revert transaction check failed (tx hash %s) %s",
-                                                   tx->GetHash().ToString(),
-                                                   state.GetDebugMessage()));
-
-                // find related atx and check if revert tx has exaclty the same inputs
-                const Coin &coin = view.AccessCoin(tx->vin[0].prevout);
-                CBlock ancestorBlock;
-                CBlockIndex *ancestorIndex = pindexPrev->GetAncestor(coin.nSpentHeight);
-                if (!ReadBlockFromDisk(ancestorBlock, ancestorIndex, consensusParams)) {
-                    assert(!"CheckBlock(): cannot load block from disk");
+                // find unique spent heights of recovered inputs
+                std::unordered_set<uint32_t> uniqueSpentHeights;
+                for (const CTxIn & txIn : tx->vin) {
+                    const Coin &txInCoin = view.AccessCoin(txIn.prevout);
+                    uniqueSpentHeights.insert(txInCoin.nSpentHeight);
                 }
-                auto hasExactlySameInputs = [&](const CAlertTransactionRef &atx) -> bool {
-                    if (atx->vin.size() != tx->vin.size())
-                        return false;
-                    for (size_t i = 0; i < atx->vin.size(); i++) {
-                        auto compareInputs = [&](const CTxIn &vin) -> bool {
-                            return atx->vin[i].prevout.hash == vin.prevout.hash
-                                   && atx->vin[i].prevout.n == vin.prevout.n;
-                        };
-                        if (std::find_if(tx->vin.begin(), tx->vin.end(), compareInputs) == tx->vin.end())
-                            return false;
+
+                size_t alertsInputsCount = 0;
+                for (auto spentHeightIt = uniqueSpentHeights.begin(); spentHeightIt != uniqueSpentHeights.end(); spentHeightIt++) {
+                    // find related atxs and check if revert tx has all inputs
+                    CBlock ancestorBlock;
+                    CBlockIndex *ancestorIndex = pindexPrev->GetAncestor(*spentHeightIt);
+                    if (!ReadBlockFromDisk(ancestorBlock, ancestorIndex, consensusParams)) {
+                        assert(!"CheckBlock(): cannot load block from disk");
                     }
-                    return true;
-                };
-                if (std::find_if(ancestorBlock.vatx.begin(), ancestorBlock.vatx.end(), hasExactlySameInputs) ==
-                    ancestorBlock.vatx.end())
+                    auto hasAllAlertInputs = [&](const CAlertTransactionRef &atx) -> bool {
+                        for (size_t i = 0; i < atx->vin.size(); i++) {
+                            auto compareInputs = [&](const CTxIn &vin) -> bool {
+                                return atx->vin[i].prevout.hash == vin.prevout.hash
+                                       && atx->vin[i].prevout.n == vin.prevout.n;
+                            };
+                            if (std::find_if(tx->vin.begin(), tx->vin.end(), compareInputs) == tx->vin.end())
+                                return false;
+                        }
+                        return true;
+                    };
+
+                    for (auto it = std::find_if(ancestorBlock.vatx.begin(), ancestorBlock.vatx.end(), hasAllAlertInputs);
+                         it != ancestorBlock.vatx.end();
+                         it = std::find_if(++it, ancestorBlock.vatx.end(), hasAllAlertInputs)) {
+                        alertsInputsCount += (*it)->vin.size();
+                    }
+                }
+
+                // if recovery tx inputs are not the same as in found alerts
+                if (alertsInputsCount != tx->vin.size())
                     return state.Invalid(false, state.GetRejectCode(), state.GetRejectReason(),
                                          strprintf("Revert transaction check failed (tx hash %s) %s",
                                                    tx->GetHash().ToString(),
