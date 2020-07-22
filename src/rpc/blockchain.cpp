@@ -2330,7 +2330,6 @@ static UniValue getlicensedminers(const JSONRPCRequest& request)
 				RPCResult{
 				            "\"licenses\": [\n"
 				            "    {\n"
-				            "      \"height\": n,                  (numeric) Height of the last modification of a given license\n"
 				            "      \"hashrate_ph\": n,             (numeric) Hashrate assigned to miner (PH/s)\n"
 				            "      \"scriptPubKey\": \"script\"      (string) The script key of a licensed miner\n"
 				            "    },\n"
@@ -2345,11 +2344,14 @@ static UniValue getlicensedminers(const JSONRPCRequest& request)
 
     UniValue result(UniValue::VARR);
     for (const auto& license : minerLicenses.GetLicenses()) {
-    	UniValue licenseObj(UniValue::VOBJ);
-    	licenseObj.pushKV("height", license.height);
-    	licenseObj.pushKV("hashrate", license.hashRate);
-    	licenseObj.pushKV("scriptPubKey", license.address);
-    	result.push_back(licenseObj);
+    	auto hashRate = minerLicenses.GetMinerHashrate(license.script, chainActive.Tip()->nHeight);
+
+    	if (hashRate > 0) {
+          UniValue licenseObj(UniValue::VOBJ);
+          licenseObj.pushKV("hashrate", hashRate);
+          licenseObj.pushKV("scriptPubKey", license.script);
+          result.push_back(licenseObj);
+    	}
     }
 
     return result;
@@ -2369,7 +2371,7 @@ static const CRPCCommand commands[] =
     { "blockchain",         "getblockheader",         &getblockheader,         {"blockhash","verbose"} },
     { "blockchain",         "getchaintips",           &getchaintips,           {} },
     { "blockchain",         "getdifficulty",          &getdifficulty,          {} },
-	{ "blockchain", 		"getlicensedminers",	  &getlicensedminers,	   {} },
+	  { "blockchain",         "getlicensedminers",      &getlicensedminers,      {} },
     { "blockchain",         "getmempoolancestors",    &getmempoolancestors,    {"txid","verbose"} },
     { "blockchain",         "getmempooldescendants",  &getmempooldescendants,  {"txid","verbose"} },
     { "blockchain",         "getmempoolentry",        &getmempoolentry,        {"txid"} },
