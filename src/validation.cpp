@@ -3369,7 +3369,12 @@ bool CheckBlock(const CBlock& block, CValidationState& state, const Consensus::P
     if (!CheckBlockHeader(block, state, consensusParams, fCheckPOW))
         return false;
 
-    CCoinsViewCache view(pcoinsTip.get());
+    CCoinsView viewDummy;
+    CCoinsViewCache view(&viewDummy);
+    CCoinsViewCache &viewChain = *pcoinsTip;
+    CCoinsViewMemPool viewMempool(&viewChain, mempool);
+    view.SetBackend(viewMempool);
+
     int nHeight = block.GetHash() != consensusParams.hashGenesisBlock ? GetCoinbaseHeight(block) : 0;
     bool fAlertsEnabled = AreAlertsEnabled(nHeight, consensusParams.AlertsHeight);
     bool fAlertsInitialized = nHeight - consensusParams.AlertsHeight >= (int) consensusParams.nAlertsInitializationWindow;
