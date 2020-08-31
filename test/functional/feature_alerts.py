@@ -1222,7 +1222,7 @@ class AlertsTest(BitcoinTestFramework):
             error = e.error
 
         assert error['code'] == -1
-        assert 'Revert transaction check failed' in error['message']
+        assert 'bad-recovery-txns' in error['message']
 
     def test_recovery_tx_is_rejected_when_inputs_are_non_alert(self):
         addr0 = self.nodes[0].getnewaddress()

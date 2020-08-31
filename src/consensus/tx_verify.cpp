@@ -226,9 +226,9 @@ bool Consensus::CheckTxInputs(const CBaseTransaction& tx, CValidationState& stat
         assert(!coin.IsConfirmed());
 
         if (!expectedToBeSpent && coin.IsSpent())
-            return state.Invalid(false, REJECT_INVALID, "bad-txn-inputs-spent");
+            return state.DoS(100, false, REJECT_INVALID, "bad-txn-inputs-spent");
         else if (expectedToBeSpent && !coin.IsSpent())
-            return state.Invalid(false, REJECT_INVALID, "bad-txn-inputs-not-spent");
+            return state.DoS(100, false, REJECT_INVALID, "bad-txn-inputs-not-spent");
 
         // If prev is coinbase, check that it's matured
         if (coin.IsCoinBase() && nSpendHeight - coin.nHeight < COINBASE_MATURITY) {
