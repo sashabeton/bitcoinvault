@@ -2125,6 +2125,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
 
     CCheckQueueControl<CScriptCheck> control(fScriptChecks && nScriptCheckThreads ? &scriptcheckqueue : nullptr);
 
+    // vtx checks
     CAmount nFees = 0;
     CAmount nAncestorAlertsFees = 0;
     int nTxInputs = 0;
@@ -2133,16 +2134,29 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     std::vector<PrecomputedTransactionData> txdata;
     txdata.reserve(block.vtx.size() + block.vatx.size()); // Required so that pointers to individual PrecomputedTransactionData don't get invalidated
 
+    std::vector<CTransactionRef> confirmedAlerts;
+    std::vector<CTransactionRef> recoveryTxs;
+
     auto validateAndProcessTx = [&] (CTransactionRef txRef) -> bool {
         const CTransaction &tx = *txRef;
         bool isCoinBase = tx.IsCoinBase();
         nTxInputs += tx.vin.size();
 
-        vaulttxntype vaultTxType = GetVaultTxType(tx, view);
-        if (vaultTxType == TX_INVALID) {
-            return state.DoS(100, error("ConnectBlock(): invalid tx alert"), REJECT_INVALID, "bad-tx-alert-type");
+        vaulttxntype vaultTxType = TX_NONVAULT;
+        bool expectedToBeSpent = false;
+
+        if (fAlertsEnabled) {
+            vaultTxType = GetVaultTxType(tx, view);
+            if (vaultTxType == TX_INVALID) {
+                return state.DoS(100, error("ConnectBlock(): invalid tx alert"), REJECT_INVALID, "bad-tx-alert-type");
+            } else if (vaultTxType == TX_ALERT) {
+                confirmedAlerts.push_back(txRef);
+                expectedToBeSpent = true;
+            } else if (vaultTxType == TX_RECOVERY) {
+                recoveryTxs.push_back(txRef);
+                expectedToBeSpent = true;
+            }
         }
-        bool expectedToBeSpent = fAlertsEnabled && (vaultTxType == TX_ALERT || vaultTxType == TX_RECOVERY);
 
         if (!isCoinBase)
         {
@@ -2210,6 +2224,75 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     }
 
     if (fAlertsEnabled) {
+        if (confirmedAlerts.size() > 0) {
+            CBlock ancestorBlock;
+            if (!GetAncestorBlock(pindex->pprev, chainparams.GetConsensus(), ancestorBlock)) {
+                assert(!"ConnectBlock(): cannot get ancestor block");
+            }
+
+            for (const auto &tx : confirmedAlerts) {
+                auto compareHashes = [&](const CAlertTransactionRef &atx) -> bool {
+                    return atx->GetHash() == tx->GetHash();
+                };
+                if (std::find_if(ancestorBlock.vatx.begin(), ancestorBlock.vatx.end(), compareHashes) ==
+                    ancestorBlock.vatx.end())
+                    return state.DoS(10, false, REJECT_INVALID, "bad-txn-alert-absence", false,
+                                     "confirmed alert is absent in ancestor block");
+            }
+        }
+
+        if (recoveryTxs.size() > 0) {
+            CCoinsView viewDummy;
+            CCoinsViewCache extendedView(&viewDummy);
+            CCoinsViewCache &viewChain = *pcoinsTip;
+            CCoinsViewMemPool viewMempool(&viewChain, mempool);
+            extendedView.SetBackend(viewMempool);
+
+            for (const auto &tx : recoveryTxs) {
+                // find unique spent heights of recovered inputs
+                std::unordered_set<uint32_t> uniqueSpentHeights;
+                for (const CTxIn &txIn : tx->vin) {
+                    const Coin &txInCoin = extendedView.AccessCoin(txIn.prevout);
+                    uniqueSpentHeights.insert(txInCoin.nSpentHeight);
+                }
+
+                size_t alertsInputsCount = 0;
+                for (auto spentHeightIt = uniqueSpentHeights.begin();
+                     spentHeightIt != uniqueSpentHeights.end(); spentHeightIt++) {
+                    // find related atxs and check if revert tx has all inputs
+                    CBlock ancestorBlock;
+                    const CBlockIndex *ancestorIndex = pindex->pprev->GetAncestor(*spentHeightIt);
+                    if (!ReadBlockFromDisk(ancestorBlock, ancestorIndex, chainparams.GetConsensus())) {
+                        assert(!"CheckBlock(): cannot load block from disk");
+                    }
+                    auto hasAllAlertInputs = [&](const CAlertTransactionRef &atx) -> bool {
+                        for (size_t i = 0; i < atx->vin.size(); i++) {
+                            auto compareInputs = [&](const CTxIn &vin) -> bool {
+                                return atx->vin[i].prevout.hash == vin.prevout.hash
+                                       && atx->vin[i].prevout.n == vin.prevout.n;
+                            };
+                            if (std::find_if(tx->vin.begin(), tx->vin.end(), compareInputs) == tx->vin.end())
+                                return false;
+                        }
+                        return true;
+                    };
+
+                    for (auto it = std::find_if(ancestorBlock.vatx.begin(), ancestorBlock.vatx.end(),
+                                                hasAllAlertInputs);
+                         it != ancestorBlock.vatx.end();
+                         it = std::find_if(++it, ancestorBlock.vatx.end(), hasAllAlertInputs)) {
+                        alertsInputsCount += (*it)->vin.size();
+                    }
+                }
+
+                // if recovery tx inputs are not the same as in found alerts
+                if (alertsInputsCount != tx->vin.size())
+                    return state.DoS(10, false, REJECT_INVALID, "bad-txn-recovery", false,
+                                     "recovery inputs mismatch with recovered alerts");
+            }
+        }
+
+        // vatx checks
         int nAlertTxInputs = 0;
         blockundo.vatxundo.reserve(block.vatx.size());
         auto validateAndProcessAlertTx = [&](CAlertTransactionRef atxRef) -> bool {
@@ -3372,12 +3455,6 @@ bool CheckBlock(const CBlock& block, CValidationState& state, const Consensus::P
     if (!CheckBlockHeader(block, state, consensusParams, fCheckPOW))
         return false;
 
-    CCoinsView viewDummy;
-    CCoinsViewCache view(&viewDummy);
-    CCoinsViewCache &viewChain = *pcoinsTip;
-    CCoinsViewMemPool viewMempool(&viewChain, mempool);
-    view.SetBackend(viewMempool);
-
     int nHeight = block.GetHash() != consensusParams.hashGenesisBlock ? GetCoinbaseHeight(block) : 0;
     bool fAlertsEnabled = AreAlertsEnabled(nHeight, consensusParams.AlertsHeight);
 
@@ -3434,8 +3511,6 @@ bool CheckBlock(const CBlock& block, CValidationState& state, const Consensus::P
     for (const auto& atx : block.vatx) {
         if (atx->IsCoinBase())
             return state.DoS(100, false, REJECT_INVALID, "bad-cb-alerts", false, "coinbase in alerts");
-        if (fCheckVaultTxType && GetVaultTxType(*atx, view) != TX_ALERT)
-            return state.DoS(100, false, REJECT_INVALID, "bad-tx-alerts", false, "non alert tx in alerts");
         if (!CheckTransaction(*atx, state, true))
             return state.Invalid(false, state.GetRejectCode(), state.GetRejectReason(),
                                  strprintf("Transaction Alert check failed (atx hash %s) %s",
@@ -3813,17 +3888,9 @@ static bool ContextualCheckBlockHeader(const CBlockHeader& block, CValidationSta
  *  in ConnectBlock().
  *  Note that -reindex-chainstate skips the validation that happens here!
  */
-static bool ContextualCheckBlock(const CBlock& block, CValidationState& state, const Consensus::Params& consensusParams, const CBlockIndex* pindexPrev, bool fCheckVaultTxType = true)
+static bool ContextualCheckBlock(const CBlock& block, CValidationState& state, const Consensus::Params& consensusParams, const CBlockIndex* pindexPrev)
 {
-    CCoinsView viewDummy;
-    CCoinsViewCache view(&viewDummy);
-    CCoinsViewCache &viewChain = *pcoinsTip;
-    CCoinsViewMemPool viewMempool(&viewChain, mempool);
-    view.SetBackend(viewMempool);
-
     const int nHeight = pindexPrev == nullptr ? 0 : pindexPrev->nHeight + 1;
-    bool fAlertsEnabled = AreAlertsEnabled(nHeight, consensusParams.AlertsHeight);
-    bool fAlertsInitialized = nHeight - consensusParams.AlertsHeight >= (int) consensusParams.nAlertsInitializationWindow;
 
     // Start enforcing BIP113 (Median Time Past) using versionbits logic.
     int nLockTimeFlags = 0;
@@ -3847,79 +3914,6 @@ static bool ContextualCheckBlock(const CBlock& block, CValidationState& state, c
     for (const auto& atx : block.vatx) {
         if (!IsFinalTx(*atx, nHeight, nLockTimeCutoff)) {
             return state.DoS(10, false, REJECT_INVALID, "bad-atxns-nonfinal", false, "non-final transaction alert");
-        }
-    }
-
-    // Check the validity of alert and recovery transactions
-    if (fAlertsEnabled && fAlertsInitialized && fCheckVaultTxType && pindexPrev != nullptr) {
-        std::vector<CTransactionRef> txAlerts;
-        std::vector<CTransactionRef> recoveryTxs;
-
-        for (const auto &tx : block.vtx) {
-            vaulttxntype vaultTxType = GetVaultTxType(*tx, view);
-            if (vaultTxType == TX_ALERT)
-                txAlerts.push_back(tx);
-            else if (vaultTxType == TX_RECOVERY)
-                recoveryTxs.push_back(tx);
-        }
-
-        if (txAlerts.size() > 0) {
-            CBlock ancestorBlock;
-            const CBlockIndex *ancestorIndex = pindexPrev->GetAncestor(nHeight - consensusParams.nAlertsInitializationWindow);
-            if (!ReadBlockFromDisk(ancestorBlock, ancestorIndex, consensusParams)) {
-                assert(!"CheckBlock(): cannot load block from disk");
-            }
-
-            for (const auto &tx : txAlerts) {
-                auto compareHashes = [&](const CAlertTransactionRef &atx) -> bool {
-                    return atx->GetHash() == tx->GetHash();
-                };
-                if (std::find_if(ancestorBlock.vatx.begin(), ancestorBlock.vatx.end(), compareHashes) ==
-                    ancestorBlock.vatx.end())
-                    return state.DoS(10, false, REJECT_INVALID, "bad-alert-txns", false, "confirmed alert is absent in ancestor block");
-            }
-        }
-
-        if (recoveryTxs.size() > 0) {
-            for (const auto &tx : recoveryTxs) {
-                // find unique spent heights of recovered inputs
-                std::unordered_set<uint32_t> uniqueSpentHeights;
-                for (const CTxIn & txIn : tx->vin) {
-                    const Coin &txInCoin = view.AccessCoin(txIn.prevout);
-                    uniqueSpentHeights.insert(txInCoin.nSpentHeight);
-                }
-
-                size_t alertsInputsCount = 0;
-                for (auto spentHeightIt = uniqueSpentHeights.begin(); spentHeightIt != uniqueSpentHeights.end(); spentHeightIt++) {
-                    // find related atxs and check if revert tx has all inputs
-                    CBlock ancestorBlock;
-                    const CBlockIndex *ancestorIndex = pindexPrev->GetAncestor(*spentHeightIt);
-                    if (!ReadBlockFromDisk(ancestorBlock, ancestorIndex, consensusParams)) {
-                        assert(!"CheckBlock(): cannot load block from disk");
-                    }
-                    auto hasAllAlertInputs = [&](const CAlertTransactionRef &atx) -> bool {
-                        for (size_t i = 0; i < atx->vin.size(); i++) {
-                            auto compareInputs = [&](const CTxIn &vin) -> bool {
-                                return atx->vin[i].prevout.hash == vin.prevout.hash
-                                       && atx->vin[i].prevout.n == vin.prevout.n;
-                            };
-                            if (std::find_if(tx->vin.begin(), tx->vin.end(), compareInputs) == tx->vin.end())
-                                return false;
-                        }
-                        return true;
-                    };
-
-                    for (auto it = std::find_if(ancestorBlock.vatx.begin(), ancestorBlock.vatx.end(), hasAllAlertInputs);
-                         it != ancestorBlock.vatx.end();
-                         it = std::find_if(++it, ancestorBlock.vatx.end(), hasAllAlertInputs)) {
-                        alertsInputsCount += (*it)->vin.size();
-                    }
-                }
-
-                // if recovery tx inputs are not the same as in found alerts
-                if (alertsInputsCount != tx->vin.size())
-                    return state.DoS(10, false, REJECT_INVALID, "bad-recovery-txns", false, "recovery inputs mismatch with recovered alerts");
-            }
         }
     }
 
@@ -4161,7 +4155,7 @@ bool CChainState::AcceptBlock(const std::shared_ptr<const CBlock>& pblock, CVali
     }
 
     if (!CheckBlock(block, state, chainparams.GetConsensus(), pindex->pprev, true, true, fCheckVaultTxType) ||
-        !ContextualCheckBlock(block, state, chainparams.GetConsensus(), pindex->pprev, fCheckVaultTxType)) {
+        !ContextualCheckBlock(block, state, chainparams.GetConsensus(), pindex->pprev)) {
         if (state.IsInvalid() && !state.CorruptionPossible()) {
             pindex->nStatus |= BLOCK_FAILED_VALID;
             setDirtyBlockIndex.insert(pindex);
