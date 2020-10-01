@@ -231,7 +231,10 @@ public:
 
         vFixedSeeds.clear();
         vSeeds.clear();
-        vSeeds.emplace_back("testnet.bitcoinvault.global:28444");
+
+        // TODO: replace it back after merge to the master
+        vSeeds.emplace_back("157.230.102.82");
+        // vSeeds.emplace_back("testnet.bitcoinvault.global:28444");
         // nodes with support for servicebits filtering should be at the top
         
         base58Prefixes[PUBKEY_ADDRESS] = std::vector<unsigned char>(1,111); // addresses like Bitcoin testnet
