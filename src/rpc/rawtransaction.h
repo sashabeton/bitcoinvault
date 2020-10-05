@@ -5,13 +5,18 @@
 #ifndef BITCOIN_RPC_RAWTRANSACTION_H
 #define BITCOIN_RPC_RAWTRANSACTION_H
 
+class CBaseTransaction;
 class CBasicKeyStore;
 struct CMutableTransaction;
 class UniValue;
+class uint256;
 
 namespace interfaces {
 class Chain;
 } // namespace interfaces
+
+
+void TxToJSON(const CBaseTransaction& tx, const uint256 hashBlock, UniValue& entry);
 
 /** Sign a transaction with the given keystore and previous transactions */
 UniValue SignTransaction(interfaces::Chain& chain, CMutableTransaction& mtx, const UniValue& prevTxs, CBasicKeyStore *keystore, bool tempKeystore, const UniValue& hashType, bool expectSpent = false, vaulttxntype txType = TX_INVALID);

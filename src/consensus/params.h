@@ -81,6 +81,10 @@ struct Params {
     /** LWMA Difficulty Adjustment Algorithm Parameters */
     int64_t nLwmaAveragingWindow;
 
+    /** Auxpow parameters */
+    int32_t nAuxpowChainId;
+    int nAuxpowStartHeight;
+    bool fStrictChainId;
 };
 } // namespace Consensus
 

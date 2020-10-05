@@ -14,6 +14,17 @@ uint256 CBlockHeader::GetHash() const
     return SerializeHash(*this);
 }
 
+void CBlockHeader::SetAuxBlockHeader(std::unique_ptr<CAuxBlockHeader> auxBlockHeader)
+{
+	if (auxBlockHeader) {
+		auxHeader.reset(auxBlockHeader.release());
+		SetBlockHeaderVersion(true);
+	} else {
+		auxHeader.reset();
+		SetBlockHeaderVersion(false);
+	}
+}
+
 std::string CBlock::ToString() const
 {
     std::stringstream s;

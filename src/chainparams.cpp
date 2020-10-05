@@ -101,6 +101,11 @@ public:
         //POW DDA LWMA Parameters
         consensus.nLwmaAveragingWindow = 30; // see https://github.com/ianduoteli/pow-difficulty-simulations
 
+        // AUX POW Parameters
+        consensus.nAuxpowChainId = 0x0666;
+        consensus.nAuxpowStartHeight = 100000; // TODO
+        consensus.fStrictChainId = true;
+
         /**
          * The message start string is designed to be unlikely to occur in normal data.
          * The characters are rarely used upper ASCII, not valid as UTF-8, and produce
@@ -210,6 +215,11 @@ public:
         //POW DDA LWMA Parameters
         consensus.nLwmaAveragingWindow = 30; // see https://github.com/ianduoteli/pow-difficulty-simulations
 
+        // AUX POW Parameters
+        consensus.nAuxpowChainId = 0x0666;
+        consensus.nAuxpowStartHeight = 0;
+        consensus.fStrictChainId = false;
+
         pchMessageStartNetwork[0] = 0xd3;
         pchMessageStartNetwork[1] = 0xe9;
         pchMessageStartNetwork[2] = 0x68;
@@ -302,6 +312,11 @@ public:
 
         //POW DDA LWMA Parameters
         consensus.nLwmaAveragingWindow = 30; // see https://github.com/ianduoteli/pow-difficulty-simulations
+
+        // AUX POW Parameters
+        consensus.nAuxpowChainId = 0x0666;
+        consensus.nAuxpowStartHeight = 100;
+        consensus.fStrictChainId = true;
 
         pchMessageStartNetwork[0] = 0xfa;
         pchMessageStartNetwork[1] = 0xbf;

@@ -4,6 +4,7 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <amount.h>
+#include <auxpow.h>
 #include <chain.h>
 #include <chainparams.h>
 #include <consensus/consensus.h>
@@ -15,6 +16,7 @@
 #include <net.h>
 #include <policy/fees.h>
 #include <pow.h>
+#include <rpc/auxpow_miner.h>
 #include <rpc/blockchain.h>
 #include <rpc/mining.h>
 #include <rpc/server.h>
@@ -121,6 +123,7 @@ UniValue generateBlocks(std::shared_ptr<CReserveScript> coinbaseScript, int nGen
             LOCK(cs_main);
             IncrementExtraNonce(pblock, chainActive.Tip(), nExtraNonce, Params().GetConsensus());
         }
+        CAuxPow::initBlockHeader(*pblock);
         while (nMaxTries > 0 && pblock->nNonce < nInnerLoopCount && !CheckProofOfWork(pblock->GetHash(), pblock->nBits, Params().GetConsensus())) {
             ++pblock->nNonce;
             --nMaxTries;
@@ -1031,6 +1034,65 @@ static UniValue estimaterawfee(const JSONRPCRequest& request)
     return result;
 }
 
+/* ***************************************************************/
+/* Merge mining. */
+
+static UniValue createauxblock(const JSONRPCRequest& request) {
+	if (request.fHelp || request.params.size() != 1)
+		throw std::runtime_error(
+			RPCHelpMan{"createauxblock",
+				"\nCreates a new block and returns information required to merge-mine it.\n",
+				{
+					{"address", RPCArg::Type::STR, RPCArg::Optional::NO, "Payout address for the coinbase transaction"},
+				},
+				RPCResult{
+					"{\n"
+					"  \"hash\" : \"hash\", (string) Hash of the created block\n"
+					"  \"chainid\" : n, (numeric) Chain ID for this block\n"
+					"  \"previousblockhash\" : \"hash\", (string) Hash of the previous block\n"
+					"  \"coinbasevalue\" : n, (numeric) Value of the block's coinbase\n"
+					"  \"bits\" : \"xxxxxxxx\", (string) Compressed target of the block\n"
+					"  \"height\" : n, (numeric) Height of the block\n"
+					"}"
+				},
+				RPCExamples{
+					HelpExampleCli("createauxblock", "\"address\"") +
+					HelpExampleRpc("createauxblock", "\"address\"")
+				},
+			}.ToString());
+
+	const CTxDestination coinbaseScript = DecodeDestination(request.params[0].get_str());
+	if (!IsValidDestination(coinbaseScript))
+		throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Error: Invalid coinbase payout address");
+	const CScript scriptPubKey = GetScriptForDestination(coinbaseScript);
+
+	return AuxpowMiner::get().createAuxBlock(request, scriptPubKey);
+}
+
+static UniValue submitauxblock(const JSONRPCRequest& request) {
+	if (request.fHelp || request.params.size() != 2)
+		throw std::runtime_error(
+			RPCHelpMan{"submitauxblock",
+				"\nSubmits a solved auxpow for a block that was previously created by 'createauxblock'.\n",
+				{
+					{"hash", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "Hash of the block to submit"},
+					{"auxpow", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "Serialised auxpow found"},
+				},
+				RPCResult{
+		            " (boolean) Whether the submitted block was correct\n"
+				},
+				RPCExamples{
+					HelpExampleCli("submitauxblock", "\"hash\" \"serialised auxpow\"") +
+					HelpExampleRpc("submitauxblock", "\"hash\" \"serialised auxpow\"")
+				},
+			}.ToString());
+
+	auto& hash = request.params[0].get_str();
+	auto& serialised_auxpow = request.params[1].get_str();
+
+	return AuxpowMiner::get().submitAuxBlock(request, hash, serialised_auxpow);
+}
+
 // clang-format off
 static const CRPCCommand commands[] =
 { //  category              name                      actor (function)         argNames
@@ -1041,6 +1103,9 @@ static const CRPCCommand commands[] =
     { "mining",             "getblocktemplate",       &getblocktemplate,       {"template_request"} },
     { "mining",             "submitblock",            &submitblock,            {"hexdata","dummy"} },
     { "mining",             "submitheader",           &submitheader,           {"hexdata"} },
+
+	{ "mining",				"createauxblock",		  &createauxblock,		   {"address"} },
+	{ "mining",				"submitauxblock",		  &submitauxblock,		   {"hash", "auxpow"} },
 
 
     { "generating",         "generatetoaddress",      &generatetoaddress,      {"nblocks","address","maxtries"} },
