@@ -183,7 +183,7 @@ public:
         consensus.BIP34Hash = uint256();
         consensus.BIP65Height = 1;
         consensus.BIP66Height = 1;
-        consensus.AlertsHeight = 0; // Not yet enabled
+        consensus.AlertsHeight = 92960; // Not yet enabled
         consensus.powLimit = uint256S("00000000ffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
         consensus.nPowTargetTimespan = 14 * 24 * 60 * 60; // two weeks
         consensus.nPowTargetSpacing = 10 * 60; // 10 minutes (block time like Bitcoin)
@@ -217,7 +217,7 @@ public:
 
         // AUX POW Parameters
         consensus.nAuxpowChainId = 0x0666;
-        consensus.nAuxpowStartHeight = 0;
+        consensus.nAuxpowStartHeight = 120500;
         consensus.fStrictChainId = false;
 
         pchMessageStartNetwork[0] = 0xd3;
