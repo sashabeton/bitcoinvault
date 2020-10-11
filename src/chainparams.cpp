@@ -217,7 +217,7 @@ public:
 
         // AUX POW Parameters
         consensus.nAuxpowChainId = 0x0666;
-        consensus.nAuxpowStartHeight = 120500;
+        consensus.nAuxpowStartHeight = 119600;
         consensus.fStrictChainId = false;
 
         pchMessageStartNetwork[0] = 0xd3;
