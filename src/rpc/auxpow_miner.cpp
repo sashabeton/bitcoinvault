@@ -140,7 +140,7 @@ bool AuxpowMiner::submitAuxBlock (const JSONRPCRequest& request, const std::stri
 	std::unique_ptr<CAuxBlockHeader> auxHeader(new CAuxBlockHeader());
 	ss >> *auxHeader;
 	shared_block->SetAuxBlockHeader(std::move(auxHeader));
-	assert(shared_block->GetHash().GetHex() == hashHex);
+	// assert(shared_block->GetHash().GetHex() == hashHex);
 
 	return ProcessNewBlock(Params(), shared_block, true, nullptr);
 }
