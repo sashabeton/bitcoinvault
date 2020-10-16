@@ -1,8 +1,10 @@
 #include <auxpow.h>
 
+#include <chainparams.h>
 #include <consensus/consensus.h>
 #include <consensus/merkle.h>
 #include <hash.h>
+#include <pow.h>
 #include <primitives/block.h>
 #include <util/strencodings.h>
 #include <util/system.h>
@@ -26,10 +28,9 @@ bool CAuxPow::check(const CAuxBlockHeader& auxHeader, const uint256& hashAuxBloc
 	if (params.fStrictChainId && auxHeader.parentBlock.GetChainId() == nChainId)
 		return error("Aux POW parent has our chain ID");
 
-	if (auxHeader.vMerkleBranch.size() > 30)
+	if (auxHeader.vChainMerkleBranch.size() > 30)
 		return error("Aux POW chain merkle branch too long");
 
-	// Check that the chain merkle root is in the coinbase
 	const uint256 nRootHash = CAuxPow::checkMerkleBranch(hashAuxBlock, auxHeader.vChainMerkleBranch,
 			auxHeader.nChainIndex);
 	valtype vchRootHash(nRootHash.begin(), nRootHash.end());
@@ -51,6 +52,8 @@ bool CAuxPow::check(const CAuxBlockHeader& auxHeader, const uint256& hashAuxBloc
 	CScript::const_iterator pcHead = std::search(script.begin(), script.end(), mmHeaderBegin, mmHeaderEnd);
 	CScript::const_iterator pc = std::search(script.begin(), script.end(), vchRootHash.begin(), vchRootHash.end());
 
+
+	// Check that the chain merkle root is in the coinbase
 	if (pc == script.end())
 		return error("Aux POW missing chain merkle root in parent coinbase");
 
@@ -144,6 +147,12 @@ std::unique_ptr<CAuxBlockHeader> CAuxPow::createAuxBlockHeader(CBlockHeader& hea
 	parent.vtx.resize(1);
 	parent.vtx[0] = coinbaseRef;
 	parent.hashMerkleRoot = BlockMerkleRoot(parent.vtx);
+
+	for (int i = 0; i < 255; ++i) {
+		if (CheckProofOfWork(parent.GetHash(), header.nBits, Params().GetConsensus()))
+			break;
+		parent.nNonce = i;
+	}
 
 	/* Construct the auxpow header. */
 	std::unique_ptr<CAuxBlockHeader> auxHeader(new CAuxBlockHeader(std::move(coinbaseRef)));

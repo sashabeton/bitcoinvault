@@ -20,6 +20,10 @@
 
 class JSONRPCRequest;
 
+namespace auxpow_tests {
+	class AuxpowMinerForTest;
+}
+
 /**
  * This class holds "global" state used to construct blocks for the auxpow
  * mining RPCs and the map of already constructed blocks to look them up
@@ -86,6 +90,8 @@ private:
    * block is found, it is returned.  Otherwise, a JSONRPCError is thrown.
    */
   const CBlock* lookupSavedBlock(const std::string& hashHex) const;
+
+  friend class auxpow_tests::AuxpowMinerForTest;
 };
 
 #endif // BITCOINVAULT_RPC_AUXPOW_MINER_H

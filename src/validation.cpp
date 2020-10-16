@@ -1055,6 +1055,11 @@ bool GetTransaction(const uint256& hash, CBaseTransactionRef& txOut, const Conse
 //
 
 bool CheckProofOfWork(const CBlockHeader& block, const Consensus::Params& params) {
+	 if (block.IsAuxPow() && block.GetBaseVersion() == VERSIONBITS_LAST_OLD_BLOCK_VERSION
+	 && params.fStrictChainId && block.GetChainId() != params.nAuxpowChainId)
+		 return error("%s: block does not have our chain ID (got %d, expected %d, full nVersion %d)",
+				 	  __func__, block.GetChainId(), params.nAuxpowChainId, block.nVersion);
+
 	 /* If there is no auxpow, just check the block hash. */
 	 if (!block.auxHeader) {
 		 if (block.IsAuxPow())
@@ -1069,10 +1074,6 @@ bool CheckProofOfWork(const CBlockHeader& block, const Consensus::Params& params
 	 /* We have auxpow. Check it. */
 	 if (!block.IsAuxPow())
 		 return error("%s : auxpow on block with non-auxpow version", __func__);
-
-	 if (params.fStrictChainId && block.GetChainId() != params.nAuxpowChainId)
-		 return error("%s: block does not have our chain ID (got %d, expected %d, full nVersion %d)",
-				 	  __func__, block.GetChainId(), params.nAuxpowChainId, block.nVersion);
 
 	 if (!CheckProofOfWork(block.auxHeader->getParentBlockHash(), block.nBits, params))
 		 return error("%s : AUX proof of work failed", __func__);

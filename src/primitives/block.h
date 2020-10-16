@@ -10,6 +10,29 @@
 #include <serialize.h>
 #include <uint256.h>
 
+struct CPureBlockHeader {
+	int32_t nVersion;
+	uint256 hashPrevBlock;
+	uint256 hashMerkleRoot;
+	uint32_t nTime;
+	uint32_t nBits;
+	uint32_t nNonce;
+
+	ADD_SERIALIZE_METHODS;
+
+	template <typename Stream, typename Operation>
+	inline void SerializationOp(Stream& s, Operation ser_action) {
+		READWRITE(nVersion);
+		READWRITE(hashPrevBlock);
+		READWRITE(hashMerkleRoot);
+		READWRITE(nTime);
+		READWRITE(nBits);
+		READWRITE(nNonce);
+	}
+
+    uint256 GetHash() const;
+};
+
 class CAuxBlockHeader;
 
 /** Nodes collect new transactions into a block, hash them into a hash tree,
@@ -19,17 +42,9 @@ class CAuxBlockHeader;
  * in the block is a special one that creates a new coin owned by the creator
  * of the block.
  */
-class CBlockHeader
+class CBlockHeader : public CPureBlockHeader
 {
 public:
-    // header
-    int32_t nVersion;
-    uint256 hashPrevBlock;
-    uint256 hashMerkleRoot;
-    uint32_t nTime;
-    uint32_t nBits;
-    uint32_t nNonce;
-
     std::shared_ptr<CAuxBlockHeader> auxHeader;
 
     CBlockHeader()
@@ -41,12 +56,7 @@ public:
 
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action) {
-        READWRITE(this->nVersion);
-        READWRITE(hashPrevBlock);
-        READWRITE(hashMerkleRoot);
-        READWRITE(nTime);
-        READWRITE(nBits);
-        READWRITE(nNonce);
+        READWRITEAS(CPureBlockHeader, *this);
 
         if (IsAuxPow()) {
         	if (auxHeader == nullptr)
@@ -73,8 +83,6 @@ public:
     {
         return (nBits == 0);
     }
-
-    uint256 GetHash() const;
 
     int64_t GetBlockTime() const
     {
@@ -177,13 +185,23 @@ public:
 
 	template <typename Stream, typename Operation>
 	inline void SerializationOp(Stream& s, Operation ser_action) {
+		/* The coinbase Merkle tx' hashBlock field is never actually verified
+		 * or used in the code for an auxpow (and never was). The parent block
+		 * is known anyway directly, so this is also redundant. By setting the
+		 * value to zero (for serialising), we make sure that the format is
+		 * backwards compatible but the data can be compressed. */
+		uint256 hashBlock;
+
+		/* The index of the parent coinbase tx is always zero. */
+		int nIndex = 0;
+
+		/* Data from the coinbase transaction as Merkle tx. */
 		if (coinbaseTx == nullptr)
 			coinbaseTx = std::make_shared<CTransaction>();
-		READWRITE(coinbaseTx);
-		READWRITE(vMerkleBranch);
-		READWRITE(vChainMerkleBranch);
-		READWRITE(nChainIndex);
-		READWRITE(parentBlock);
+		READWRITE(coinbaseTx, hashBlock, vMerkleBranch, nIndex);
+
+		/* Additional data for the auxpow itself. */
+		READWRITE(vChainMerkleBranch, nChainIndex, parentBlock);
 	}
 
 	/**
@@ -192,6 +210,8 @@ public:
 	uint256 getParentBlockHash() const {
 		return parentBlock.GetHash();
 	}
+
+	std::string ToString() const;
 };
 
 

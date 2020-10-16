@@ -103,7 +103,7 @@ public:
 
         // AUX POW Parameters
         consensus.nAuxpowChainId = 0x0666;
-        consensus.nAuxpowStartHeight = 100000; // TODO
+        consensus.nAuxpowStartHeight = 0; // TODO
         consensus.fStrictChainId = true;
 
         /**
@@ -316,7 +316,7 @@ public:
 
         // AUX POW Parameters
         consensus.nAuxpowChainId = 0x0666;
-        consensus.nAuxpowStartHeight = 100;
+        consensus.nAuxpowStartHeight = 1;
         consensus.fStrictChainId = true;
 
         pchMessageStartNetwork[0] = 0xfa;

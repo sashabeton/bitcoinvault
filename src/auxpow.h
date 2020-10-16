@@ -33,7 +33,6 @@ public:
 	/** Initialises CAuxBlockHeader of the given CBlockHeader. */
 	static void initBlockHeader(CBlockHeader& header);
 
-private:
 	static uint256 checkMerkleBranch(uint256 hash, const std::vector<uint256>& vMerkleBranch, int nIndex);
 };
 

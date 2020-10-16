@@ -104,6 +104,13 @@ UniValue AuxheaderToJSON(const CAuxBlockHeader& auxheader) {
 
 	{
 		UniValue branch(UniValue::VARR);
+		for (const auto& node : auxheader.vMerkleBranch)
+			branch.push_back(node.GetHex());
+		result.pushKV("merklebranch", branch);
+	}
+
+	{
+		UniValue branch(UniValue::VARR);
 		for (const auto& node : auxheader.vChainMerkleBranch)
 			branch.push_back(node.GetHex());
 		result.pushKV("chainmerklebranch", branch);

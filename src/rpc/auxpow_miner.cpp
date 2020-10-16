@@ -27,7 +27,7 @@ namespace {
 		{
 			LOCK(cs_main);
 			const auto auxpowStart = Params().GetConsensus().nAuxpowStartHeight;
-			if (chainActive.Height() + 1 < auxpowStart)
+			if (auxpowStart == 0 || chainActive.Height() + 1 < auxpowStart)
 				throw std::runtime_error("Mining auxblock method is not yet available");
 		}
 	}
