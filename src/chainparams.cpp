@@ -204,10 +204,10 @@ public:
         consensus.nAuxpowStartHeight = 119600;
         consensus.fStrictChainId = false;
 
-        pchMessageStartNetwork[0] = 0xd3;
-        pchMessageStartNetwork[1] = 0xe9;
-        pchMessageStartNetwork[2] = 0x68;
-        pchMessageStartNetwork[3] = 0xdd;
+        pchMessageStartNetwork[0] = 0x64;
+        pchMessageStartNetwork[1] = 0x75;
+        pchMessageStartNetwork[2] = 0x70;
+        pchMessageStartNetwork[3] = 0x61;
         pchMessageStartDisk[0] = 0xb3;
         pchMessageStartDisk[1] = 0xdb;
         pchMessageStartDisk[2] = 0x95;
@@ -225,7 +225,7 @@ public:
 
         vFixedSeeds.clear();
         vSeeds.clear();
-        vSeeds.emplace_back("157.230.102.82");
+        vSeeds.emplace_back("3.123.33.103");
         // nodes with support for servicebits filtering should be at the top
         
         base58Prefixes[PUBKEY_ADDRESS] = std::vector<unsigned char>(1,111); // addresses like Bitcoin testnet
