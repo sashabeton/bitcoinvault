@@ -237,6 +237,7 @@ BOOST_AUTO_TEST_CASE(CreateNewBlock_validity)
     pparams->BIP34Height = 227931;
     pparams->BIP65Height = 388381;
     pparams->BIP66Height = 363725;
+    // TODO: need to fix after changing version to satisfy merge-mining
     pparams->vDeployments[Consensus::DEPLOYMENT_SEGWIT].bit = 1;
     pparams->vDeployments[Consensus::DEPLOYMENT_SEGWIT].nStartTime = 1479168000;
     pparams->vDeployments[Consensus::DEPLOYMENT_SEGWIT].nTimeout = 1510704000;

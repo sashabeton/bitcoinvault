@@ -58,6 +58,12 @@ struct Params {
     int BIP65Height;
     /** Block height at which BIP66 becomes active */
     int BIP66Height;
+    /** Block height at which CSV (BIP68, BIP112 and BIP113) becomes active */
+    int CSVHeight;
+    /** Block height at which Segwit (BIP141, BIP143 and BIP147) becomes active.
+     * Note that segwit v0 script rules are enforced on all blocks except the
+     * BIP16 exception blocks. */
+    int SegwitHeight;
 
     int AlertsHeight;
     /**
