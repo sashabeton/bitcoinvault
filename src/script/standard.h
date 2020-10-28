@@ -81,6 +81,13 @@ enum vaulttxntype
     TX_RECOVERY,
 };
 
+enum vaulttxnstatus
+{
+    TX_PENDING,
+    TX_CONFIRMED,
+    TX_RECOVERED,
+};
+
 class CNoDestination {
 public:
     friend bool operator==(const CNoDestination &a, const CNoDestination &b) { return true; }

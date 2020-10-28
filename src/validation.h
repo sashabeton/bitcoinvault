@@ -274,7 +274,7 @@ void ThreadScriptCheck();
 /** Check whether we are doing an initial block download (synchronizing from disk or network) */
 bool IsInitialBlockDownload();
 /** Retrieve a transaction (from memory pool, or from disk, if possible) */
-bool GetTransaction(const uint256& hash, CBaseTransactionRef& tx, const Consensus::Params& params, uint256& hashBlock, const CBlockIndex* const blockIndex = nullptr);
+bool GetTransaction(const uint256& hash, CBaseTransactionRef& tx, const Consensus::Params& params, uint256& hashBlock, const CBlockIndex* const blockIndex = nullptr, vaulttxnstatus* txStatus = nullptr);
 /**
  * Find the best known block, and make it the tip of the block chain
  *
@@ -437,11 +437,15 @@ bool GetAncestorBlock(CBlockIndex* pindexPrev, const Consensus::Params& params, 
 /** Calculate tx fee. */
 CAmount GetTxFee(const CBaseTransaction& tx, const CCoinsViewCache& inputs);
 
-/** Check what VaultTxType tx has **/
+/** Check what VaultTxType tx has based on Coins scripts **/
 vaulttxntype GetVaultTxTypeFromStackScript(const std::vector<valtype>& script, txnouttype scriptType = TX_VAULT_ALERTADDRESS);
 vaulttxntype GetVaultTxType(const CBaseTransaction& tx, const CCoinsViewCache& view);
 vaulttxntype GetVaultTxType(const CBaseTransaction& btx);
 vaulttxntype GetVaultTxType(const CMutableTransaction& mtx);
+/** Check what VaultTxType tx has based on vin scripts
+ *
+ * Do not use to verify block or tx! **/
+vaulttxntype GetVaultTxTypeNonContextual(const CBaseTransaction& tx);
 
 /** When there are blocks in the active chain with missing data, rewind the chainstate and remove them from the block index */
 bool RewindBlockIndex(const CChainParams& params);

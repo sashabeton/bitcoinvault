@@ -39,7 +39,7 @@
 #include <univalue.h>
 
 
-static void TxToJSON(const CBaseTransaction& tx, const uint256 hashBlock, UniValue& entry)
+static void TxToJSON(const CBaseTransaction& tx, const uint256 hashBlock, const vaulttxntype txType, const vaulttxnstatus txStatus, UniValue& entry)
 {
     // Call into TxToUniv() in bitcoin-common to decode the transaction hex.
     //
@@ -47,6 +47,27 @@ static void TxToJSON(const CBaseTransaction& tx, const uint256 hashBlock, UniVal
     // available to code in bitcoin-common, so we query them here and push the
     // data into the returned UniValue.
     TxToUniv(tx, uint256(), entry, true, RPCSerializationFlags());
+
+    auto getTxTypeName = [] (const vaulttxntype txType) -> std::string {
+        switch (txType) {
+            case TX_ALERT: return "TX_ALERT";
+            case TX_INSTANT: return "TX_INSTANT";
+            case TX_RECOVERY: return "TX_RECOVERY";
+            case TX_INVALID: return "TX_INVALID";
+            default: return "TX_STANDARD";
+        }
+    };
+    entry.pushKV("type", getTxTypeName(txType));
+
+    auto getTxStatusName = [] (const vaulttxnstatus txStatus) -> std::string {
+        switch (txStatus) {
+            case TX_PENDING: return "PENDING";
+            case TX_CONFIRMED: return "CONFIRMED";
+            case TX_RECOVERED: return "RECOVERED";
+            default: return "INVALID";
+        }
+    };
+    entry.pushKV("status", getTxStatusName(txStatus));
 
     if (!hashBlock.IsNull()) {
         LOCK(cs_main);
@@ -184,7 +205,8 @@ static UniValue getrawtransaction(const JSONRPCRequest& request)
 
     CBaseTransactionRef tx;
     uint256 hash_block;
-    if (!GetTransaction(hash, tx, Params().GetConsensus(), hash_block, blockindex)) {
+    vaulttxnstatus txStatus;
+    if (!GetTransaction(hash, tx, Params().GetConsensus(), hash_block, blockindex, &txStatus)) {
         std::string errmsg;
         if (blockindex) {
             if (!(blockindex->nStatus & BLOCK_HAVE_DATA)) {
@@ -205,9 +227,28 @@ static UniValue getrawtransaction(const JSONRPCRequest& request)
         return EncodeHexTx(*tx, RPCSerializationFlags());
     }
 
+    vaulttxntype txType = GetVaultTxTypeNonContextual(*tx);
+    if (txType == TX_ALERT and txStatus == TX_PENDING) {
+        // Fetch previous transactions (inputs):
+        CCoinsView viewDummy;
+        CCoinsViewCache view(&viewDummy);
+        {
+            LOCK2(cs_main, mempool.cs);
+            CCoinsViewCache &viewChain = *pcoinsTip;
+            CCoinsViewMemPool viewMempool(&viewChain, mempool);
+            view.SetBackend(viewMempool); // temporarily switch cache backend to db+mempool view
+            // check if first input is still present in UTXOs, otherwise it is recovered
+            Coin coin = view.AccessCoin(tx->vin[0].prevout);
+            if (coin.IsConfirmed()) {
+                txStatus = TX_RECOVERED;
+            }
+            view.SetBackend(viewDummy); // switch back to avoid locking mempool for too long
+        }
+    }
+
     UniValue result(UniValue::VOBJ);
     if (blockindex) result.pushKV("in_active_chain", in_active_chain);
-    TxToJSON(*tx, hash_block, result);
+    TxToJSON(*tx, hash_block, txType, txStatus,  result);
     return result;
 }
 

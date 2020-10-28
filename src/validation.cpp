@@ -1006,7 +1006,7 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
  * Return transaction in txOut, and if it was found inside a block, its hash is placed in hashBlock.
  * If blockIndex is provided, the transaction is fetched from the corresponding block.
  */
-bool GetTransaction(const uint256& hash, CBaseTransactionRef& txOut, const Consensus::Params& consensusParams, uint256& hashBlock, const CBlockIndex* const block_index)
+bool GetTransaction(const uint256& hash, CBaseTransactionRef& txOut, const Consensus::Params& consensusParams, uint256& hashBlock, const CBlockIndex* const block_index, vaulttxnstatus* const txStatus)
 {
     LOCK(cs_main);
 
@@ -1014,11 +1014,13 @@ bool GetTransaction(const uint256& hash, CBaseTransactionRef& txOut, const Conse
         CTransactionRef ptx = mempool.get(hash);
         if (ptx) {
             txOut = ptx;
+            if (txStatus != nullptr)
+                *txStatus = TX_PENDING;
             return true;
         }
 
         if (g_txindex) {
-            return g_txindex->FindTx(hash, hashBlock, txOut);
+            return g_txindex->FindTx(hash, hashBlock, txOut, txStatus);
         }
     } else {
         CBlock block;
@@ -1027,6 +1029,8 @@ bool GetTransaction(const uint256& hash, CBaseTransactionRef& txOut, const Conse
                 if (tx->GetHash() == hash) {
                     txOut = tx;
                     hashBlock = block_index->GetBlockHash();
+                    if (txStatus != nullptr)
+                        *txStatus = TX_CONFIRMED;
                     return true;
                 }
             }
@@ -1034,6 +1038,8 @@ bool GetTransaction(const uint256& hash, CBaseTransactionRef& txOut, const Conse
                 if (atx->GetHash() == hash) {
                     txOut = atx;
                     hashBlock = block_index->GetBlockHash();
+                    if (txStatus != nullptr)
+                        *txStatus = TX_PENDING;
                     return true;
                 }
             }
@@ -3682,6 +3688,67 @@ vaulttxntype GetVaultTxType(const CBaseTransaction& tx, const CCoinsViewCache& v
         txnouttype scriptType = ExtractDataFromIncompleteScript(incompleteData, stack, BaseSignatureChecker(), coin.out);
         if (scriptType == TX_VAULT_ALERTADDRESS || scriptType == TX_VAULT_INSTANTADDRESS) {
             vaulttxntype stackVaultTxType = GetVaultTxTypeFromStackScript(stack.script, scriptType);
+            if (stackVaultTxType == TX_ALERT) {
+                hasAlertTxCoin = true;
+            } else if (stackVaultTxType == TX_RECOVERY) {
+                hasRecoveryTxCoin = true;
+                allAlertTxCoin = false;
+            } else if (stackVaultTxType == TX_INSTANT) {
+                hasInstantTxCoin = true;
+                allAlertTxCoin = false;
+            } else {
+                return TX_INVALID; // invalid stack
+            }
+        } else {
+            allAlertTxCoin = false;
+        }
+    }
+
+    if (allAlertTxCoin) {
+        return TX_ALERT;
+    } else if (hasRecoveryTxCoin && !hasAlertTxCoin) {
+        return TX_RECOVERY;
+    } else if (hasInstantTxCoin && !hasAlertTxCoin) {
+        return TX_INSTANT;
+    } else if (hasAlertTxCoin && !allAlertTxCoin) {
+        return TX_INVALID; // invalid vault tx - alert inputs mixed with others
+    }
+
+    return TX_NONVAULT;
+}
+
+vaulttxntype GetVaultTxTypeNonContextual(const CBaseTransaction& tx) {
+    CMutableTransaction mutableTx = CMutableTransaction(tx);
+    if (tx.IsCoinBase() || mutableTx.vin.empty()) {
+        return TX_NONVAULT;
+    }
+
+    bool hasAlertTxCoin = false;
+    bool hasInstantTxCoin = false;
+    bool hasRecoveryTxCoin = false;
+    bool allAlertTxCoin = true;
+    for (unsigned int i = 0; i < mutableTx.vin.size(); i++) {
+        const CTxIn &txin = mutableTx.vin[i];
+        CScript script;
+        std::vector<std::vector<unsigned char>> scriptSig;
+        if (!txin.scriptWitness.IsNull()) {
+            script = CScript(txin.scriptWitness.stack.back().begin(), txin.scriptWitness.stack.back().end());
+            scriptSig = std::vector<std::vector<unsigned char>>(&txin.scriptWitness.stack[0],
+                    &txin.scriptWitness.stack[txin.scriptWitness.stack.size() - 1]);
+        }
+        else {
+            SignatureData incompleteData;
+            incompleteData.scriptSig = txin.scriptSig;
+            incompleteData.scriptWitness = txin.scriptWitness;
+            Stacks stack(incompleteData);
+            script = CScript(stack.script.back().begin(), stack.script.back().end());
+            scriptSig = std::vector<std::vector<unsigned char>>(&stack.script[0],
+                        &stack.script[stack.script.size() - 1]);
+        }
+        std::vector<std::vector<unsigned char>> solns;
+        txnouttype scriptType = Solver(script, solns);
+        if (scriptType == TX_VAULT_ALERTADDRESS || scriptType == TX_VAULT_INSTANTADDRESS) {
+            vaulttxntype stackVaultTxType = GetVaultTxTypeFromStackScript(scriptSig, scriptType);
             if (stackVaultTxType == TX_ALERT) {
                 hasAlertTxCoin = true;
             } else if (stackVaultTxType == TX_RECOVERY) {
