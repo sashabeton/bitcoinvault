@@ -39,7 +39,7 @@
 #include <univalue.h>
 
 
-static void TxToJSON(const CBaseTransaction& tx, const uint256 hashBlock, const vaulttxntype txType, const vaulttxnstatus txStatus, UniValue& entry)
+void TxToJSON(const CBaseTransaction& tx, const uint256 hashBlock, const vaulttxntype txType, const vaulttxnstatus txStatus, UniValue& entry)
 {
     // Call into TxToUniv() in bitcoin-common to decode the transaction hex.
     //

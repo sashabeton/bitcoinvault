@@ -96,7 +96,7 @@ UniValue AuxheaderToJSON(const CAuxBlockHeader& auxheader) {
 	{
 		UniValue tx(UniValue::VOBJ);
 		tx.pushKV("hex", EncodeHexTx(*auxheader.coinbaseTx));
-		TxToJSON(*auxheader.coinbaseTx, auxheader.parentBlock.GetHash(), tx);
+		TxToJSON(*auxheader.coinbaseTx, auxheader.parentBlock.GetHash(), TX_NONVAULT, TX_UNKNOWN, tx);
 		result.pushKV("tx", tx);
 	}
 

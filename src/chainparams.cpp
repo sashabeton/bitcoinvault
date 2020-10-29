@@ -204,10 +204,10 @@ public:
         consensus.nAuxpowStartHeight = 119600;
         consensus.fStrictChainId = false;
 
-        pchMessageStartNetwork[0] = 0x64;
-        pchMessageStartNetwork[1] = 0x75;
-        pchMessageStartNetwork[2] = 0x70;
-        pchMessageStartNetwork[3] = 0x61;
+        pchMessageStartNetwork[0] = 0xd3;
+        pchMessageStartNetwork[1] = 0xe9;
+        pchMessageStartNetwork[2] = 0x68;
+        pchMessageStartNetwork[3] = 0xdd;
         pchMessageStartDisk[0] = 0xb3;
         pchMessageStartDisk[1] = 0xdb;
         pchMessageStartDisk[2] = 0x95;

@@ -16,7 +16,7 @@ class Chain;
 } // namespace interfaces
 
 
-void TxToJSON(const CBaseTransaction& tx, const uint256 hashBlock, UniValue& entry);
+void TxToJSON(const CBaseTransaction& tx, const uint256 hashBlock, const vaulttxntype txType, const vaulttxnstatus txStatus, UniValue& entry);
 
 /** Sign a transaction with the given keystore and previous transactions */
 UniValue SignTransaction(interfaces::Chain& chain, CMutableTransaction& mtx, const UniValue& prevTxs, CBasicKeyStore *keystore, bool tempKeystore, const UniValue& hashType, bool expectSpent = false, vaulttxntype txType = TX_INVALID);
