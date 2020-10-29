@@ -86,6 +86,7 @@ enum vaulttxnstatus
     TX_PENDING,
     TX_CONFIRMED,
     TX_RECOVERED,
+    TX_UNKNOWN
 };
 
 class CNoDestination {

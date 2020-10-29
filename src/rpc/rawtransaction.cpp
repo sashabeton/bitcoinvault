@@ -54,7 +54,7 @@ static void TxToJSON(const CBaseTransaction& tx, const uint256 hashBlock, const 
             case TX_INSTANT: return "TX_INSTANT";
             case TX_RECOVERY: return "TX_RECOVERY";
             case TX_INVALID: return "TX_INVALID";
-            default: return "TX_STANDARD";
+            default: return "TX_NONVAULT";
         }
     };
     entry.pushKV("type", getTxTypeName(txType));
@@ -67,7 +67,8 @@ static void TxToJSON(const CBaseTransaction& tx, const uint256 hashBlock, const 
             default: return "INVALID";
         }
     };
-    entry.pushKV("status", getTxStatusName(txStatus));
+    if (txStatus != TX_UNKNOWN)
+    	entry.pushKV("status", getTxStatusName(txStatus));
 
     if (!hashBlock.IsNull()) {
         LOCK(cs_main);
@@ -152,6 +153,8 @@ static UniValue getrawtransaction(const JSONRPCRequest& request)
             "     }\n"
             "     ,...\n"
             "  ],\n"
+            "  \"type\" : \"type\",	       (string) The transaction type\n"
+            "  \"status\" : \"status\",	   (string) The transaction status\n"
             "  \"blockhash\" : \"hash\",   (string) the block hash\n"
             "  \"confirmations\" : n,      (numeric) The confirmations\n"
             "  \"blocktime\" : ttt         (numeric) The block time in seconds since epoch (Jan 1 1970 GMT)\n"
@@ -624,6 +627,7 @@ static UniValue decoderawtransaction(const JSONRPCRequest& request)
             "     }\n"
             "     ,...\n"
             "  ],\n"
+            "  \"type\" : \"type\"	       (string) The transaction type\n"
             "}\n"
                 },
                 RPCExamples{
@@ -644,7 +648,10 @@ static UniValue decoderawtransaction(const JSONRPCRequest& request)
     }
 
     UniValue result(UniValue::VOBJ);
-    TxToUniv(CTransaction(std::move(mtx)), uint256(), result, false);
+    auto tx = CTransaction(std::move(mtx));
+    vaulttxnstatus txStatus = TX_UNKNOWN;
+    vaulttxntype txType = GetVaultTxTypeNonContextual(tx);
+    TxToJSON(tx, uint256(), txType, txStatus, result);
 
     return result;
 }
