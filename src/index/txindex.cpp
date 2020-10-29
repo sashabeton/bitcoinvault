@@ -304,10 +304,14 @@ bool TxIndex::WriteBlock(const CBlock& block, const CBlockIndex* pindex)
 
 BaseIndex::DB& TxIndex::GetDB() const { return *m_db; }
 
-bool TxIndex::FindTx(const uint256& tx_hash, uint256& block_hash, CBaseTransactionRef& tx) const
+bool TxIndex::FindTx(const uint256& tx_hash, uint256& block_hash, CBaseTransactionRef& tx, vaulttxnstatus* txStatus) const
 {
     CDiskTxPos postx;
+    if (txStatus != nullptr)
+        *txStatus = TX_CONFIRMED;
     if (!m_db->ReadTxPos(tx_hash, postx)) {
+        if (txStatus != nullptr)
+            *txStatus = TX_PENDING;
         if (!m_db->ReadTxAlertPos(tx_hash, postx)) {
             return false;
         }

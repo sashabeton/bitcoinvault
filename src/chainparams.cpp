@@ -225,7 +225,7 @@ public:
 
         vFixedSeeds.clear();
         vSeeds.clear();
-        vSeeds.emplace_back("3.123.33.103");
+        vSeeds.emplace_back("157.230.102.82");
         // nodes with support for servicebits filtering should be at the top
         
         base58Prefixes[PUBKEY_ADDRESS] = std::vector<unsigned char>(1,111); // addresses like Bitcoin testnet
