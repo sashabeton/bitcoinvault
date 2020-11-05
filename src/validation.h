@@ -275,6 +275,8 @@ void ThreadScriptCheck();
 bool IsInitialBlockDownload();
 /** Retrieve a transaction (from memory pool, or from disk, if possible) */
 bool GetTransaction(const uint256& hash, CBaseTransactionRef& tx, const Consensus::Params& params, uint256& hashBlock, const CBlockIndex* const blockIndex = nullptr, vaulttxnstatus* txStatus = nullptr);
+/** Retrieve a transaction status (by scanning memory pool, or from disk, if possible) */
+vaulttxnstatus GetTransactionStatus(const uint256& hash, const Consensus::Params& params, vaulttxntype txType = TX_NONVAULT, const CBlockIndex* const blockIndex = nullptr);
 /**
  * Find the best known block, and make it the tip of the block chain
  *

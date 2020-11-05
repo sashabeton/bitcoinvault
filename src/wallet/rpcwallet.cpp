@@ -137,7 +137,7 @@ void EnsureWalletIsUnlocked(CWallet * const pwallet)
     }
 }
 
-static void WalletTxToJSON(interfaces::Chain& chain, interfaces::Chain::Lock& locked_chain, const CWalletTx& wtx, UniValue& entry)
+static void WalletTxToJSON(interfaces::Chain& chain, interfaces::Chain::Lock& locked_chain, const CWalletTx& wtx, const vaulttxntype txType, const vaulttxnstatus txStatus, UniValue& entry)
 {
     int confirms = wtx.GetDepthInMainChain(locked_chain);
     entry.pushKV("confirmations", confirms);
@@ -177,6 +177,28 @@ static void WalletTxToJSON(interfaces::Chain& chain, interfaces::Chain::Lock& lo
 
     for (const std::pair<const std::string, std::string>& item : wtx.mapValue)
         entry.pushKV(item.first, item.second);
+
+    auto getTxTypeName = [] (const vaulttxntype txType) -> std::string {
+        switch (txType) {
+            case TX_ALERT: return "TX_ALERT";
+            case TX_INSTANT: return "TX_INSTANT";
+            case TX_RECOVERY: return "TX_RECOVERY";
+            case TX_INVALID: return "TX_INVALID";
+            default: return "TX_NONVAULT";
+        }
+    };
+    entry.pushKV("type", getTxTypeName(txType));
+
+    auto getTxStatusName = [] (const vaulttxnstatus txStatus) -> std::string {
+        switch (txStatus) {
+            case TX_PENDING: return "PENDING";
+            case TX_CONFIRMED: return "CONFIRMED";
+            case TX_RECOVERED: return "RECOVERED";
+            default: return "INVALID";
+        }
+    };
+    if (txStatus != TX_UNKNOWN)
+        entry.pushKV("status", getTxStatusName(txStatus));
 }
 
 static std::string LabelFromValue(const UniValue& value)
@@ -1937,8 +1959,15 @@ static void ListTransactions(interfaces::Chain::Lock& locked_chain, CWallet* con
             }
             entry.pushKV("vout", s.vout);
             entry.pushKV("fee", ValueFromAmount(-nFee));
-            if (fLong)
-                WalletTxToJSON(pwallet->chain(), locked_chain, wtx, entry);
+            if (fLong) {
+                vaulttxntype txType = GetVaultTxTypeNonContextual(*wtx.tx);
+                CBlockIndex* blockindex = nullptr;
+                if(!wtx.InMempool()) {
+                    blockindex = LookupBlockIndex(wtx.hashBlock);
+                }
+                vaulttxnstatus txStatus = GetTransactionStatus(wtx.GetHash(), Params().GetConsensus(), txType, blockindex);
+                WalletTxToJSON(pwallet->chain(), locked_chain, wtx, txType, txStatus, entry);
+            }
             entry.pushKV("abandoned", wtx.isAbandoned());
             ret.push_back(entry);
         }
@@ -1979,8 +2008,15 @@ static void ListTransactions(interfaces::Chain::Lock& locked_chain, CWallet* con
                 entry.pushKV("label", label);
             }
             entry.pushKV("vout", r.vout);
-            if (fLong)
-                WalletTxToJSON(pwallet->chain(), locked_chain, wtx, entry);
+            if (fLong) {
+                vaulttxntype txType = GetVaultTxTypeNonContextual(*wtx.tx);
+                CBlockIndex* blockindex = nullptr;
+                if(!wtx.InMempool()) {
+                    blockindex = LookupBlockIndex(wtx.hashBlock);
+                }
+                vaulttxnstatus txStatus = GetTransactionStatus(wtx.GetHash(), Params().GetConsensus(), txType, blockindex);
+                WalletTxToJSON(pwallet->chain(), locked_chain, wtx, txType, txStatus, entry);
+            }
             ret.push_back(entry);
         }
     }
@@ -2035,6 +2071,8 @@ UniValue listtransactions(const JSONRPCRequest& request)
             "    \"comment\": \"...\",       (string) If a comment is associated with the transaction.\n"
             "    \"bip125-replaceable\": \"yes|no|unknown\",  (string) Whether this transaction could be replaced due to BIP125 (replace-by-fee);\n"
             "                                                     may be unknown for unconfirmed transactions not in the mempool\n"
+            "    \"type\" : \"type\",	     (string) The transaction type\n"
+            "    \"status\" : \"status\",	 (string) The transaction status\n"
             "    \"abandoned\": xxx          (bool) 'true' if the transaction has been abandoned (inputs are respendable). Only available for the \n"
             "                                         'send' category of transactions.\n"
             "  }\n"
@@ -2166,6 +2204,8 @@ static UniValue listsinceblock(const JSONRPCRequest& request)
             "    \"timereceived\": xxx,      (numeric) The time received in seconds since epoch (Jan 1 1970 GMT).\n"
             "    \"bip125-replaceable\": \"yes|no|unknown\",  (string) Whether this transaction could be replaced due to BIP125 (replace-by-fee);\n"
             "                                                   may be unknown for unconfirmed transactions not in the mempool\n"
+            "    \"type\" : \"type\",	     (string) The transaction type\n"
+            "    \"status\" : \"status\",	 (string) The transaction status\n"
             "    \"abandoned\": xxx,         (bool) 'true' if the transaction has been abandoned (inputs are respendable). Only available for the 'send' category of transactions.\n"
             "    \"comment\": \"...\",       (string) If a comment is associated with the transaction.\n"
             "    \"label\" : \"label\"       (string) A comment for the address/transaction, if any\n"
@@ -2296,6 +2336,8 @@ static UniValue gettransaction(const JSONRPCRequest& request)
             "  \"timereceived\" : ttt,    (numeric) The time received in seconds since epoch (1 Jan 1970 GMT)\n"
             "  \"bip125-replaceable\": \"yes|no|unknown\",  (string) Whether this transaction could be replaced due to BIP125 (replace-by-fee);\n"
             "                                                   may be unknown for unconfirmed transactions not in the mempool\n"
+            "  \"type\" : \"type\",	      (string) The transaction type\n"
+            "  \"status\" : \"status\",	  (string) The transaction status\n"
             "  \"details\" : [\n"
             "    {\n"
             "      \"address\" : \"address\",          (string) The bitcoin address involved in the transaction\n"
@@ -2355,7 +2397,14 @@ static UniValue gettransaction(const JSONRPCRequest& request)
     if (wtx.IsFromMe(filter))
         entry.pushKV("fee", ValueFromAmount(nFee));
 
-    WalletTxToJSON(pwallet->chain(), *locked_chain, wtx, entry);
+    vaulttxntype txType = GetVaultTxTypeNonContextual(*wtx.tx);
+    CBlockIndex* blockindex = nullptr;
+    if(!wtx.InMempool()) {
+        blockindex = LookupBlockIndex(wtx.hashBlock);
+    }
+    vaulttxnstatus txStatus = GetTransactionStatus(wtx.GetHash(), Params().GetConsensus(), txType, blockindex);
+
+    WalletTxToJSON(pwallet->chain(), *locked_chain, wtx, txType, txStatus, entry);
 
     UniValue details(UniValue::VARR);
     ListTransactions(*locked_chain, pwallet, wtx, 0, false, details, filter, nullptr /* filter_label */);

@@ -1042,8 +1042,12 @@ bool CWallet::AddToWalletIfInvolvingMe(const CTransactionRef& ptx, const uint256
                 std::pair<TxSpends::const_iterator, TxSpends::const_iterator> range = mapTxSpends.equal_range(txin.prevout);
                 while (range.first != range.second) {
                     if (range.first->second != tx.GetHash()) {
-                        WalletLogPrintf("Transaction %s (in block %s) conflicts with wallet transaction %s (both spend %s:%i)\n", tx.GetHash().ToString(), block_hash.ToString(), range.first->second.ToString(), range.first->first.hash.ToString(), range.first->first.n);
-                        MarkConflicted(block_hash, range.first->second);
+                        vaulttxntype txType = GetVaultTxTypeNonContextual(tx);
+                        bool isRecovered = txType == TX_RECOVERY;
+                        if (!isRecovered) {
+                            WalletLogPrintf("Transaction %s (in block %s) conflicts with wallet transaction %s (both spend %s:%i)\n", tx.GetHash().ToString(), block_hash.ToString(), range.first->second.ToString(), range.first->first.hash.ToString(), range.first->first.n);
+                        }
+                        MarkConflicted(block_hash, range.first->second, isRecovered);
                     }
                     range.first++;
                 }
@@ -1162,7 +1166,7 @@ bool CWallet::AbandonTransaction(interfaces::Chain::Lock& locked_chain, const ui
     return true;
 }
 
-void CWallet::MarkConflicted(const uint256& hashBlock, const uint256& hashTx)
+void CWallet::MarkConflicted(const uint256& hashBlock, const uint256& hashTx, bool isRecovered)
 {
     auto locked_chain = chain().lock();
     LOCK(cs_wallet);
@@ -1190,12 +1194,17 @@ void CWallet::MarkConflicted(const uint256& hashBlock, const uint256& hashTx)
         auto it = mapWallet.find(now);
         assert(it != mapWallet.end());
         CWalletTx& wtx = it->second;
+        uint256 txHashBlock = it->second.hashBlock;
         int currentconfirm = wtx.GetDepthInMainChain(*locked_chain);
         if (conflictconfirms < currentconfirm) {
             // Block is 'more conflicted' than current confirm; update.
             // Mark transaction as conflicted with this block.
             wtx.nIndex = -1;
-            wtx.hashBlock = hashBlock;
+            if (isRecovered) {
+                wtx.hashBlock = txHashBlock;
+            } else {
+                wtx.hashBlock = hashBlock;
+            }
             wtx.MarkDirty();
             batch.WriteTx(wtx);
             // Iterate over all its outputs, and mark transactions in the wallet that spend them conflicted too

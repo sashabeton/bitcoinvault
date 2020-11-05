@@ -1050,10 +1050,63 @@ bool GetTransaction(const uint256& hash, CBaseTransactionRef& txOut, const Conse
     return false;
 }
 
+vaulttxnstatus GetTransactionStatus(const uint256& hash, const Consensus::Params& consensusParams, vaulttxntype txType, const CBlockIndex* const block_index){
 
+    CBaseTransactionRef txOut;
+    vaulttxnstatus txStatus = TX_UNKNOWN;
+    {
+        LOCK(cs_main);
 
+        if (!block_index) {
+            CTransactionRef ptx = mempool.get(hash);
+            if (ptx) {
+                txOut = ptx;
+                txStatus = TX_PENDING;
+            }
 
+            if (g_txindex) {
+                uint256 hashBlock;
+                g_txindex->FindTx(hash, hashBlock, txOut, &txStatus);
+            }
+        } else {
+            CBlock block;
+            if (ReadBlockFromDisk(block, block_index, consensusParams)) {
+                for (const auto& tx : block.vtx) {
+                    if (tx->GetHash() == hash) {
+                        txOut = tx;
+                        txStatus = TX_CONFIRMED;
+                    }
+                }
+                for (const auto& atx : block.vatx) {
+                    if (atx->GetHash() == hash) {
+                        txOut = atx;
+                        txStatus = TX_PENDING;
+                    }
+                }
+            }
+        }
+    }
 
+    if (txType == TX_ALERT and (txStatus == TX_PENDING)) {
+        // Fetch previous transactions (inputs):
+        CCoinsView viewDummy;
+        CCoinsViewCache view(&viewDummy);
+        {
+            LOCK2(cs_main, mempool.cs);
+            CCoinsViewCache &viewChain = *pcoinsTip;
+            CCoinsViewMemPool viewMempool(&viewChain, mempool);
+            view.SetBackend(viewMempool); // temporarily switch cache backend to db+mempool view
+            // check if first input is still present in UTXOs, otherwise it is recovered
+            Coin coin = view.AccessCoin(txOut->vin[0].prevout);
+            if (coin.IsConfirmed()) {
+                txStatus = TX_RECOVERED;
+            }
+            view.SetBackend(viewDummy); // switch back to avoid locking mempool for too long
+        }
+    }
+
+    return txStatus;
+}
 
 //////////////////////////////////////////////////////////////////////////////
 //
