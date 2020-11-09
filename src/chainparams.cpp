@@ -72,6 +72,7 @@ public:
         consensus.CSVHeight = 1;
         consensus.SegwitHeight = 1;
         consensus.AlertsHeight = 58420; // Not yet enabled
+        consensus.DDMSHeight = 29430;
         consensus.powLimit = uint256S("00000000ffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
         consensus.nPowTargetTimespan = 14 * 24 * 60 * 60; // two weeks
         consensus.nPowTargetSpacing = 10 * 60; // 10 minutes (block time like Bitcoin)
@@ -95,7 +96,7 @@ public:
 
         // AUX POW Parameters
         consensus.nAuxpowChainId = 0x0666;
-        consensus.nAuxpowStartHeight = 58420; // TODO
+        consensus.nAuxpowStartHeight = 58420;
         consensus.fStrictChainId = true;
 
         /**
@@ -178,6 +179,7 @@ public:
         consensus.CSVHeight = 1;
         consensus.SegwitHeight = 1;
         consensus.AlertsHeight = 92960; // Not yet enabled
+        consensus.DDMSHeight = INT_MAX; // Do not activate DDMS on testnet
         consensus.powLimit = uint256S("00000000ffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
         consensus.nPowTargetTimespan = 14 * 24 * 60 * 60; // two weeks
         consensus.nPowTargetSpacing = 10 * 60; // 10 minutes (block time like Bitcoin)
@@ -273,6 +275,7 @@ public:
         consensus.CSVHeight = 432; // CSV activated on regtest (Used in rpc activation tests)
         consensus.SegwitHeight = 1; // SEGWIT is always activated on regtest unless overriden
         consensus.AlertsHeight = 1;
+        consensus.DDMSHeight = INT_MAX; // Do not activate DDMS on regtest
         consensus.powLimit = uint256S("7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
         consensus.nPowTargetTimespan = 14 * 24 * 60 * 60; // two weeks
         consensus.nPowTargetSpacing = 10 * 60;

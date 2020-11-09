@@ -64,8 +64,10 @@ struct Params {
      * Note that segwit v0 script rules are enforced on all blocks except the
      * BIP16 exception blocks. */
     int SegwitHeight;
-
+    /** Block height at which 3-keys become active */
     int AlertsHeight;
+    /** Block height at which DDMS becomes active */
+    int DDMSHeight;
     /**
      * Minimum blocks including miner confirmation of the total of 2016 blocks in a retargeting period,
      * (nPowTargetTimespan / nPowTargetSpacing) which is also used for BIP9 deployments.
