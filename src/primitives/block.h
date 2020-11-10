@@ -9,6 +9,7 @@
 #include <primitives/transaction.h>
 #include <serialize.h>
 #include <uint256.h>
+#include <policy/auxpow.h>
 
 struct CPureBlockHeader {
 	int32_t nVersion;
@@ -136,7 +137,7 @@ public:
 	 */
     bool IsAuxPow() const
     {
-    	return nVersion & VERSION_AUXPOW;
+    	return nVersion & VERSION_AUXPOW && !IsFakeAuxpowPreforkBlock(GetHash());
     }
 
     /** Set the auxpow flag. This is used for testing.
