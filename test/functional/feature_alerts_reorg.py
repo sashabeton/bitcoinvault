@@ -131,7 +131,7 @@ class VaultReorgTest(BitcoinTestFramework):
         atx_to_recover = self.nodes[0].sendalerttoaddress(attacker_addr1, 10)
         atx_to_recover = self.nodes[0].gettransaction(atx_to_recover)['hex']
         atx_to_recover = self.nodes[0].decoderawtransaction(atx_to_recover)
-        atx_fee = (200 - self.COINBASE_MATURITY) * self.COINBASE_AMOUNT - 10 - self.nodes[0].getalertbalance()
+        amount_to_recover = sum([vout['value'] for vout in atx_to_recover['vout']])
 
         # generate block with atx above
         self.nodes[0].generatetoaddress(1, alert_addr0['address'])  # 201
@@ -141,9 +141,6 @@ class VaultReorgTest(BitcoinTestFramework):
         assert atx_to_recover['txid'] in self.nodes[0].getbestblock()['atx']
 
         # recover atx
-        amount_to_recover = sum([vout['value'] for vout in atx_to_recover['vout']])
-        assert atx_fee == self.COINBASE_AMOUNT - amount_to_recover
-
         recovery_tx = self.nodes[0].createrecoverytransaction(atx_to_recover['txid'], {other_addr0: amount_to_recover})
         recovery_tx = self.nodes[0].signrecoverytransaction(recovery_tx, [self.alert_recovery_privkey], alert_addr0['redeemScript'])
         self.nodes[0].sendrawtransaction(recovery_tx['hex'])

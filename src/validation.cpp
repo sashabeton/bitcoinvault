@@ -1063,11 +1063,11 @@ vaulttxnstatus GetTransactionStatus(const uint256& hash, const Consensus::Params
             if (ptx) {
                 txOut = ptx;
                 txStatus = TX_PENDING;
-            }
-
-            if (g_txindex) {
+            } else if (g_txindex) {
                 uint256 hashBlock;
-                g_txindex->FindTx(hash, hashBlock, txOut, &txStatus);
+                if(!g_txindex->FindTx(hash, hashBlock, txOut, &txStatus)) {
+                    txStatus = TX_UNKNOWN;
+                }
             }
         } else {
             CBlock block;
@@ -1088,7 +1088,7 @@ vaulttxnstatus GetTransactionStatus(const uint256& hash, const Consensus::Params
         }
     }
 
-    if (txType == TX_ALERT and (txStatus == TX_PENDING)) {
+    if (txType == TX_ALERT and txStatus == TX_PENDING) {
         // Fetch previous transactions (inputs):
         CCoinsView viewDummy;
         CCoinsViewCache view(&viewDummy);

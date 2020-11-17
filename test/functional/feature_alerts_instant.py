@@ -776,6 +776,7 @@ class AlertsInstantTest(BitcoinTestFramework):
 
         # send atx and mine block with this atx
         atxid = self.nodes[0].sendalerttoaddress(addr1, 10)
+        assert int(self.nodes[0].getalertbalance()) == 17325
         self.nodes[0].generatetoaddress(1, instant_addr0['address'])
 
         # recover atx
@@ -788,9 +789,7 @@ class AlertsInstantTest(BitcoinTestFramework):
 
         # assert
         self.sync_all()
-        assert int(self.nodes[0].getalertbalance('*', 0)) == 17664
         assert int(self.nodes[0].getalertbalance('*', 1)) == 17500
-
         assert error['code'] == -5
         assert 'Produced invalid transaction type, type vaultrecovery was expected' in error['message']
 
@@ -1845,7 +1844,8 @@ class AlertsInstantTest(BitcoinTestFramework):
         atx_to_recover = self.nodes[0].sendalerttoaddress(attacker_addr1, 10)
         atx_to_recover = self.nodes[0].gettransaction(atx_to_recover)['hex']
         atx_to_recover = self.nodes[0].decoderawtransaction(atx_to_recover)
-        atx_fee = (200 - self.COINBASE_MATURITY) * self.COINBASE_AMOUNT - 10 - self.nodes[0].getalertbalance()
+        amount_to_recover = sum([vout['value'] for vout in atx_to_recover['vout']])
+        atx_fee = self.COINBASE_AMOUNT - amount_to_recover
 
         # generate block with atx above
         self.nodes[0].generatetoaddress(1, instant_addr0['address'])  # 201
@@ -1857,9 +1857,6 @@ class AlertsInstantTest(BitcoinTestFramework):
         assert atx_to_recover['txid'] in self.nodes[0].getbestblock()['atx']
 
         # recover atx
-        amount_to_recover = sum([vout['value'] for vout in atx_to_recover['vout']])
-        assert atx_fee == self.COINBASE_AMOUNT - amount_to_recover
-
         recovery_tx = self.nodes[0].createrecoverytransaction(atx_to_recover['txid'], {other_addr0: amount_to_recover})
         recovery_tx = self.nodes[0].signrecoverytransaction(recovery_tx, [self.alert_instant_privkey, self.alert_recovery_privkey], instant_addr0['redeemScript'])
         recovery_txid = self.nodes[0].sendrawtransaction(recovery_tx['hex'])
@@ -2058,7 +2055,7 @@ class AlertsInstantTest(BitcoinTestFramework):
             pass
 
         assert self.nodes[0].getalertbalance() == 0
-        assert self.nodes[1].getalertbalance() > 17489
+        assert self.nodes[1].getalertbalance() >= 17325
 
     @introduce_and_reset_blockchain
     def test_get_getalertbalance_miniconf(self):
@@ -2081,11 +2078,9 @@ class AlertsInstantTest(BitcoinTestFramework):
         self.sync_all()
 
         assert self.nodes[0].getalertbalance('*', 0) == 0
-        assert int(self.nodes[1].getalertbalance('*', 0)) == 17489
+        assert int(self.nodes[1].getalertbalance('*', 0)) == 17325
         assert self.nodes[0].getalertbalance('*', 1) == 0
         assert int(self.nodes[1].getalertbalance('*', 1)) == 17325
-        assert self.nodes[0].getalertbalance('*', 2) == 0
-        assert int(self.nodes[1].getalertbalance('*', 2)) == 17325
         assert self.nodes[0].getalertbalance('*', 666) == 0
         assert int(self.nodes[1].getalertbalance('*', 666)) == 0
 

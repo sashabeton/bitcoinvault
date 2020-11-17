@@ -1204,20 +1204,20 @@ void CWallet::MarkConflicted(const uint256& hashBlock, const uint256& hashTx, bo
                 wtx.hashBlock = txHashBlock;
             } else {
                 wtx.hashBlock = hashBlock;
+                wtx.MarkDirty();
+                batch.WriteTx(wtx);
+                // Iterate over all its outputs, and mark transactions in the wallet that spend them conflicted too
+                TxSpends::const_iterator iter = mapTxSpends.lower_bound(COutPoint(now, 0));
+                while (iter != mapTxSpends.end() && iter->first.hash == now) {
+                     if (!done.count(iter->second)) {
+                         todo.insert(iter->second);
+                     }
+                     iter++;
+                }
+                // If a transaction changes 'conflicted' state, that changes the balance
+                // available of the outputs it spends. So force those to be recomputed
+                MarkInputsDirty(wtx.tx);
             }
-            wtx.MarkDirty();
-            batch.WriteTx(wtx);
-            // Iterate over all its outputs, and mark transactions in the wallet that spend them conflicted too
-            TxSpends::const_iterator iter = mapTxSpends.lower_bound(COutPoint(now, 0));
-            while (iter != mapTxSpends.end() && iter->first.hash == now) {
-                 if (!done.count(iter->second)) {
-                     todo.insert(iter->second);
-                 }
-                 iter++;
-            }
-            // If a transaction changes 'conflicted' state, that changes the balance
-            // available of the outputs it spends. So force those to be recomputed
-            MarkInputsDirty(wtx.tx);
         }
     }
 }
@@ -1271,6 +1271,12 @@ void CWallet::BlockConnected(const std::shared_ptr<const CBlock>& pblock, const 
         TransactionRemovedFromMempool(pblock->vtx[i]);
     }
 
+    for (size_t i = 0; i < pblock->vatx.size(); i++) {
+        CTransactionRef atx = MakeTransactionRef(CTransaction(CMutableTransaction(*pblock->vatx[i])));
+        SyncTransaction(atx, pindex->GetBlockHash(), i, true);
+        TransactionRemovedFromMempool(atx);
+    }
+
     m_last_block_processed = pindex->GetBlockHash();
 }
 
@@ -1280,6 +1286,11 @@ void CWallet::BlockDisconnected(const std::shared_ptr<const CBlock>& pblock) {
 
     for (const CTransactionRef& ptx : pblock->vtx) {
         SyncTransaction(ptx, {} /* block hash */, 0 /* position in block */);
+    }
+
+    for (const CAlertTransactionRef& ptx : pblock->vatx) {
+        CTransactionRef patx = MakeTransactionRef(CTransaction(CMutableTransaction(*ptx)));
+        SyncTransaction(patx, {} /* block hash */, 0 /* position in block */);
     }
 }
 
@@ -1823,6 +1834,10 @@ CWallet::ScanResult CWallet::ScanForWalletTransactions(const uint256& start_bloc
                 for (size_t posInBlock = 0; posInBlock < block.vtx.size(); ++posInBlock) {
                     SyncTransaction(block.vtx[posInBlock], block_hash, posInBlock, fUpdate);
                 }
+                for (size_t posInBlock = 0; posInBlock < block.vatx.size(); ++posInBlock) {
+                    CTransactionRef atx = MakeTransactionRef(CTransaction(CMutableTransaction(*block.vatx[posInBlock])));
+                    SyncTransaction(atx, block_hash, posInBlock, true);
+                }
                 // scan succeeded, record block as most recent successfully scanned
                 result.last_scanned_block = block_hash;
                 result.last_scanned_height = *block_height;
@@ -2008,7 +2023,7 @@ CAmount CWalletTx::GetImmatureCredit(interfaces::Chain::Lock& locked_chain, bool
     return 0;
 }
 
-CAmount CWalletTx::GetAvailableCredit(interfaces::Chain::Lock& locked_chain, bool fUseCache, const isminefilter& filter, vaulttxntype txType) const
+CAmount CWalletTx::GetAvailableCredit(interfaces::Chain::Lock& locked_chain, bool fUseCache, const isminefilter& filter, vaulttxntype creditType) const
 {
     if (pwallet == nullptr)
         return 0;
@@ -2028,33 +2043,42 @@ CAmount CWalletTx::GetAvailableCredit(interfaces::Chain::Lock& locked_chain, boo
         cache_used = &fAvailableWatchCreditCached;
     }
 
-    if (txType == TX_INVALID && fUseCache && cache_used && *cache_used) {
+    if (creditType == TX_INVALID && fUseCache && cache_used && *cache_used) {
         return *cache;
     }
 
     CAmount nCredit = 0;
     uint256 hashTx = GetHash();
+
+    vaulttxntype txType = GetVaultTxTypeNonContextual(*tx);
+    if (txType == TX_ALERT) {
+        vaulttxnstatus txStatus = GetTransactionStatus(tx->GetHash(), Params().GetConsensus(), txType);
+        if (txStatus != TX_CONFIRMED) {
+            return 0;
+        }
+    }
+
     for (unsigned int i = 0; i < tx->vout.size(); i++)
     {
         if (!pwallet->IsSpent(locked_chain, hashTx, i))
         {
             const CTxOut &txout = tx->vout[i];
 
-            if (txType != TX_INVALID) { // TX_INVALID means unset
+            if (creditType != TX_INVALID) { // TX_INVALID means unset
                 SignatureData data;
                 IsSolvable(*this->pwallet, txout.scriptPubKey, data);
                 Stacks stack(data);
                 txnouttype scriptType = ExtractDataFromIncompleteScript(data, stack, BaseSignatureChecker(), txout);
 
-                if (txType == TX_NONVAULT) {
+                if (creditType == TX_NONVAULT) {
                     if (scriptType == TX_VAULT_ALERTADDRESS || scriptType == TX_VAULT_INSTANTADDRESS) {
                         continue;
                     }
-                } else if (txType == TX_ALERT) {
+                } else if (creditType == TX_ALERT) {
                     if (scriptType != TX_VAULT_ALERTADDRESS && scriptType != TX_VAULT_INSTANTADDRESS) {
                         continue;
                     }
-                } else if (txType == TX_INSTANT) {
+                } else if (creditType == TX_INSTANT) {
                     if (scriptType != TX_VAULT_INSTANTADDRESS) {
                         continue;
                     }
@@ -2069,7 +2093,7 @@ CAmount CWalletTx::GetAvailableCredit(interfaces::Chain::Lock& locked_chain, boo
         }
     }
 
-    if (txType == TX_INVALID && cache) {
+    if (creditType == TX_INVALID && cache) {
         *cache = nCredit;
         assert(cache_used);
         *cache_used = true;
@@ -2206,7 +2230,7 @@ void CWallet::ResendWalletTransactions(int64_t nBestBlockTime, CConnman* connman
  */
 
 
-CAmount CWallet::GetBalance(const isminefilter& filter, const int min_depth, vaulttxntype txType) const
+CAmount CWallet::GetBalance(const isminefilter& filter, const int min_depth, vaulttxntype creditType) const
 {
     CAmount nTotal = 0;
     {
@@ -2216,7 +2240,7 @@ CAmount CWallet::GetBalance(const isminefilter& filter, const int min_depth, vau
         {
             const CWalletTx* pcoin = &entry.second;
             if (pcoin->IsTrusted(*locked_chain) && pcoin->GetDepthInMainChain(*locked_chain) >= min_depth) {
-                nTotal += pcoin->GetAvailableCredit(*locked_chain, true, filter, txType);
+                nTotal += pcoin->GetAvailableCredit(*locked_chain, true, filter, creditType);
             }
         }
     }

@@ -194,11 +194,10 @@ static void WalletTxToJSON(interfaces::Chain& chain, interfaces::Chain::Lock& lo
             case TX_PENDING: return "PENDING";
             case TX_CONFIRMED: return "CONFIRMED";
             case TX_RECOVERED: return "RECOVERED";
-            default: return "INVALID";
+            default: return "UNKNOWN";
         }
     };
-    if (txStatus != TX_UNKNOWN)
-        entry.pushKV("status", getTxStatusName(txStatus));
+    entry.pushKV("status", getTxStatusName(txStatus));
 }
 
 static std::string LabelFromValue(const UniValue& value)
@@ -1949,6 +1948,9 @@ static void ListTransactions(interfaces::Chain::Lock& locked_chain, CWallet* con
 
     bool involvesWatchonly = wtx.IsFromMe(ISMINE_WATCH_ONLY);
 
+    vaulttxntype txType = GetVaultTxTypeNonContextual(*wtx.tx);
+    vaulttxnstatus txStatus = TX_UNKNOWN;
+
     // Sent
     if (!filter_label)
     {
@@ -1967,12 +1969,11 @@ static void ListTransactions(interfaces::Chain::Lock& locked_chain, CWallet* con
             entry.pushKV("vout", s.vout);
             entry.pushKV("fee", ValueFromAmount(-nFee));
             if (fLong) {
-                vaulttxntype txType = GetVaultTxTypeNonContextual(*wtx.tx);
                 CBlockIndex* blockindex = nullptr;
                 if(!wtx.InMempool()) {
                     blockindex = LookupBlockIndex(wtx.hashBlock);
                 }
-                vaulttxnstatus txStatus = GetTransactionStatus(wtx.GetHash(), Params().GetConsensus(), txType, blockindex);
+                txStatus = GetTransactionStatus(wtx.GetHash(), Params().GetConsensus(), txType, blockindex);
                 WalletTxToJSON(pwallet->chain(), locked_chain, wtx, txType, txStatus, entry);
             }
             entry.pushKV("abandoned", wtx.isAbandoned());
@@ -1981,7 +1982,7 @@ static void ListTransactions(interfaces::Chain::Lock& locked_chain, CWallet* con
     }
 
     // Received
-    if (listReceived.size() > 0 && wtx.GetDepthInMainChain(locked_chain) >= nMinDepth)
+    if (listReceived.size() > 0 && (wtx.GetDepthInMainChain(locked_chain) >= nMinDepth || txType == TX_ALERT))
     {
         for (const COutputEntry& r : listReceived)
         {
@@ -2016,15 +2017,15 @@ static void ListTransactions(interfaces::Chain::Lock& locked_chain, CWallet* con
             }
             entry.pushKV("vout", r.vout);
             if (fLong) {
-                vaulttxntype txType = GetVaultTxTypeNonContextual(*wtx.tx);
                 CBlockIndex* blockindex = nullptr;
                 if(!wtx.InMempool()) {
                     blockindex = LookupBlockIndex(wtx.hashBlock);
                 }
-                vaulttxnstatus txStatus = GetTransactionStatus(wtx.GetHash(), Params().GetConsensus(), txType, blockindex);
+                txStatus = GetTransactionStatus(wtx.GetHash(), Params().GetConsensus(), txType, blockindex);
                 WalletTxToJSON(pwallet->chain(), locked_chain, wtx, txType, txStatus, entry);
             }
-            ret.push_back(entry);
+            if (txType != TX_ALERT || (txType == TX_ALERT && txStatus != TX_UNKNOWN))
+                ret.push_back(entry);
         }
     }
 }
