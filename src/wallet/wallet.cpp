@@ -2435,6 +2435,14 @@ void CWallet::AvailableCoins(interfaces::Chain::Lock& locked_chain, std::vector<
         if (nDepth < nMinDepth || nDepth > nMaxDepth)
             continue;
 
+        vaulttxntype txType = GetVaultTxTypeNonContextual(*pcoin->tx);
+        if (txType == TX_ALERT) {
+            vaulttxnstatus txStatus = GetTransactionStatus(pcoin->tx->GetHash(), Params().GetConsensus(), txType);
+            if (txStatus != TX_CONFIRMED) {
+                continue;
+            }
+        }
+
         for (unsigned int i = 0; i < pcoin->tx->vout.size(); i++) {
             if (pcoin->tx->vout[i].nValue < nMinimumAmount || pcoin->tx->vout[i].nValue > nMaximumAmount)
                 continue;
