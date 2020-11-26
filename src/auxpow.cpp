@@ -64,7 +64,8 @@ bool CAuxPow::check(const CAuxBlockHeader& auxHeader, const uint256& hashAuxBloc
 			return error("Multiple merged mining headers in coinbase");
 		if (pcHead + sizeof(pchMergedMiningHeader) != pc)
 			return error("Merged mining header is not just before chain merkle root");
-	}
+	} else
+        return error("Merged mining header is missing");
 
 	// Ensure we are at a deterministic point in the merkle leaves by hashing
 	// a nonce and our chain ID and comparing to the index.
@@ -129,6 +130,7 @@ std::unique_ptr<CAuxBlockHeader> CAuxPow::createAuxBlockHeader(CBlockHeader& hea
 	const uint256 blockHash = header.GetHash();
 	valtype inputData(blockHash.begin(), blockHash.end());
 	std::reverse(inputData.begin(), inputData.end());
+	inputData.insert(inputData.begin(), pchMergedMiningHeader, pchMergedMiningHeader + sizeof(pchMergedMiningHeader));
 	inputData.push_back(1);
 	inputData.insert(inputData.end(), 7, 0);
 

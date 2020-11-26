@@ -271,13 +271,13 @@ BOOST_FIXTURE_TEST_CASE(check_auxpow, BasicTestingSetup) {
 	scr = (CScript () << 2809 << 2013);
 	scr = (scr << OP_2 << data);
 	builder2.setCoinbase(scr);
-	BOOST_CHECK(CAuxPow::check(builder2.get(), hashAux, ourChainId, params));
+	BOOST_CHECK(!CAuxPow::check(builder2.get(), hashAux, ourChainId, params));
 
 	/* However, various attempts at smuggling two roots in should be detected.  */
 	const valtype wrongAuxRoot = builder2.buildAuxpowChain(modifiedAux, height, index);
 	valtype data2 = CAuxpowBuilder::buildCoinbaseData(false, wrongAuxRoot, height, nonce);
 	builder2.setCoinbase(CScript() << data << data2);
-	BOOST_CHECK(CAuxPow::check(builder2.get(), hashAux, ourChainId, params));
+	BOOST_CHECK(!CAuxPow::check(builder2.get(), hashAux, ourChainId, params));
 	builder2.setCoinbase(CScript() << data2 << data);
 	BOOST_CHECK(!CAuxPow::check(builder2.get(), hashAux, ourChainId, params));
 
