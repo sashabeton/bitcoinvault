@@ -64,7 +64,7 @@ bool CAuxPow::check(const CAuxBlockHeader& auxHeader, const uint256& hashAuxBloc
 			return error("Multiple merged mining headers in coinbase");
 		if (pcHead + sizeof(pchMergedMiningHeader) != pc)
 			return error("Merged mining header is not just before chain merkle root");
-	} else
+    } else
         return error("Merged mining header is missing");
 
 	// Ensure we are at a deterministic point in the merkle leaves by hashing
