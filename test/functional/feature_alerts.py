@@ -216,16 +216,16 @@ class AlertsTest(BitcoinTestFramework):
         self.test_recovery_tx_flow_for_two_alerts()
 
         self.reset_blockchain()
+        self.log.info("Test recovery transaction when alert is confirmed at the same height")
+        self.test_recovery_tx_when_alert_is_confirmed_at_the_same_height()
+
+        self.reset_blockchain()
         self.log.info("Test recovery tx is rejected when alert inputs are missing")
         self.test_recovery_tx_is_rejected_when_alert_inputs_are_missing()
 
         self.reset_blockchain()
         self.log.info("Test recovery tx is rejected when inputs are non alert")
         self.test_recovery_tx_is_rejected_when_inputs_are_non_alert()
-
-        self.reset_blockchain()
-        self.log.info("Test recovery tx is rejected when alert is confirmed at the same level")
-        self.test_recovery_tx_is_rejected_when_alert_is_confirmed_at_same_level()
 
         self.reset_blockchain()
         self.log.info("Test recovery tx is rejected when using the same inputs as other")
@@ -1173,6 +1173,43 @@ class AlertsTest(BitcoinTestFramework):
         self.nodes[0].generatetoaddress(1, alert_addr1['address'])
         assert tx_alert2 not in self.nodes[0].getbestblock()['tx']
 
+    def test_recovery_tx_when_alert_is_confirmed_at_the_same_height(self):
+        alert_addr0 = self.nodes[0].getnewvaultalertaddress(self.alert_recovery_pubkey)
+        other_addr0 = self.nodes[0].getnewaddress()
+        attacker_addr1 = self.nodes[1].getnewaddress()
+
+        # mine some coins to node0
+        self.nodes[0].generatetoaddress(200, alert_addr0['address'])  # 200
+        assert self.nodes[0].getalertbalance() == (200 - self.COINBASE_MATURITY) * self.COINBASE_AMOUNT
+
+        # send atx to node1
+        atx_to_recover = self.nodes[0].sendalerttoaddress(attacker_addr1, 10)
+        atx_to_recover = self.nodes[0].gettransaction(atx_to_recover)['hex']
+        atx_to_recover = self.nodes[0].decoderawtransaction(atx_to_recover)
+        amount_to_recover = sum([vout['value'] for vout in atx_to_recover['vout']])
+        atx_fee = self.COINBASE_AMOUNT - amount_to_recover
+
+        # generate block with atx above
+        self.nodes[0].generatetoaddress(1, alert_addr0['address'])  # 201
+
+        # assert
+        self.sync_all()
+        assert atx_to_recover['txid'] in self.nodes[0].getbestblock()['atx']
+
+        # generate blocks to the end of alert confrirmation window
+        self.nodes[0].generatetoaddress(143, alert_addr0['address'])  # 344
+
+        # recover atx
+        recovery_tx = self.nodes[0].createrecoverytransaction(atx_to_recover['txid'], {other_addr0: amount_to_recover})
+        recovery_tx = self.nodes[0].signrecoverytransaction(recovery_tx, [self.alert_recovery_privkey], alert_addr0['redeemScript'])
+        recovery_txid = self.nodes[0].sendrawtransaction(recovery_tx['hex'])
+
+        self.nodes[0].generatetoaddress(1, alert_addr0['address'])  # 345
+
+        self.sync_all()
+        assert atx_to_recover['txid'] not in self.nodes[0].getbestblock()['tx']
+        assert recovery_txid in self.nodes[0].getbestblock()['tx']
+
     def test_recovery_tx_is_rejected_when_alert_inputs_are_missing(self):
         addr0 = self.nodes[0].getnewaddress()
 
@@ -1256,38 +1293,6 @@ class AlertsTest(BitcoinTestFramework):
 
         assert error['code'] == -26
         assert 'bad-txn-inputs-not-spent' in error['message']
-
-    def test_recovery_tx_is_rejected_when_alert_is_confirmed_at_same_level(self):
-        addr0 = self.nodes[0].getnewaddress()
-
-        # mine some coins to alert_addr1
-        alert_addr1 = self.nodes[1].getnewvaultalertaddress(self.alert_recovery_pubkey)
-        self.nodes[1].generatetoaddress(200, alert_addr1['address'])
-
-        # create, sign and mine 1st atx from alert_addr1 to addr0
-        txtospendhash = self.nodes[1].getblockbyheight(10)['tx'][0]
-        txtospend = self.nodes[1].getrawtransaction(txtospendhash, True)
-        vouttospend = self.find_vout_n(txtospend, 175)
-        tx_alert1 = self.nodes[1].createrawtransaction([{'txid': txtospendhash, 'vout': vouttospend}], {addr0: 174.99})
-        tx_alert1 = self.nodes[1].signalerttransaction(tx_alert1, [{'txid': txtospendhash, 'vout': vouttospend, 'scriptPubKey': txtospend['vout'][vouttospend]['scriptPubKey']['hex'], 'redeemScript': alert_addr1['redeemScript'], 'amount': 175}])
-        self.nodes[1].sendrawtransaction(tx_alert1['hex'])
-        self.nodes[1].generatetoaddress(144, alert_addr1['address'])
-        self.sync_all()
-
-        # create and sign (invalid) recovery tx spending both alerts inputs
-        recovery_tx = self.nodes[1].createrawtransaction([{'txid': txtospendhash, 'vout': vouttospend}], {addr0: 174.99})
-        recovery_tx = self.nodes[1].signrecoverytransaction(recovery_tx, [self.alert_recovery_privkey], alert_addr1['redeemScript'])
-
-        # broadcast recovery tx and mine block
-        self.nodes[1].sendrawtransaction(recovery_tx['hex'])
-        error = None
-        try:
-            self.nodes[1].generatetoaddress(1, alert_addr1['address'])
-        except Exception as e:
-            error = e.error
-
-        assert error['code'] == -1
-        assert 'bad-txns-inputs-missingorspent' in error['message']
 
     def test_recovery_tx_is_rejected_when_using_same_inputs_as_other(self):
         addr0 = self.nodes[0].getnewaddress()

@@ -304,6 +304,10 @@ class AlertsInstantTest(BitcoinTestFramework):
         self.test_recovery_tx_flow_for_two_alerts()
 
         self.reset_blockchain()
+        self.log.info("Test recovery transaction when alert is confirmed at the same height")
+        self.test_recovery_tx_when_alert_is_confirmed_at_the_same_height()
+
+        self.reset_blockchain()
         self.log.info("Test recovery tx is rejected when alert inputs are missing")
         self.test_recovery_tx_is_rejected_when_alert_inputs_are_missing()
 
@@ -1925,6 +1929,43 @@ class AlertsInstantTest(BitcoinTestFramework):
         # generate blocks so atx 2 might become tx
         self.nodes[0].generatetoaddress(1, instant_addr1['address'])
         assert tx_alert2 not in self.nodes[0].getbestblock()['tx']
+
+    def test_recovery_tx_when_alert_is_confirmed_at_the_same_height(self):
+        instant_addr0 = self.nodes[0].getnewvaultinstantaddress(self.alert_instant_pubkey, self.alert_recovery_pubkey)
+        other_addr0 = self.nodes[0].getnewaddress()
+        attacker_addr1 = self.nodes[1].getnewaddress()
+
+        # mine some coins to node0
+        self.nodes[0].generatetoaddress(200, instant_addr0['address'])  # 200
+        assert self.nodes[0].getalertbalance() == (200 - self.COINBASE_MATURITY) * self.COINBASE_AMOUNT
+
+        # send atx to node1
+        atx_to_recover = self.nodes[0].sendalerttoaddress(attacker_addr1, 10)
+        atx_to_recover = self.nodes[0].gettransaction(atx_to_recover)['hex']
+        atx_to_recover = self.nodes[0].decoderawtransaction(atx_to_recover)
+        amount_to_recover = sum([vout['value'] for vout in atx_to_recover['vout']])
+        atx_fee = self.COINBASE_AMOUNT - amount_to_recover
+
+        # generate block with atx above
+        self.nodes[0].generatetoaddress(1, instant_addr0['address'])  # 201
+
+        # assert
+        self.sync_all()
+        assert atx_to_recover['txid'] in self.nodes[0].getbestblock()['atx']
+
+        # generate blocks to the end of alert confrirmation window
+        self.nodes[0].generatetoaddress(143, instant_addr0['address'])  # 344
+
+        # recover atx
+        recovery_tx = self.nodes[0].createrecoverytransaction(atx_to_recover['txid'], {other_addr0: amount_to_recover})
+        recovery_tx = self.nodes[0].signrecoverytransaction(recovery_tx, [self.alert_instant_privkey, self.alert_recovery_privkey], instant_addr0['redeemScript'])
+        recovery_txid = self.nodes[0].sendrawtransaction(recovery_tx['hex'])
+
+        self.nodes[0].generatetoaddress(1, instant_addr0['address'])  # 345
+
+        self.sync_all()
+        assert atx_to_recover['txid'] not in self.nodes[0].getbestblock()['tx']
+        assert recovery_txid in self.nodes[0].getbestblock()['tx']
 
     def test_recovery_tx_is_rejected_when_alert_inputs_are_missing(self):
         addr0 = self.nodes[0].getnewaddress()

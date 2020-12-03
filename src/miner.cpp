@@ -365,18 +365,48 @@ void BlockAssembler::SortForBlock(const CTxMemPool::setEntries& package, std::ve
 void BlockAssembler::addTxsFromAlerts(const CBlock& ancestorBlock, const Consensus::Params& params)
 {
     CCoinsViewCache view(pcoinsTip.get());
-    auto checkAlertTx = [&] (CAlertTransactionRef atx) -> bool {
-        for (unsigned int i = 0; i < atx->vin.size(); i++) {
-            if (!view.HaveCoin(atx->vin[i].prevout))
-                return false;
-            if (!view.AccessCoin(atx->vin[i].prevout).IsSpent())
+
+    auto hasTxAllAlertInputs = [&](const CTransactionRef tx, const CAlertTransactionRef &atx) -> bool {
+        for (size_t i = 0; i < atx->vin.size(); i++) {
+            auto compareInputs = [&](const CTxIn &vin) -> bool {
+                return atx->vin[i].prevout.hash == vin.prevout.hash
+                       && atx->vin[i].prevout.n == vin.prevout.n;
+            };
+            if (std::find_if(tx->vin.begin(), tx->vin.end(), compareInputs) == tx->vin.end())
                 return false;
         }
         return true;
     };
 
+    auto checkRecoveryIsNotInBlockTemplate = [&] (CAlertTransactionRef atx) -> bool {
+        if (blockRecoveryTxsIdx.size() == 0)
+            return true;
+
+        for(const int i : blockRecoveryTxsIdx) {
+            auto &tx = pblock->vtx[i];
+            if (hasTxAllAlertInputs(tx, atx)) {
+                return false;
+            }
+        }
+
+        return true;
+    };
+
+    auto checkAlertTxIsNotRecovered = [&] (CAlertTransactionRef atx) -> bool {
+        for (unsigned int i = 0; i < atx->vin.size(); i++) {
+            if (!view.HaveCoin(atx->vin[i].prevout))
+                return false;
+            if (!view.AccessCoin(atx->vin[i].prevout).IsSpent())
+                return false;
+            if (!checkRecoveryIsNotInBlockTemplate(atx)) {
+                return false;
+            }
+        }
+        return true;
+    };
+
     for (const CAlertTransactionRef& atx : ancestorBlock.vatx) {
-        if(!checkAlertTx(atx)) {
+        if(!checkAlertTxIsNotRecovered(atx)) {
             LogPrintf("addTxsFromAlerts(): skipping reverted tx alert %s\n, ", atx->GetHash().ToString());
             continue;
         }
@@ -523,6 +553,8 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
                 vaulttxntype vaultTxType = GetVaultTxType(entry->GetTx(), view);
                 if (vaultTxType == TX_ALERT)
                     return AddAlertTxToBlock(entry);
+                if (vaultTxType == TX_RECOVERY)
+                    blockRecoveryTxsIdx.push_back(pblock->vtx.size());
             }
 
             return AddTxToBlock(entry);

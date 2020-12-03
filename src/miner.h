@@ -154,6 +154,9 @@ private:
     int64_t nLockTimeCutoff;
     const CChainParams& chainparams;
 
+    // Helpers
+    std::vector<int> blockRecoveryTxsIdx;
+
 public:
     struct Options {
         Options();

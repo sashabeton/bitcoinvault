@@ -649,8 +649,8 @@ static UniValue decoderawtransaction(const JSONRPCRequest& request)
 
     UniValue result(UniValue::VOBJ);
     auto tx = CTransaction(std::move(mtx));
-    vaulttxnstatus txStatus = TX_UNKNOWN;
     vaulttxntype txType = GetVaultTxTypeNonContextual(tx);
+    vaulttxnstatus txStatus = GetTransactionStatus(tx.GetHash(), Params().GetConsensus(), txType);
     TxToJSON(tx, uint256(), txType, txStatus, result);
 
     return result;
