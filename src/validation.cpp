@@ -2026,6 +2026,8 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     int64_t nTimeStart = GetTimeMicros();
 
     bool fAlertsEnabled = AreAlertsEnabled(pindex->nHeight, chainparams.GetConsensus().AlertsHeight);
+    bool fAlertsInitializated = pindex->nHeight > (int) chainparams.GetConsensus().nAlertsInitializationWindow;
+    bool nAlertsAncestorValidation = pindex->nHeight >= (int) chainparams.GetConsensus().nAlertsAncestorValidationHeight;
     block.fAlertsSerialization = fAlertsEnabled;
 
     // Check it again in case a previous version let a bad block in
@@ -2313,31 +2315,39 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         }
     }
 
-    if (fAlertsEnabled) {
-        if (confirmedAlerts.size() > 0) {
-            CBlock ancestorBlock;
-            if (!GetAncestorBlock(pindex->pprev, chainparams.GetConsensus(), ancestorBlock)) {
-                assert(!"ConnectBlock(): cannot get ancestor block");
-            }
+    if (fAlertsEnabled && fAlertsInitializated) {
+        CBlock alertsAncestorBlock;
+        if (!GetAncestorBlock(pindex->pprev, chainparams.GetConsensus(), alertsAncestorBlock)) {
+            assert(!"ConnectBlock(): cannot get ancestor block");
+        }
+        std::vector<CAlertTransactionRef> expectedConfirmedAlerts (alertsAncestorBlock.vatx.begin(), alertsAncestorBlock.vatx.end());
 
-            for (const auto &tx : confirmedAlerts) {
-                auto compareHashes = [&](const CAlertTransactionRef &atx) -> bool {
-                    return atx->GetHash() == tx->GetHash();
-                };
-                if (std::find_if(ancestorBlock.vatx.begin(), ancestorBlock.vatx.end(), compareHashes) ==
-                    ancestorBlock.vatx.end())
-                    return state.DoS(10, false, REJECT_INVALID, "bad-txn-alert-absence", false,
-                                     "confirmed alert is absent in ancestor block");
+        if (alertsAncestorBlock.vatx.size() > 0) {
+            // check alerts of the new block
+            if (confirmedAlerts.size() > 0) {
+                for (const auto &tx : confirmedAlerts) {
+                    auto compareHashes = [&](const CAlertTransactionRef &atx) -> bool {
+                        return atx->GetHash() == tx->GetHash();
+                    };
+                    auto position = std::find_if(expectedConfirmedAlerts.begin(), expectedConfirmedAlerts.end(), compareHashes);
+                    if (position == expectedConfirmedAlerts.end()) {
+                        return state.DoS(10, false, REJECT_INVALID, "bad-txn-alert-absence", false,
+                                         "confirmed alert is absent in ancestor block");
+                    } else {
+                        // remove confirmed alerts from the expected set
+                        expectedConfirmedAlerts.erase(position);
+                    }
+                }
             }
         }
 
-        if (recoveryTxs.size() > 0) {
-            CCoinsView viewDummy;
-            CCoinsViewCache extendedView(&viewDummy);
-            CCoinsViewCache &viewChain = *pcoinsTip;
-            CCoinsViewMemPool viewMempool(&viewChain, mempool);
-            extendedView.SetBackend(viewMempool);
+        CCoinsView viewDummy;
+        CCoinsViewCache extendedView(&viewDummy);
+        CCoinsViewCache &viewChain = *pcoinsTip;
+        CCoinsViewMemPool viewMempool(&viewChain, mempool);
+        extendedView.SetBackend(viewMempool);
 
+        if (recoveryTxs.size() > 0) {
             for (const auto &tx : recoveryTxs) {
                 // find unique spent heights of recovered inputs
                 std::unordered_set<uint32_t> uniqueSpentHeights;
@@ -2372,6 +2382,12 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                          it != ancestorBlock.vatx.end();
                          it = std::find_if(++it, ancestorBlock.vatx.end(), hasAllAlertInputs)) {
                         alertsInputsCount += (*it)->vin.size();
+
+                        // remove recovered alerts from the expected set
+                        auto position = std::find_if(expectedConfirmedAlerts.begin(), expectedConfirmedAlerts.end(), hasAllAlertInputs);
+                        if (position != expectedConfirmedAlerts.end()) {
+                            expectedConfirmedAlerts.erase(position);
+                        }
                     }
                 }
 
@@ -2379,6 +2395,19 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                 if (alertsInputsCount != tx->vin.size())
                     return state.DoS(10, false, REJECT_INVALID, "bad-txn-recovery", false,
                                      "recovery inputs mismatch with recovered alerts");
+            }
+        }
+
+        // check if expected alerts where previously recovered
+        if (nAlertsAncestorValidation && expectedConfirmedAlerts.size() > 0) {
+            for (const auto &atx : expectedConfirmedAlerts) {
+                for (const CTxIn &txIn : atx->vin) {
+                    const Coin &txInCoin = extendedView.AccessCoin(txIn.prevout);
+                    if (!txInCoin.IsConfirmed()) {
+                        return state.DoS(10, false, REJECT_INVALID, "bad-txn-alert-missing", false,
+                                         "ancestor block alerts are not confirmed in the new block");
+                    }
+                }
             }
         }
 

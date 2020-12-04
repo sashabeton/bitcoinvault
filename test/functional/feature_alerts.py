@@ -8,8 +8,18 @@ import shutil
 
 from decimal import Decimal
 from test_framework.test_framework import BitcoinTestFramework
-from test_framework.util import get_datadir_path, hex_str_to_bytes
+from test_framework.util import get_datadir_path, hex_str_to_bytes, bytes_to_hex_str
 from test_framework.address import key_to_p2pkh
+from test_framework.blocktools import create_coinbase
+from test_framework.messages import (
+    CAuxPow,
+    CBlock,
+    CBlockHeader,
+    uint256_from_compact
+)
+from test_framework.auxpow_testing import computeAuxpow
+
+from io import BytesIO
 
 
 class AlertsTest(BitcoinTestFramework):
@@ -174,6 +184,10 @@ class AlertsTest(BitcoinTestFramework):
         self.reset_blockchain()
         self.log.info("Test atx becomes tx after 144 blocks")
         self.test_atx_becomes_tx()
+
+        self.reset_blockchain()
+        self.log.info("Test block without confirmed atx is rejected")
+        self.test_block_without_confirmed_atx_is_rejected()
 
         self.reset_blockchain()
         self.log.info("Test atx fee is paid to original miner")
@@ -664,6 +678,59 @@ class AlertsTest(BitcoinTestFramework):
         assert self.nodes[0].getbalance() == 10
         assert txid in self.nodes[0].getbestblock()['tx']
         assert txid in self.find_address(self.nodes[0].listreceivedbyaddress(), addr0)['txids']
+
+    def test_block_without_confirmed_atx_is_rejected(self):
+        addr0 = self.nodes[0].getnewaddress()
+        alert_addr1 = self.nodes[1].getnewvaultalertaddress(self.alert_recovery_pubkey)
+
+        # mine some coins to alert_addr1
+        self.nodes[1].generatetoaddress(200, alert_addr1['address'])
+
+        # send atx from alert_addr1 to addr0 and generate block with this atx
+        atxid = self.nodes[1].sendalerttoaddress(addr0, 10)
+        self.nodes[1].generatetoaddress(1, alert_addr1['address'])
+
+        # assert
+        self.sync_all()
+        assert self.nodes[0].getbalance() == 0
+        assert atxid in self.nodes[0].getbestblock()['atx']
+
+        # generate 143 blocks
+        self.nodes[1].generatetoaddress(143, alert_addr1['address'])
+
+        # Create Block without alert
+        block_template = self.nodes[1].getblocktemplate({'rules': ['segwit']})
+        next_height = int(block_template["height"])
+
+        # coinbase
+        coinbase_tx = create_coinbase(height=next_height)
+        coinbase_tx.vin[0].nSequence = 2 ** 32 - 2
+        coinbase_tx.rehash()
+        # block
+        block = CBlock()
+        block.nVersion = block_template["version"]
+        block.hashPrevBlock = int(block_template["previousblockhash"], 16)
+        block.nTime = block_template["curtime"]
+        block.nBits = int(block_template["bits"], 16)
+        block.nNonce = 0
+        block.vtx = [coinbase_tx]
+        block.hashMerkleRoot = block.calc_merkle_root()
+        # auxpow
+        block.set_base_version(4)
+        block.mark_auxpow()
+        block.rehash()
+        target = b"%064x" % uint256_from_compact(block.nBits)
+        auxpowHex = computeAuxpow("%064x" % block.sha256, target, True)
+        block.auxpow = CAuxPow()
+        block.auxpow.deserialize(BytesIO(hex_str_to_bytes(auxpowHex)))
+
+        current_height = self.nodes[0].getbestblock()['height']
+        result = self.nodes[1].submitblock(bytes_to_hex_str(block.serialize()))
+
+        # assert
+        self.sync_all()
+        assert self.nodes[0].getbestblock()['height'] == current_height
+        assert result == 'bad-txn-alert-missing'
 
     def test_signalerttransaction_when_no_key(self):
         addr0 = self.nodes[0].getnewaddress()
