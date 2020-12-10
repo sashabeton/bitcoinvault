@@ -222,6 +222,10 @@ class AlertsTest(BitcoinTestFramework):
         self.test_atx_is_rejected_by_node_when_inputs_are_spent_by_parallel_atx()
 
         self.reset_blockchain()
+        self.log.info("Test atx is rejected when parent atx is not confirmed")
+        self.test_atx_is_rejected_when_parent_atx_is_not_confirmed()
+
+        self.reset_blockchain()
         self.log.info("Test standard recovery transaction flow")
         self.test_recovery_tx_flow()
 
@@ -1143,6 +1147,49 @@ class AlertsTest(BitcoinTestFramework):
         self.sync_all()
         assert error['code'] == -26
         assert 'txn-mempool-conflict' in error['message']
+
+    def test_atx_is_rejected_when_parent_atx_is_not_confirmed(self):
+        addr0 = self.nodes[0].getnewaddress()
+        addr0_prvkey = self.nodes[0].dumpprivkey(addr0)
+        addr0_pubkey = self.nodes[0].getaddressinfo(addr0)['pubkey']
+
+        # mine some coins to alert_addr1
+        alert_addr1 = self.nodes[1].createvaultalertaddress(addr0_pubkey, self.alert_recovery_pubkey)
+        self.nodes[1].generatetoaddress(150, alert_addr1['address'])
+
+        # find vout to spend
+        txtospendhash = self.nodes[1].getblockbyheight(10)['tx'][0]
+        txtospend = self.nodes[1].getrawtransaction(txtospendhash, True)
+        vouttospend = self.find_vout_n(txtospend, 175)
+
+        # create and send 1st atx
+        amount = 174.99
+        atxtosend = self.nodes[1].createrawtransaction([{'txid': txtospendhash, 'vout': vouttospend}], {alert_addr1['address']: amount})
+        atxtosend = self.nodes[1].signrawtransactionwithkey(atxtosend, [addr0_prvkey], [
+            {'txid': txtospendhash, 'vout': vouttospend, 'scriptPubKey': txtospend['vout'][vouttospend]['scriptPubKey']['hex'], 'redeemScript': alert_addr1['redeemScript'], 'amount': 175},
+        ])
+
+        atxtospendhash = self.nodes[1].sendrawtransaction(atxtosend['hex'])
+        atxtospend = self.nodes[1].getrawtransaction(txtospendhash, True)
+        vouttospend = 0
+
+        # create 2nd atx
+        amount = 174.98
+        atxtosend = self.nodes[1].createrawtransaction([{'txid': atxtospendhash, 'vout': vouttospend}], {addr0: amount})
+        atxtosend = self.nodes[1].signrawtransactionwithkey(atxtosend, [addr0_prvkey], [
+            {'txid': atxtospendhash, 'vout': vouttospend, 'scriptPubKey': atxtospend['vout'][vouttospend]['scriptPubKey']['hex'], 'redeemScript': alert_addr1['redeemScript'], 'amount': amount},
+        ])
+
+        error = ''
+        try:
+            self.nodes[1].sendrawtransaction(atxtosend['hex'])
+        except Exception as e:
+            error = e.error
+
+        # assert
+        self.sync_all()
+        assert error['code'] == -26
+        assert 'bad-txns-spends-unconfirmed-alert' in error['message']
 
     def test_recovery_tx_flow(self):
         alert_addr0 = self.nodes[0].getnewvaultalertaddress(self.alert_recovery_pubkey)

@@ -726,6 +726,19 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
             }
         }
 
+        if (vaultTxType != TX_RECOVERY) {
+            // Check if tx spends unconfirmed alert outputs
+            for (const CTxIn &txin : tx.vin) {
+                if (pool.exists(txin.prevout.hash)) {
+                    CTransactionRef prevTx = pool.get(txin.prevout.hash);
+                    vaulttxntype prevTxType = GetVaultTxTypeNonContextual(*prevTx);
+                    if (prevTxType == TX_ALERT) {
+                        return state.Invalid(false, REJECT_INVALID, "bad-txns-spends-unconfirmed-alert");
+                    }
+                }
+            }
+        }
+
         CTxMemPoolEntry entry(ptx, nFees, nAcceptTime, chainActive.Height(),
                               fSpendsCoinbase, nSigOpsCost, lp);
         unsigned int nSize = entry.GetTxSize();
@@ -3832,6 +3845,36 @@ vaulttxntype GetVaultTxType(const CBaseTransaction& tx, const CCoinsViewCache& v
     return TX_NONVAULT;
 }
 
+vaulttxntype GetVaultTxTypeFromTxIn(const CTxIn& txIn) {
+    CScript script;
+    std::vector<std::vector<unsigned char>> scriptSig;
+    if (!txIn.scriptWitness.IsNull()) {
+        script = CScript(txIn.scriptWitness.stack.back().begin(), txIn.scriptWitness.stack.back().end());
+        scriptSig = std::vector<std::vector<unsigned char>>(&txIn.scriptWitness.stack[0],
+                                                            &txIn.scriptWitness.stack[txIn.scriptWitness.stack.size() - 1]);
+    }
+    else {
+        SignatureData incompleteData;
+        incompleteData.scriptSig = txIn.scriptSig;
+        incompleteData.scriptWitness = txIn.scriptWitness;
+        Stacks stack(incompleteData);
+        if (stack.script.empty() || stack.script.back().empty()) {
+            // probably tx is not signed
+            return TX_NONVAULT;
+        }
+        script = CScript(stack.script.back().begin(), stack.script.back().end());
+        scriptSig = std::vector<std::vector<unsigned char>>(&stack.script[0],
+                                                            &stack.script[stack.script.size() - 1]);
+    }
+    std::vector<std::vector<unsigned char>> solns;
+    txnouttype scriptType = Solver(script, solns);
+    if (scriptType == TX_VAULT_ALERTADDRESS || scriptType == TX_VAULT_INSTANTADDRESS) {
+        return GetVaultTxTypeFromStackScript(scriptSig, scriptType);
+    }
+
+    return TX_NONVAULT;
+}
+
 vaulttxntype GetVaultTxTypeNonContextual(const CBaseTransaction& tx) {
     CMutableTransaction mutableTx = CMutableTransaction(tx);
     if (tx.IsCoinBase() || mutableTx.vin.empty()) {
@@ -3843,44 +3886,21 @@ vaulttxntype GetVaultTxTypeNonContextual(const CBaseTransaction& tx) {
     bool hasRecoveryTxCoin = false;
     bool allAlertTxCoin = true;
     for (unsigned int i = 0; i < mutableTx.vin.size(); i++) {
-        const CTxIn &txin = mutableTx.vin[i];
-        CScript script;
-        std::vector<std::vector<unsigned char>> scriptSig;
-        if (!txin.scriptWitness.IsNull()) {
-            script = CScript(txin.scriptWitness.stack.back().begin(), txin.scriptWitness.stack.back().end());
-            scriptSig = std::vector<std::vector<unsigned char>>(&txin.scriptWitness.stack[0],
-                    &txin.scriptWitness.stack[txin.scriptWitness.stack.size() - 1]);
-        }
-        else {
-            SignatureData incompleteData;
-            incompleteData.scriptSig = txin.scriptSig;
-            incompleteData.scriptWitness = txin.scriptWitness;
-            Stacks stack(incompleteData);
-            if (stack.script.empty() || stack.script.back().empty()) {
-                // probably tx is not signed
-                return TX_NONVAULT;
-            }
-            script = CScript(stack.script.back().begin(), stack.script.back().end());
-            scriptSig = std::vector<std::vector<unsigned char>>(&stack.script[0],
-                        &stack.script[stack.script.size() - 1]);
-        }
-        std::vector<std::vector<unsigned char>> solns;
-        txnouttype scriptType = Solver(script, solns);
-        if (scriptType == TX_VAULT_ALERTADDRESS || scriptType == TX_VAULT_INSTANTADDRESS) {
-            vaulttxntype stackVaultTxType = GetVaultTxTypeFromStackScript(scriptSig, scriptType);
-            if (stackVaultTxType == TX_ALERT) {
+        vaulttxntype txInVaultTxType = GetVaultTxTypeFromTxIn(mutableTx.vin[i]);
+        if (txInVaultTxType == TX_NONVAULT) {
+            allAlertTxCoin = false;
+        } else {
+            if (txInVaultTxType == TX_ALERT) {
                 hasAlertTxCoin = true;
-            } else if (stackVaultTxType == TX_RECOVERY) {
+            } else if (txInVaultTxType == TX_RECOVERY) {
                 hasRecoveryTxCoin = true;
                 allAlertTxCoin = false;
-            } else if (stackVaultTxType == TX_INSTANT) {
+            } else if (txInVaultTxType == TX_INSTANT) {
                 hasInstantTxCoin = true;
                 allAlertTxCoin = false;
             } else {
                 return TX_INVALID; // invalid stack
             }
-        } else {
-            allAlertTxCoin = false;
         }
     }
 

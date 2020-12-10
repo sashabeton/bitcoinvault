@@ -447,6 +447,7 @@ vaulttxntype GetVaultTxType(const CMutableTransaction& mtx);
 /** Check what VaultTxType tx has based on vin scripts
  *
  * Do not use to verify block or tx! **/
+vaulttxntype GetVaultTxTypeFromTxIn(const CTxIn& txIn);
 vaulttxntype GetVaultTxTypeNonContextual(const CBaseTransaction& tx);
 
 /** When there are blocks in the active chain with missing data, rewind the chainstate and remove them from the block index */
