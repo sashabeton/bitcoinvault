@@ -286,6 +286,7 @@ Arguments:
                             "UNSET"
                             "ECONOMICAL"
                             "CONSERVATIVE"
+9. changeaddress            The bitcoin address to send the change to.
 
 Result:
 "txid"                  (string) The transaction id.
@@ -294,6 +295,7 @@ Examples:
 > bvault-cli sendalerttoaddress "1M72Sfpbz1BPpXFHz9m3CdqATR44Jvaydd" 0.1
 > bvault-cli sendalerttoaddress "1M72Sfpbz1BPpXFHz9m3CdqATR44Jvaydd" 0.1 "donation" "seans outpost"
 > bvault-cli sendalerttoaddress "1M72Sfpbz1BPpXFHz9m3CdqATR44Jvaydd" 0.1 "" "" true
+> bvault-cli sendalerttoaddress "1M72Sfpbz1BPpXFHz9m3CdqATR44Jvaydd" 0.1 "" "" false false 6 UNSET "1M72Sfpbz1BPpXFHz9m3CdqATR44Jvaydd"
 > curl --user myusername --data-binary '{"jsonrpc": "1.0", "id":"curltest", "method": "sendalerttoaddress", "params": ["1M72Sfpbz1BPpXFHz9m3CdqATR44Jvaydd", 0.1, "donation", "seans outpost"] }' -H 'content-type: text/plain;' http://127.0.0.1:8332/
 ```
 
@@ -325,14 +327,16 @@ Arguments:
                             "UNSET"
                             "ECONOMICAL"
                             "CONSERVATIVE"
+10. changeaddress           The bitcoin address to send the change to.
 
 Result:
 "txid"                  (string) The transaction id.
 
 Examples:
-> bvault-cli sendinstanttoaddress "1M72Sfpbz1BPpXFHz9m3CdqATR44Jvaydd" 0.1
-> bvault-cli sendinstanttoaddress "1M72Sfpbz1BPpXFHz9m3CdqATR44Jvaydd" 0.1 "donation" "seans outpost"
-> bvault-cli sendinstanttoaddress "1M72Sfpbz1BPpXFHz9m3CdqATR44Jvaydd" 0.1 "" "" true
+> bvault-cli sendinstanttoaddress "1M72Sfpbz1BPpXFHz9m3CdqATR44Jvaydd" 0.1 ["90116a731cafc044c05bd70b8cb1528e659d06539dda0f25288f7f576fc9dfa2"]
+> bvault-cli sendinstanttoaddress "1M72Sfpbz1BPpXFHz9m3CdqATR44Jvaydd" 0.1 ["90116a731cafc044c05bd70b8cb1528e659d06539dda0f25288f7f576fc9dfa2"] "donation" "seans outpost"
+> bvault-cli sendinstanttoaddress "1M72Sfpbz1BPpXFHz9m3CdqATR44Jvaydd" 0.1 ["90116a731cafc044c05bd70b8cb1528e659d06539dda0f25288f7f576fc9dfa2"] "" "" true
+> bvault-cli sendinstanttoaddress "1M72Sfpbz1BPpXFHz9m3CdqATR44Jvaydd" 0.1 ["90116a731cafc044c05bd70b8cb1528e659d06539dda0f25288f7f576fc9dfa2"] "" "" false false 6 UNSET "1M72Sfpbz1BPpXFHz9m3CdqATR44Jvaydd"
 > curl --user myusername --data-binary '{"jsonrpc": "1.0", "id":"curltest", "method": "sendinstanttoaddress", "params": ["1M72Sfpbz1BPpXFHz9m3CdqATR44Jvaydd", 0.1, "donation", "seans outpost"] }' -H 'content-type: text/plain;' http://127.0.0.1:8332/
 ```
 
