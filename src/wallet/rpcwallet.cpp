@@ -1967,8 +1967,13 @@ static void ListTransactions(interfaces::Chain::Lock& locked_chain, CWallet* con
 
     bool involvesWatchonly = wtx.IsFromMe(ISMINE_WATCH_ONLY);
 
+    CBlockIndex* blockindex = nullptr;
+    if(!wtx.InMempool()) {
+        blockindex = LookupBlockIndex(wtx.hashBlock);
+    }
+
     vaulttxntype txType = GetVaultTxTypeNonContextual(*wtx.tx);
-    vaulttxnstatus txStatus = TX_UNKNOWN;
+    vaulttxnstatus txStatus = GetTransactionStatus(wtx.GetHash(), Params().GetConsensus(), txType, blockindex);
 
     // Sent
     if (!filter_label)
@@ -1988,11 +1993,6 @@ static void ListTransactions(interfaces::Chain::Lock& locked_chain, CWallet* con
             entry.pushKV("vout", s.vout);
             entry.pushKV("fee", ValueFromAmount(-nFee));
             if (fLong) {
-                CBlockIndex* blockindex = nullptr;
-                if(!wtx.InMempool()) {
-                    blockindex = LookupBlockIndex(wtx.hashBlock);
-                }
-                txStatus = GetTransactionStatus(wtx.GetHash(), Params().GetConsensus(), txType, blockindex);
                 WalletTxToJSON(pwallet->chain(), locked_chain, wtx, txType, txStatus, entry);
             }
             entry.pushKV("abandoned", wtx.isAbandoned());
@@ -2036,11 +2036,6 @@ static void ListTransactions(interfaces::Chain::Lock& locked_chain, CWallet* con
             }
             entry.pushKV("vout", r.vout);
             if (fLong) {
-                CBlockIndex* blockindex = nullptr;
-                if(!wtx.InMempool()) {
-                    blockindex = LookupBlockIndex(wtx.hashBlock);
-                }
-                txStatus = GetTransactionStatus(wtx.GetHash(), Params().GetConsensus(), txType, blockindex);
                 WalletTxToJSON(pwallet->chain(), locked_chain, wtx, txType, txStatus, entry);
             }
             if (txType != TX_ALERT || (txType == TX_ALERT && txStatus != TX_UNKNOWN))
